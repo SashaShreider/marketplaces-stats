@@ -5,6 +5,8 @@ package ru.analizer.marketplace.ozon;
  */
 public class OzonNotConfiguredException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     public OzonNotConfiguredException() {
         super("OZON_CLIENT_ID / OZON_API_KEY не заданы. Проверьте переменные окружения.");
     }

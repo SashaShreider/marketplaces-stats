@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatusCode;
  */
 public class OzonApiException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     private final HttpStatusCode status;
     private final Integer ozonCode;
     private final String responseBody;
