@@ -5,23 +5,31 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.marketplace.AccrualPage;
+import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrualByDayRequest;
-import ru.analizer.marketplace.ozon.dto.FinanceAccrualByDayResponse;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrualTypesResponse;
 import ru.analizer.marketplace.ozon.dto.OzonErrorResponse;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Duration;
-import java.util.Locale;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 /**
  * Тонкая HTTP-обёртка над двумя методами OZON Seller API.
- * Содержит только транспорт: заголовки, десериализацию, разбор ошибок и ретраи.
- * Бизнес-логики здесь нет.
+ * Содержит только транспорт: заголовки, разбор пагинации, ретраи, разбор ошибок.
+ * Исходный JSON каждой операции сохраняется рядом с разобранным объектом —
+ * без него нельзя было бы переинтерпретировать данные при смене правил аналитики.
  */
 @Component
 public class OzonClient {
@@ -31,23 +39,51 @@ public class OzonClient {
 
     private final RestClient restClient;
     private final OzonProperties properties;
+    private final ObjectMapper mapper;
 
     public OzonClient(RestClient.Builder builder, OzonProperties properties) {
         this.properties = properties;
+        this.mapper = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
         this.restClient = builder
                 .baseUrl(properties.baseUrl())
-                .defaultHeader("Client-Id", properties.clientId() == null ? "" : properties.clientId())
-                .defaultHeader("Api-Key", properties.apiKey() == null ? "" : properties.apiKey())
+                .defaultHeader("Client-Id", orEmpty(properties.clientId()))
+                .defaultHeader("Api-Key", orEmpty(properties.apiKey()))
                 .build();
     }
 
-    public FinanceAccrualByDayResponse getAccrualsByDay(FinanceAccrualByDayRequest request) {
-        return execute("GET " + PATH_BY_DAY, () -> restClient.post()
+    /**
+     * Одна страница начислений за дату.
+     *
+     * @param date  дата начислений; при непустом {@code lastId} должна передаваться та же дата,
+     *              иначе OZON отвечает 400
+     * @param lastId курсор следующей страницы, {@code null} или пустая строка — первая страница
+     */
+    public AccrualPage getAccrualsByDay(LocalDate date, String lastId) {
+        FinanceAccrualByDayRequest request = new FinanceAccrualByDayRequest(date.toString(), orEmpty(lastId));
+
+        ObjectNode root = execute("GET " + PATH_BY_DAY, () -> restClient.post()
                 .uri(PATH_BY_DAY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()
-                .body(FinanceAccrualByDayResponse.class));
+                .body(ObjectNode.class));
+
+        List<AccrualDto> parsed = new ArrayList<>();
+
+        JsonNode accrualsNode = root.get("accruals");
+        if (accrualsNode instanceof ArrayNode arrayNode) {
+            for (JsonNode node : arrayNode) {
+                String rawJson = node.toString();
+                FinanceAccrual accrual = mapper.treeToValue(node, FinanceAccrual.class);
+                parsed.add(OzonMapper.toAccrualDto(accrual, rawJson));
+            }
+        }
+
+        JsonNode lastIdNode = root.get("last_id");
+        String nextLastId = lastIdNode == null || lastIdNode.isNull() ? "" : lastIdNode.asString();
+        return new AccrualPage(parsed, nextLastId);
     }
 
     public FinanceAccrualTypesResponse getAccrualTypes() {
@@ -107,19 +143,19 @@ public class OzonClient {
         }
     }
 
-    private static Integer parseOzonCode(String body) {
+    private Integer parseOzonCode(String body) {
         if (body == null || body.isBlank()) {
             return null;
         }
         try {
-            OzonErrorResponse error = MAPPER.readValue(body, OzonErrorResponse.class);
+            OzonErrorResponse error = mapper.readValue(body, OzonErrorResponse.class);
             return error.code();
-        } catch (Exception ignored) {
+        } catch (RuntimeException ignored) {
             return null;
         }
     }
 
-    private static final ObjectMapper MAPPER = JsonMapper.builder()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .build();
+    private static String orEmpty(String value) {
+        return value == null ? "" : value;
+    }
 }

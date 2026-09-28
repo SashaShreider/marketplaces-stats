@@ -29,7 +29,7 @@ public class MoneyDeserializer extends ValueDeserializer<BigDecimal> {
         if (node.isContainer()) {
             return null;
         }
-        String raw = node.asText();
+        String raw = node.asString();
         if (raw == null || raw.isBlank()) {
             return null;
         }

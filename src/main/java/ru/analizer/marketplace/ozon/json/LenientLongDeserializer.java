@@ -23,7 +23,7 @@ public class LenientLongDeserializer extends ValueDeserializer<Long> {
         if (node.isNumber()) {
             return node.asLong();
         }
-        String raw = node.asText();
+        String raw = node.asString();
         if (raw == null || raw.isBlank()) {
             return null;
         }

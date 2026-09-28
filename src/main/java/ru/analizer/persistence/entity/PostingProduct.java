@@ -20,10 +20,8 @@ import java.util.List;
 /**
  * Товар внутри отправления. Один POSTING может содержать несколько товаров.
  *
- * <p>{@code quantity} в методе {@code /v1/finance/accrual/by-day} отсутствует,
- * поэтому по умолчанию одна строка = одна единица товара. Колонка оставлена, чтобы
- * позже можно было обогатить данные из {@code /v1/finance/accrual/postings}
- * обычным обновлением, а не миграцией схемы.
+ * <p>{@code quantity} отсутствует в опубликованной схеме OZON, но реально приходит в ответе
+ * {@code /v1/finance/accrual/by-day}. Если поле не пришло, считаем строки единицами товара.
  */
 @Entity
 @Table(name = "posting_product")
@@ -86,6 +84,10 @@ public class PostingProduct {
         this.posting = posting;
         this.sku = sku;
         this.currency = currency == null ? "RUB" : currency;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
     }
 
     public void setCommissionValues(BigDecimal sellerPrice, BigDecimal salePrice, BigDecimal saleAmount,

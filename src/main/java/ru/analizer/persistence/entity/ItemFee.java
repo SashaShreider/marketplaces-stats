@@ -52,6 +52,10 @@ public class ItemFee {
         this.sku = sku;
     }
 
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
+    }
+
     public void addDetail(ItemFeeDetail detail) {
         detail.attachTo(this);
         this.details.add(detail);

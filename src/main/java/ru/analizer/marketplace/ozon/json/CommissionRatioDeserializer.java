@@ -24,7 +24,7 @@ public class CommissionRatioDeserializer extends ValueDeserializer<String> {
         if (node.isNumber()) {
             return node.decimalValue().toPlainString();
         }
-        String raw = node.asText();
+        String raw = node.asString();
         if (raw == null || raw.isBlank()) {
             return null;
         }

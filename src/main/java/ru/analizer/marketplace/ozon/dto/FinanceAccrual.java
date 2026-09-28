@@ -12,6 +12,11 @@ import java.util.List;
  * finance.v1.GetFinanceAccrualByDayResponse.Accrual — одна финансовая операция.
  * Одна операция может относиться к одному отправлению (unit_number), а одно отправление —
  * к нескольким операциям. Обратное тоже верно: в одной операции несколько товаров.
+ *
+ * <p>{@code typeId} объявлен в схеме OZON, но в реальном ответе за 2026-04-10 не приходил ни
+ * разу — тип начисления лежит на уровне детализации ({@code non_item_fee.type_id},
+ * {@code item_fees.fees[].type_id}, {@code delivery.services[].type_id}). Поле оставлено
+ * на случай появления его в будущем.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FinanceAccrual(

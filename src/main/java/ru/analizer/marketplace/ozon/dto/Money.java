@@ -1,13 +1,17 @@
 package ru.analizer.marketplace.ozon.dto;
 
-import tools.jackson.databind.annotation.JsonDeserialize;
 import ru.analizer.marketplace.ozon.json.MoneyDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 import java.math.BigDecimal;
 
 /**
- * {@code money.Money*} из схемы OZON. Сумма приходит строкой, может быть отрицательной.
+ * {@code money.Money*} из схемы OZON. Сумма приходит строкой и может быть отрицательной.
+ * Десериализатор вешается на компонент {@code amount}, а не на весь record: иначе Jackson
+ * попытался бы разобрать объект {@code {"amount": ..., "currency": ...}} в BigDecimal.
  */
-@JsonDeserialize(using = MoneyDeserializer.class)
-public record Money(BigDecimal amount, String currency) {
+public record Money(
+        @JsonDeserialize(using = MoneyDeserializer.class) BigDecimal amount,
+        String currency
+) {
 }
