@@ -1,7 +1,6 @@
 plugins {
     java
     id("org.springframework.boot") version "4.1.1"
-    id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "ru.analizer"
@@ -14,23 +13,41 @@ java {
 }
 
 dependencies {
+    // Spring Boot 4 управляет версиями через Gradle-платформу, а не через отдельный плагин
+    // io.spring.dependency-management: тот конфликтует с platform()-зависимостями
+    // (например, с BOM Testcontainers ниже).
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
+    // В Boot 4 автоконфигурации вынесены в отдельные модули и не подтягиваются транзитивно.
     implementation("org.springframework.boot:spring-boot-restclient")
     implementation("org.springframework.boot:spring-boot-flyway")
+
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    // Boot 4.1 управляет Testcontainers 2.0.5. В Testcontainers 2.x модули
+    // называются testcontainers-<tech>, а не <tech>.
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:deprecation", "-Xlint:unchecked"))
 }
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    testLogging {
+        events("passed", "failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
