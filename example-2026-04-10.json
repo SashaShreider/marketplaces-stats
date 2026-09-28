@@ -1,0 +1,3732 @@
+{
+    "accruals": [
+        {
+            "accrual_id": 48751325983,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-67.11",
+                "currency": "RUB"
+            },
+            "unit_number": "79853637-0223-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 174269894,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-67.11",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 6,
+                                    "accrued": {
+                                        "amount": "0",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 59,
+                                    "accrued": {
+                                        "amount": "-67.11",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": null,
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48751341611,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-154.42",
+                "currency": "RUB"
+            },
+            "unit_number": "79853637-0223-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 174269894,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-154.42",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-117.94",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.48",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": null,
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48762253857,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-14.75",
+                "currency": "RUB"
+            },
+            "unit_number": "02321694-0488",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-14.75",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48762627746,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "869.3",
+                "currency": "RUB"
+            },
+            "unit_number": "31020767-0597-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 1388985440,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-64",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-56.94",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-7.06",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1530",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "871.43",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-596.7",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-596.7",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "1530",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "8.71",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "649.86",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48763265206,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-7.65",
+                "currency": "RUB"
+            },
+            "unit_number": "31020767-0597-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-7.65",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48766698771,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.05",
+                "currency": "RUB"
+            },
+            "unit_number": "31020767-0597-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-4.05",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48768855028,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-20.54",
+                "currency": "RUB"
+            },
+            "unit_number": "0128159037-0448",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1973850522,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-20.54",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48769325893,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-290.5",
+                "currency": "RUB"
+            },
+            "unit_number": "2000047949005",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 12,
+                "accrued": {
+                    "amount": "-290.5",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48773780066,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "583.13",
+                "currency": "RUB"
+            },
+            "unit_number": "47523181-0916-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-194.07",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-188.2",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-5.87",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1340",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "838.86",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-562.8",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-562.8",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.420000\"",
+                            "sale_amount": {
+                                "amount": "1340",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "0",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "501.14",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48774414092,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-6.7",
+                "currency": "RUB"
+            },
+            "unit_number": "47523181-0916-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-6.7",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48775038287,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-9.73",
+                "currency": "RUB"
+            },
+            "unit_number": "66218205-0163",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3518155571,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-9.73",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48775306070,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.61",
+                "currency": "RUB"
+            },
+            "unit_number": "47523181-0916-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-4.61",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48777888027,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "1326.36",
+                "currency": "RUB"
+            },
+            "unit_number": "30403941-1025-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 161612158,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-279.08",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-254.08",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 98,
+                                    "accrued": {
+                                        "amount": "-25",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "2768",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "1524.72",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-1162.56",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-1162.56",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.420000\"",
+                            "sale_amount": {
+                                "amount": "2768",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "15.25",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "1228.03",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48778467110,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-13.84",
+                "currency": "RUB"
+            },
+            "unit_number": "30403941-1025-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 161612158,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-13.84",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48779128275,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.96",
+                "currency": "RUB"
+            },
+            "unit_number": "47523181-0916-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.96",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48779817579,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "530.6",
+                "currency": "RUB"
+            },
+            "unit_number": "52086982-0551-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-117.4",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-81.34",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.06",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1200",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "1001.9",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-552",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-552",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.460000\"",
+                            "sale_amount": {
+                                "amount": "1200",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "10.02",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "188.08",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48779898573,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-6",
+                "currency": "RUB"
+            },
+            "unit_number": "52086982-0551-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-6",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48780677535,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-82.36",
+                "currency": "RUB"
+            },
+            "unit_number": "93586761-0003-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 3518155571,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-82.36",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 6,
+                                    "accrued": {
+                                        "amount": "0",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 59,
+                                    "accrued": {
+                                        "amount": "-82.36",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": null,
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48780690022,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-178.03",
+                "currency": "RUB"
+            },
+            "unit_number": "93586761-0003-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 3518155571,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-178.03",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-141.33",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.7",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": null,
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48781561079,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-19.04",
+                "currency": "RUB"
+            },
+            "unit_number": "52086982-0551-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-19.04",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48783422157,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-7.11",
+                "currency": "RUB"
+            },
+            "unit_number": "30403941-1025-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 161612158,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-7.11",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48785426105,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.68",
+                "currency": "RUB"
+            },
+            "unit_number": "52086982-0551-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-4.68",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48791656289,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "529.93",
+                "currency": "RUB"
+            },
+            "unit_number": "29334171-0215-4",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-118.07",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-81.34",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.73",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1200",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "587.68",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-552",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-552",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.460000\"",
+                            "sale_amount": {
+                                "amount": "1200",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "5.88",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "606.44",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48791672203,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-6",
+                "currency": "RUB"
+            },
+            "unit_number": "29334171-0215-4",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-6",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48795667277,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "1540.81",
+                "currency": "RUB"
+            },
+            "unit_number": "49045631-0753-5",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "delivery_speed": 47,
+                "products": [
+                    {
+                        "sku": 1934613776,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-205.62",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-199.01",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.61",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "2863",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "1638.86",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-1116.57",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-1116.57",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "2863",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "0",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "1224.14",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48795918233,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "887.32",
+                "currency": "RUB"
+            },
+            "unit_number": "0237735759-0069-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "delivery_speed": 47,
+                "products": [
+                    {
+                        "sku": 1720912969,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-158.22",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-158.22",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1714",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "952.38",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-668.46",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-668.46",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "1714",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "9.52",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "752.1",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48795958374,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "794.6",
+                "currency": "RUB"
+            },
+            "unit_number": "76201100-0209-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 2795873204,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-87",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-80",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-7",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1520",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "837.67",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-638.4",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-638.4",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.420000\"",
+                            "sale_amount": {
+                                "amount": "1520",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "8.38",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "673.95",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48795994594,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-7.6",
+                "currency": "RUB"
+            },
+            "unit_number": "76201100-0209-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 2795873204,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-7.6",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48796065352,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-1051.64",
+                "currency": "RUB"
+            },
+            "unit_number": "40946473-0590-5",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 1973850522,
+                        "delivery": null,
+                        "commission": {
+                            "seller_price": {
+                                "amount": "-1724",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "-1039.05",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "672.36",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "672.36",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "-1724",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "-10.39",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "-674.56",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48796102510,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-14.32",
+                "currency": "RUB"
+            },
+            "unit_number": "49045631-0753-5",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1934613776,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-14.32",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48796109615,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-8.57",
+                "currency": "RUB"
+            },
+            "unit_number": "0237735759-0069-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1720912969,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-8.57",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48796399569,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-5",
+                "currency": "RUB"
+            },
+            "unit_number": "40946473-0590-5",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1973850522,
+                        "fees": [
+                            {
+                                "type_id": 38,
+                                "accrued": {
+                                    "amount": "-5",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48796399570,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-10",
+                "currency": "RUB"
+            },
+            "unit_number": "40946473-0590-5",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1973850522,
+                        "fees": [
+                            {
+                                "type_id": 39,
+                                "accrued": {
+                                    "amount": "-10",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48798207366,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "19.74",
+                "currency": "RUB"
+            },
+            "unit_number": "40946473-0590-5",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1973850522,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "19.74",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48798454598,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-15.92",
+                "currency": "RUB"
+            },
+            "unit_number": "76201100-0209-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 2795873204,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-15.92",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48798759494,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-2.7",
+                "currency": "RUB"
+            },
+            "unit_number": "29334171-0215-4",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-2.7",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48799808046,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "790.44",
+                "currency": "RUB"
+            },
+            "unit_number": "0124087344-0255-2",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 441035702,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-229.78",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-224.72",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-5.06",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1759",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "1018.96",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-738.78",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-738.78",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.420000\"",
+                            "sale_amount": {
+                                "amount": "1759",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "10.19",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "729.85",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48800529984,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-8.8",
+                "currency": "RUB"
+            },
+            "unit_number": "0124087344-0255-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 441035702,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-8.8",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48802916268,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.96",
+                "currency": "RUB"
+            },
+            "unit_number": "76201100-0209-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 2795873204,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.96",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48803313856,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.41",
+                "currency": "RUB"
+            },
+            "unit_number": "0237735759-0069-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1720912969,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-4.41",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48804164405,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "1034.27",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-2",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 1388985440,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-63.73",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-56.94",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.79",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1800",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "1057.09",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-702",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-702",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "1800",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "10.57",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "732.34",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48804393331,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "1034.37",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-3",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 1388985440,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-63.63",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-56.94",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.69",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1800",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "1057.09",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-702",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-702",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "1800",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "10.57",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "732.34",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48804424205,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-9",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-9",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48804985276,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-9",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-9",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48806523445,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "693.36",
+                "currency": "RUB"
+            },
+            "unit_number": "50612262-0326-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-83.84",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-77",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.84",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1340",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "839.02",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-562.8",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-562.8",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.420000\"",
+                            "sale_amount": {
+                                "amount": "1340",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "0",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "500.98",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48806642787,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-20.08",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-20.08",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48806642788,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-20.08",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-20.08",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48806810618,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-6.7",
+                "currency": "RUB"
+            },
+            "unit_number": "50612262-0326-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-6.7",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48807343542,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.77",
+                "currency": "RUB"
+            },
+            "unit_number": "0124087344-0255-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 441035702,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-4.77",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48807354939,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "2966.22",
+                "currency": "RUB"
+            },
+            "unit_number": "10415555-0738-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 1187265459,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-63.04",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-56.94",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.1",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "4966",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "3034.29",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-1936.74",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-1936.74",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "4966",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "0",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "1931.71",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48807527171,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-24.83",
+                "currency": "RUB"
+            },
+            "unit_number": "10415555-0738-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1187265459,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-24.83",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48807695422,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "383.99",
+                "currency": "RUB"
+            },
+            "unit_number": "04384662-2015-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 174270030,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-113.65",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-77",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.65",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "957",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "566.29",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-459.36",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-459.36",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.480000\"",
+                            "sale_amount": {
+                                "amount": "957",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "5.66",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "385.05",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48808167877,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.79",
+                "currency": "RUB"
+            },
+            "unit_number": "04384662-2015-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174270030,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-4.79",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48809780495,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-10.76",
+                "currency": "RUB"
+            },
+            "unit_number": "04384662-2015-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174270030,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-10.76",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48810826765,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.95",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-4.95",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48810826770,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.95",
+                "currency": "RUB"
+            },
+            "unit_number": "95570451-0142-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 1388985440,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-4.95",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48811195900,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-46.77",
+                "currency": "RUB"
+            },
+            "unit_number": "0210275790-0019-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "delivery_speed": 47,
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-46.77",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-46.77",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": null,
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48811384838,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-46.77",
+                "currency": "RUB"
+            },
+            "unit_number": "0210275790-0019-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-46.77",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 6,
+                                    "accrued": {
+                                        "amount": "0",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 59,
+                                    "accrued": {
+                                        "amount": "-46.77",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": null,
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48812635123,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "693.42",
+                "currency": "RUB"
+            },
+            "unit_number": "32371166-0209-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "products": [
+                    {
+                        "sku": 3753845770,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-83.78",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-77",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.78",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1340",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "839.81",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-562.8",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-562.8",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.420000\"",
+                            "sale_amount": {
+                                "amount": "1340",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "0",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "500.19",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48812803232,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-6.7",
+                "currency": "RUB"
+            },
+            "unit_number": "32371166-0209-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-6.7",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48812810656,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "538.46",
+                "currency": "RUB"
+            },
+            "unit_number": "70639791-0188-3",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 174269894,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-121.42",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-84",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-7.42",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1222",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "847.62",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-562.12",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-562.12",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.460000\"",
+                            "sale_amount": {
+                                "amount": "1222",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "0",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "374.38",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48812917675,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.96",
+                "currency": "RUB"
+            },
+            "unit_number": "50612262-0326-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.96",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48813673183,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-6.11",
+                "currency": "RUB"
+            },
+            "unit_number": "70639791-0188-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174269894,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-6.11",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48813920056,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.69",
+                "currency": "RUB"
+            },
+            "unit_number": "04384662-2015-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 284277069,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.69",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48813971484,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-2.61",
+                "currency": "RUB"
+            },
+            "unit_number": "04384662-2015-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174270030,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-2.61",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48814493553,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-7.73",
+                "currency": "RUB"
+            },
+            "unit_number": "32371166-0209-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-7.73",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48817714320,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.96",
+                "currency": "RUB"
+            },
+            "unit_number": "32371166-0209-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3753845770,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.96",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819114618,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "595.47",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-1",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "delivery_speed": 47,
+                "products": [
+                    {
+                        "sku": 284277069,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-130.43",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-122.23",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-8.2",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1190",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "792.42",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-464.1",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-464.1",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "1190",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "7.92",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "389.66",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819114851,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "524.54",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-3",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbs",
+                "products": [
+                    {
+                        "sku": 3501662647,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-118.06",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 16,
+                                    "accrued": {
+                                        "amount": "-10",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-81.34",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 17,
+                                    "accrued": {
+                                        "amount": "-20",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-6.72",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1190",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "733.65",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-547.4",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-547.4",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.460000\"",
+                            "sale_amount": {
+                                "amount": "1190",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "7.34",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "449.01",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819138711,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-5.95",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174270114,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-5.95",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819140207,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-5.95",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 284277069,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-5.95",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819150171,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "595.47",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-2",
+            "accrued_category": "POSTING",
+            "posting": {
+                "delivery_schema": "Fbo",
+                "delivery_speed": 47,
+                "products": [
+                    {
+                        "sku": 174270114,
+                        "delivery": {
+                            "total_accrued": {
+                                "amount": "-130.43",
+                                "currency": "RUB"
+                            },
+                            "services": [
+                                {
+                                    "type_id": 32,
+                                    "accrued": {
+                                        "amount": "-122.23",
+                                        "currency": "RUB"
+                                    }
+                                },
+                                {
+                                    "type_id": 29,
+                                    "accrued": {
+                                        "amount": "-8.2",
+                                        "currency": "RUB"
+                                    }
+                                }
+                            ]
+                        },
+                        "commission": {
+                            "seller_price": {
+                                "amount": "1190",
+                                "currency": "RUB"
+                            },
+                            "sale_price": {
+                                "amount": "764.93",
+                                "currency": "RUB"
+                            },
+                            "sale_commission": {
+                                "amount": "-464.1",
+                                "currency": "RUB"
+                            },
+                            "commission": {
+                                "amount": "-464.1",
+                                "currency": "RUB"
+                            },
+                            "commission_ratio": "value:\"0.390000\"",
+                            "sale_amount": {
+                                "amount": "1190",
+                                "currency": "RUB"
+                            },
+                            "coinvestment": {
+                                "amount": "7.65",
+                                "currency": "RUB"
+                            },
+                            "bonus": {
+                                "amount": "417.42",
+                                "currency": "RUB"
+                            }
+                        },
+                        "quantity": 1
+                    }
+                ]
+            },
+            "item_fees": null,
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819638615,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-5.95",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3501662647,
+                        "fees": [
+                            {
+                                "type_id": 74,
+                                "accrued": {
+                                    "amount": "-5.95",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819951381,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-15.06",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 284277069,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-15.06",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819951382,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-14.53",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174270114,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-14.53",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48819951383,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-13.94",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3501662647,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-13.94",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48820968474,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.6",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-2",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174270114,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.6",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48820968485,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.69",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-1",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 284277069,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.69",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48821169157,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-3.42",
+                "currency": "RUB"
+            },
+            "unit_number": "04142187-0153-3",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 3501662647,
+                        "fees": [
+                            {
+                                "type_id": 48,
+                                "accrued": {
+                                    "amount": "-3.42",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48822300280,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-4.65",
+                "currency": "RUB"
+            },
+            "unit_number": "0123021051-1144",
+            "accrued_category": "ITEM",
+            "posting": null,
+            "item_fees": {
+                "fees": [
+                    {
+                        "sku": 174269875,
+                        "fees": [
+                            {
+                                "type_id": 1,
+                                "accrued": {
+                                    "amount": "-4.65",
+                                    "currency": "RUB"
+                                }
+                            }
+                        ],
+                        "quantity": 1
+                    }
+                ]
+            },
+            "non_item_fee": null,
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48822624708,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-380.68",
+                "currency": "RUB"
+            },
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 46,
+                "accrued": {
+                    "amount": "-380.68",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48824662574,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-627.85",
+                "currency": "RUB"
+            },
+            "unit_number": "24347422",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 54,
+                "accrued": {
+                    "amount": "-627.85",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48824756570,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-227.7",
+                "currency": "RUB"
+            },
+            "unit_number": "24137696",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-227.7",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48824977364,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-1147.43",
+                "currency": "RUB"
+            },
+            "unit_number": "23608692",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-1147.43",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825425490,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-12.06",
+                "currency": "RUB"
+            },
+            "unit_number": "18024390",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-12.06",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825559240,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-17.91",
+                "currency": "RUB"
+            },
+            "unit_number": "14329386",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-17.91",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825560643,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-24.99",
+                "currency": "RUB"
+            },
+            "unit_number": "14280378",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-24.99",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825617118,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-9.55",
+                "currency": "RUB"
+            },
+            "unit_number": "14222177",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-9.55",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825620181,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-15.99",
+                "currency": "RUB"
+            },
+            "unit_number": "10687568",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-15.99",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825620182,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-26.4",
+                "currency": "RUB"
+            },
+            "unit_number": "10687556",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-26.4",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825620183,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-30.24",
+                "currency": "RUB"
+            },
+            "unit_number": "10687544",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-30.24",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825645266,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-203.93",
+                "currency": "RUB"
+            },
+            "unit_number": "8031383",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-203.93",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825683029,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-263.99",
+                "currency": "RUB"
+            },
+            "unit_number": "8674930",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-263.99",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        },
+        {
+            "accrual_id": 48825782977,
+            "date": "2026-04-10",
+            "total_amount": {
+                "amount": "-286.9",
+                "currency": "RUB"
+            },
+            "unit_number": "4623211",
+            "accrued_category": "NON_ITEM",
+            "posting": null,
+            "item_fees": null,
+            "non_item_fee": {
+                "type_id": 41,
+                "accrued": {
+                    "amount": "-286.9",
+                    "currency": "RUB"
+                }
+            },
+            "container_fees": null
+        }
+    ],
+    "last_id": ""
+}
