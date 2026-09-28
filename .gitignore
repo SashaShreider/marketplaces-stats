@@ -1,0 +1,35 @@
+# Build
+build/
+out/
+bin/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+nbproject/private/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Tooling artifacts
+.playwright-mcp/
