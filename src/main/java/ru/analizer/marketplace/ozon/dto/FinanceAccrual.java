@@ -2,11 +2,7 @@ package ru.analizer.marketplace.ozon.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import tools.jackson.databind.annotation.JsonDeserialize;
-import ru.analizer.marketplace.ozon.json.LenientLongDeserializer;
-
 import java.time.LocalDate;
-import java.util.List;
 
 /**
  * finance.v1.GetFinanceAccrualByDayResponse.Accrual — одна финансовая операция.

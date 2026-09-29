@@ -1,9 +1,6 @@
 package ru.analizer.marketplace.ozon;
 
-import org.junit.jupiter.api.Test;
-import ru.analizer.marketplace.AccrualDto;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,7 +9,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
+
+import ru.analizer.marketplace.AccrualDto;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Разбор реального ответа OZON {@code /v1/finance/accrual/by-day} за 2026-04-10.

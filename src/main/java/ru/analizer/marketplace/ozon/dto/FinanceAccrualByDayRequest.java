@@ -3,8 +3,6 @@ package ru.analizer.marketplace.ozon.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
-
 /**
  * POST /v1/finance/accrual/by-day — тело запроса.
  * Пагинации кроме {@code last_id} нет: ни limit, ни offset API не принимает.

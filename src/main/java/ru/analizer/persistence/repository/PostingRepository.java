@@ -1,7 +1,6 @@
 package ru.analizer.persistence.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import ru.analizer.persistence.entity.FinanceAccrual;
 import ru.analizer.persistence.entity.Posting;
 
 import java.util.Optional;
