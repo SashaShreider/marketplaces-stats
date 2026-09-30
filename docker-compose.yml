@@ -16,5 +16,24 @@ services:
       timeout: 5s
       retries: 10
 
+  # Веб-интерфейс для просмотра базы: http://localhost:5050
+  # Логин: analizer@example.com, пароль: analizer (см. .env.example и README)
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: analizer-pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-analizer@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-analizer}
+      # Чтобы сервер подключался по внутренней сети compose, а не через localhost
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - analizer-pgadmin-data:/var/lib/pgadmin
+
 volumes:
   analizer-pgdata:
+  analizer-pgadmin-data:
