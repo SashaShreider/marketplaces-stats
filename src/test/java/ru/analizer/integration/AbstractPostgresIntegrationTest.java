@@ -73,6 +73,9 @@ abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected ru.analizer.analytics.DailyAnalyticsService analytics;
 
+    @Autowired
+    protected ru.analizer.sync.SyncDayService syncDayService;
+
     protected static final String CLIENT_ID = "1154";
     protected static final LocalDate DAY = LocalDate.of(2026, 4, 10);
 
@@ -172,7 +175,7 @@ abstract class AbstractPostgresIntegrationTest {
         jdbc.execute("""
                 TRUNCATE TABLE finance_accrual, posting, posting_product, delivery_service,
                                item_fee, item_fee_detail, non_item_fee, container_fee,
-                               accrual_type, seller_account, marketplace
+                               sync_day, sync_job, accrual_type, seller_account, marketplace
                 RESTART IDENTITY CASCADE
                 """);
         jdbc.update("INSERT INTO marketplace (code, name) VALUES ('OZON', 'OZON')");

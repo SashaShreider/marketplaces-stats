@@ -1,13 +1,15 @@
 package ru.analizer.integration;
 
 import org.junit.jupiter.api.DisplayName;
+import ru.analizer.analytics.DailyReport;
+import ru.analizer.analytics.ReportStatus;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 /**
  * Ежедневная аналитика на настоящей базе: от сохранённых операций до показателей отчёта.
@@ -20,7 +22,7 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
     private static final String DAY_2026_09_26 = "fixtures/accruals-2026-09-26-full.json";
 
-    private ru.analizer.analytics.DailyAnalyticsService.DailyReport syncAndReport(String fixture, LocalDate date) {
+    private DailyReport syncAndReport(String fixture, LocalDate date) {
         FixtureAdapterConfig.FIXTURES.clear();
         FixtureAdapterConfig.FIXTURES.put(date, fixture);
         syncService.syncAccrualTypes();
@@ -126,15 +128,19 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
         assertThat(report.total().reconciliationDiff()).isEqualByComparingTo("0");
     }
 
-    @Test
-    @DisplayName("Неизвестный аккаунт даёт понятную ошибку, а не нули")
-    void unknownAccountFailsLoudly() {
-        // Нули в отчёте читаются как «денег нет». Если аккаунт вообще не синхронизирован,
-        // это техническая проблема, и её нужно назвать, а не маскировать нулём.
-        assertThatThrownBy(() -> analytics.daily("unknown-client", "OZON",
-                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("сначала выполните синхронизацию");
+@Test
+    @DisplayName("Неизвестный аккаунт даёт честный NOT_LOADED, а не ошибку и не нули")
+    void unknownAccountReportsNotLoaded() {
+        // Нули читаются как «денег не было». Отсутствие аккаунта — тоже «данных нет»,
+        // поэтому отвечаем статусом NOT_LOADED с перечнем недостающих дней, а не 409.
+        var report = analytics.daily("unknown-client", "OZON",
+                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
+
+        assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
+        assertThat(report.coverage().loadedDays()).isZero();
+        assertThat(report.coverage().missingDays())
+                .containsExactly(LocalDate.of(2026, 4, 10));
+        assertThat(report.coverage().needsSync()).isTrue();
     }
 
     @Test

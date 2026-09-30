@@ -2,7 +2,10 @@ package ru.analizer.integration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import ru.analizer.sync.SyncCoverage;
 import ru.analizer.sync.SyncReport;
+
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,12 +32,16 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         SyncReport first = firstSync();
         assertThat(first.accrualsInserted()).isEqualTo(94);
         assertThat(first.accrualsUpdated()).isZero();
+        assertThat(first.complete()).isTrue();
 
         SyncReport second = syncService.sync(CLIENT_ID, DAY, DAY);
 
-        assertThat(second.accrualsReceived()).isEqualTo(94);
-        assertThat(second.accrualsInserted()).as("дубликатов быть не должно").isZero();
-        assertThat(second.accrualsUpdated()).isEqualTo(94);
+        // 2026-04-10 давно старше окна зрелости, поэтому день окончательный и повторно
+        // не запрашивается: никаких обращений к OZON и никаких дублей в базе.
+        assertThat(second.accrualsInserted()).isZero();
+        assertThat(second.accrualsUpdated()).isZero();
+        assertThat(second.accrualsReceived()).as("окончательный день не перезапрашивается").isZero();
+        assertThat(second.syncedDays()).isZero();
         assertThat(count("finance_accrual")).isEqualTo(94);
     }
 
@@ -46,9 +53,40 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         SyncReport third = syncService.sync(CLIENT_ID, DAY, DAY);
 
         assertThat(third.accrualsInserted()).isZero();
-        assertThat(third.accrualsUpdated()).isEqualTo(94);
         assertThat(count("finance_accrual")).isEqualTo(94);
         sumTotal("finance_accrual").is("11297.23");
+    }
+
+    @Test
+    @DisplayName("Свежий день внутри окна зрелости перезапрашивается и обновляется")
+    void provisionalDayIsRefreshedOnNextRun() {
+        // Главная причина, по которой окно зрелости вообще нужно: начисления за свежие
+        // дни продолжают приходить. Если бы повторный запуск пропускал загруженные дни,
+        // данные за вчерашний день так и остались бы неполными навсегда.
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        FixtureAdapterConfig.FIXTURES.clear();
+        FixtureAdapterConfig.FIXTURES.put(yesterday, DAY_2026_04_10);
+
+        syncService.syncAccrualTypes();
+        SyncReport first = syncService.sync(CLIENT_ID, yesterday, yesterday);
+        assertThat(first.accrualsInserted()).isEqualTo(94);
+
+        // День загружен, но он внутри окна зрелости — значит не окончательный.
+        var coverage = syncDayService.coverage(clientId(), yesterday, yesterday);
+        assertThat(coverage.loadedDays()).isEqualTo(1);
+        assertThat(coverage.finalDays()).as("вчерашний день ещё не окончателен").isZero();
+        assertThat(coverage.provisionalDays()).containsExactly(yesterday);
+        assertThat(coverage.allFinal()).isFalse();
+
+        SyncReport second = syncService.sync(CLIENT_ID, yesterday, yesterday);
+        assertThat(second.accrualsReceived()).as("свежий день запрашивается заново").isEqualTo(94);
+        assertThat(second.accrualsUpdated()).as("данные обновились, а не продублировались").isEqualTo(94);
+        assertThat(second.accrualsInserted()).isZero();
+        assertThat(count("finance_accrual")).isEqualTo(94);
+    }
+
+    private Long clientId() {
+        return jdbc.queryForObject("select id from seller_account limit 1", Long.class);
     }
 
     @Test

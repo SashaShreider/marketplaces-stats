@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.analizer.analytics.DailyAnalyticsService;
+import ru.analizer.analytics.DailyReport;
 import ru.analizer.marketplace.ozon.OzonProperties;
 
 import java.time.LocalDate;
@@ -39,7 +40,7 @@ public class DailyAnalyticsController {
      *                 на будущее, поскольку модель допускает несколько аккаунтов.
      */
     @GetMapping("/daily")
-    public DailyAnalyticsService.DailyReport daily(
+    public DailyReport daily(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String clientId) {

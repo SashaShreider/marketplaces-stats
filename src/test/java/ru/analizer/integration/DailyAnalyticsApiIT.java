@@ -156,16 +156,40 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Отчёт по нес��нхронизированному аккаунту объясняет, что делать")
-    void reportForNotSyncedAccountExplainsWhatToDo() throws Exception {
-        // Аккаунта 9999 в базе нет. Это состояние данных, а не сбой сервера:
-        // клиент должен получить 409 с понятным текстом, а не 500 с пустым телом.
+    @DisplayName("Отчёт по неизвестному аккаунту говорит «данных нет», а не отдаёт нули")
+    void reportForUnknownAccountSaysNotLoaded() throws Exception {
+        // Раньше здесь был 500 с пустым телом. Теперь отчёт прямо говорит, что данных
+        // нет, и перечисляет недостающие дни — этого достаточно, чтобы предложить загрузку.
         HttpResponse<String> response = get(
-                "/api/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10&clientId=9999");
+                "/api/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-12&clientId=9999");
 
-        assertThat(response.statusCode()).isEqualTo(409);
-        assertThat(response.body()).contains("Данные ещё не готовы");
-        assertThat(response.body()).contains("сначала выполните синхронизацию");
+        assertThat(response.statusCode()).isEqualTo(200);
+
+        JsonNode body = MAPPER.readTree(response.body());
+        assertThat(body.get("status").asString()).isEqualTo("NOT_LOADED");
+
+        JsonNode coverage = body.get("coverage");
+        assertThat(coverage.get("requestedDays").asInt()).isEqualTo(3);
+        assertThat(coverage.get("loadedDays").asInt()).isZero();
+        assertThat(coverage.get("needsSync").asBoolean()).isTrue();
+        assertThat(coverage.get("missingDays").size()).isEqualTo(3);
+
+        // И сам отчёт не притворяется, что это «денег не было».
+        assertThat(new BigDecimal(body.get("payout").asString())).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("Покрытие отвечает даже до первой синхронизации")
+    void coverageAnswersBeforeFirstSync() throws Exception {
+        HttpResponse<String> response = get(
+                "/api/sync/coverage?dateFrom=2026-04-10&dateTo=2026-04-12&clientId=9999");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        JsonNode body = MAPPER.readTree(response.body());
+        assertThat(body.get("requestedDays").asInt()).isEqualTo(3);
+        assertThat(body.get("loadedDays").asInt()).isZero();
+        assertThat(body.get("needsSync").asBoolean()).isTrue();
+        assertThat(body.get("missingDays").size()).isEqualTo(3);
     }
 
     private static BigDecimal bd(JsonNode node, String field) {

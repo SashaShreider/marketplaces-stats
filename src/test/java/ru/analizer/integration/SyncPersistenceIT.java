@@ -25,7 +25,9 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
     void syncsWholeDay() {
         SyncReport report = sync();
 
-        assertThat(report.days()).isEqualTo(1);
+        assertThat(report.requestedDays()).isEqualTo(1);
+        assertThat(report.syncedDays()).isEqualTo(1);
+        assertThat(report.complete()).isTrue();
         assertThat(report.accrualsReceived()).isEqualTo(94);
         assertThat(report.accrualsInserted()).isEqualTo(94);
         assertThat(report.accrualsUpdated()).isZero();

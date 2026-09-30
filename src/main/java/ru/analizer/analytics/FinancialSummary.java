@@ -60,6 +60,7 @@ public record FinancialSummary(
         return income().subtract(expenses()).subtract(payoutValue());
     }
 
+    @com.fasterxml.jackson.annotation.JsonProperty
     public boolean reconciles() {
         return reconciliationDiff().signum() == 0;
     }
