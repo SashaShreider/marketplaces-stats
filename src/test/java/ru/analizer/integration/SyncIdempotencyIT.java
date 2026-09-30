@@ -84,12 +84,13 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Справочник типов начислений тоже обновляется, а не дублируется")
     void accrualTypesAreIdempotent() {
         firstSync();
-        assertThat(count("accrual_type")).isEqualTo(16);
+        int initial = (int) count("accrual_type");
+        assertThat(initial).isEqualTo(132);
 
         syncService.syncAccrualTypes();
         syncService.syncAccrualTypes();
 
-        assertThat(count("accrual_type")).isEqualTo(16);
+        assertThat(count("accrual_type")).isEqualTo(initial);
     }
 
     @Test

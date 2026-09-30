@@ -38,13 +38,19 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
     void loadsAccrualTypeDictionary() {
         sync();
 
-        assertThat(count("accrual_type")).isEqualTo(16);
+        // Реальный ответ /v1/finance/accrual/types на 2026-09-30 содержит 132 типа.
+        // Число намеренно не «прибито» меньшим: оно придёт из следующего ответа API.
+        assertThat(count("accrual_type")).isEqualTo(132);
         assertThat(jdbc.queryForObject(
                 "select name from accrual_type where external_type_id = 74", String.class))
                 .isEqualTo("StarsMembership");
         assertThat(jdbc.queryForObject(
                 "select name from accrual_type where external_type_id = 1", String.class))
                 .isEqualTo("Acquiring");
+        // Название пришло из API, а не из кода: угадать его было бы невозможно.
+        assertThat(jdbc.queryForObject(
+                "select name from accrual_type where external_type_id = 32", String.class))
+                .isEqualTo("Logistic");
     }
 
     @Test

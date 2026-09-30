@@ -84,29 +84,23 @@ abstract class AbstractPostgresIntegrationTest {
     @TestConfiguration
     static class FixtureAdapterConfig {
 
-        /** День → файл с ответом API. Заполняется конкретным тестом. */
+        /**
+         * День → файл с ответом API. Заполняется конкретным тестом.
+         *
+         * <p>Справочник типов — реальный ответ {@code /v1/finance/accrual/types},
+         * а не выдуманный: угадывать названия бессмысленно, OZON может их менять,
+         * и именно поэтому бизнес-логика не должна опираться на захардкоженный список.
+         */
         static final Map<LocalDate, String> FIXTURES = new LinkedHashMap<>();
 
-        static String accrualTypesJson = """
-                {"accrual_types":[
-                  {"id":1,"name":"Acquiring","description":"Эквайринг"},
-                  {"id":6,"name":"DeliveryToCustomer","description":"Доставка"},
-                  {"id":12,"name":"StorageFee","description":"Хранение"},
-                  {"id":16,"name":"LastMile","description":"Последняя миля"},
-                  {"id":17,"name":"Pickup","description":"Забор"},
-                  {"id":29,"name":"Delivery","description":"Доставка"},
-                  {"id":32,"name":"MainDelivery","description":"Основная доставка"},
-                  {"id":38,"name":"Promotion","description":"Продвижение"},
-                  {"id":39,"name":"ReturnProcessing","description":"Обработка возврата"},
-                  {"id":41,"name":"Compensation","description":"Компенсация"},
-                  {"id":46,"name":"ContentFee","description":"Контент"},
-                  {"id":48,"name":"SellerBonusWriteoff","description":"Списание бонусов продавца"},
-                  {"id":54,"name":"DocumentationFee","description":"Документация"},
-                  {"id":59,"name":"LongTermStorage","description":"Долгосрочное хранение"},
-                  {"id":74,"name":"StarsMembership","description":"Звёздный товар"},
-                  {"id":98,"name":"Packaging","description":"Упаковка"}
-                ]}
-                """;
+        static String accrualTypesJson() {
+            try (InputStream in = AbstractPostgresIntegrationTest.class.getClassLoader()
+                    .getResourceAsStream("fixtures/accrual-types-real.json")) {
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IllegalStateException("Не найдена фикстура справочника типов начислений", e);
+            }
+        }
 
         @Bean
         @Primary
@@ -124,7 +118,7 @@ abstract class AbstractPostgresIntegrationTest {
 
         @Override
         public List<ru.analizer.marketplace.AccrualTypeInfo> fetchAccrualTypes() {
-            var root = MAPPER.readTree(FixtureAdapterConfig.accrualTypesJson);
+            var root = MAPPER.readTree(FixtureAdapterConfig.accrualTypesJson());
             List<ru.analizer.marketplace.AccrualTypeInfo> types = new ArrayList<>();
             for (var node : root.get("accrual_types")) {
                 var type = MAPPER.treeToValue(node, ru.analizer.marketplace.ozon.dto.AccrualType.class);
