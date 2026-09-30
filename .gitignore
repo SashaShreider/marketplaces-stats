@@ -31,5 +31,9 @@ Thumbs.db
 *.log
 logs/
 
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log
+
 # Tooling artifacts
 .playwright-mcp/

@@ -2,6 +2,12 @@ spring:
   application:
     name: analizer
 
+  # Файл .env с реквизитами OZON, если он есть. Опционален: без него приложение
+  # стартует, но запросы к OZON вернут 503 с понятным текстом.
+  config:
+    import:
+      - optional:file:.env[.properties]
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/analizer}
     username: ${DB_USERNAME:analizer}
