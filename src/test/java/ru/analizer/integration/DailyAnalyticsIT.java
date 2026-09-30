@@ -1,0 +1,155 @@
+package ru.analizer.integration;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Ежедневная аналитика на настоящей базе: от сохранённых операций до показателей отчёта.
+ *
+ * <p>Ожидаемые значения подсчитаны вручную по двум реальным выгрузкам OZON,
+ * поэтому проверяется не «посчиталось ли что-то», а «посчиталось ли то же, что у OZON».
+ */
+class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
+
+    private static final String DAY_2026_04_10 = "example-2026-04-10.json";
+    private static final String DAY_2026_09_26 = "fixtures/accruals-2026-09-26-full.json";
+
+    private ru.analizer.analytics.DailyAnalyticsService.DailyReport syncAndReport(String fixture, LocalDate date) {
+        FixtureAdapterConfig.FIXTURES.clear();
+        FixtureAdapterConfig.FIXTURES.put(date, fixture);
+        syncService.syncAccrualTypes();
+        syncService.sync(CLIENT_ID, date, date);
+        return analytics.daily(CLIENT_ID, "OZON", date, date);
+    }
+
+    @Test
+    @DisplayName("2026-04-10: доходы, расходы и к выплате сходятся с ручным подсчётом")
+    void day2026_04_10() {
+        var report = syncAndReport(DAY_2026_04_10, LocalDate.of(2026, 4, 10));
+
+        assertThat(report.days()).hasSize(1);
+        var row = report.days().getFirst();
+
+        assertThat(row.income()).isEqualByComparingTo("31165.00");
+        assertThat(row.expenses()).isEqualByComparingTo("19867.77");
+        assertThat(row.payout()).isEqualByComparingTo("11297.23");
+        assertThat(report.reconciled()).isTrue();
+
+        // Детализация внутри ответа — чтобы подробный отчёт собрать позже,
+        // не переделывая ни модель, ни API.
+        assertThat(row.breakdown().sales()).isEqualByComparingTo("19804.67");
+        assertThat(row.breakdown().returns()).isEqualByComparingTo("-1039.05");
+        assertThat(row.breakdown().partnerProgramme()).isEqualByComparingTo("12399.38");
+        assertThat(row.breakdown().commission()).isEqualByComparingTo("-12879.33");
+        assertThat(row.breakdown().logistics()).isEqualByComparingTo("-3000.71");
+        assertThat(row.breakdown().otherExpenses()).isEqualByComparingTo("-3987.73");
+    }
+
+    @Test
+    @DisplayName("2026-09-26: доходы, расходы и к выплате сходятся с ручным подсчётом")
+    void day2026_09_26() {
+        var report = syncAndReport(DAY_2026_09_26, LocalDate.of(2026, 9, 26));
+
+        var row = report.days().getFirst();
+        assertThat(row.income()).isEqualByComparingTo("25280.00");
+        assertThat(row.expenses()).isEqualByComparingTo("16662.03");
+        assertThat(row.payout()).isEqualByComparingTo("8617.97");
+        assertThat(report.reconciled()).isTrue();
+        assertThat(row.breakdown().returns()).as("возвратов в этот день не было")
+                .isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("Прочие расходы расшифрованы названиями из справочника")
+    void expensesByTypeUseDictionaryNames() {
+        var report = syncAndReport(DAY_2026_04_10, LocalDate.of(2026, 4, 10));
+
+        var byType = report.days().getFirst().expensesByType();
+        assertThat(byType).isNotEmpty();
+        assertThat(byType).allSatisfy(item ->
+                assertThat(item.name()).as("тип %s должен иметь название", item.typeId()).isNotBlank());
+
+        assertThat(byType.getFirst().name()).isEqualTo("PayPerClick");
+        assertThat(byType.getFirst().amount()).isEqualByComparingTo("-2267.09");
+
+        BigDecimal sum = byType.stream()
+                .map(ru.analizer.analytics.FinancialSummary.TypeAmount::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertThat(sum).isEqualByComparingTo("-3987.73");
+    }
+
+    @Test
+    @DisplayName("Период из нескольких дней даёт сумму и показывает пустые дни")
+    void multiDayPeriod() {
+        FixtureAdapterConfig.FIXTURES.clear();
+        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
+        syncService.syncAccrualTypes();
+        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 9), LocalDate.of(2026, 4, 11));
+
+        // Только 10-е число содержит операции, 9-е и 11-е — пустые, но присутствуют.
+        var report = analytics.daily(CLIENT_ID, "OZON",
+                LocalDate.of(2026, 4, 9), LocalDate.of(2026, 4, 11));
+
+        assertThat(report.days()).hasSize(3);
+        assertThat(report.days().get(0).date()).isEqualTo(LocalDate.of(2026, 4, 9));
+        assertThat(report.days().get(0).income()).isEqualByComparingTo("0");
+        assertThat(report.days().get(0).payout()).isEqualByComparingTo("0");
+        assertThat(report.days().get(1).payout()).isEqualByComparingTo("11297.23");
+        assertThat(report.days().get(2).payout()).isEqualByComparingTo("0");
+        assertThat(report.reconciled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Итог за период равен сумме дней и сходится с данными OZON")
+    void periodTotalMatchesDays() {
+        FixtureAdapterConfig.FIXTURES.clear();
+        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
+        syncService.syncAccrualTypes();
+        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 9, 26));
+
+        var report = analytics.daily(CLIENT_ID, "OZON",
+                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 9, 26));
+
+        // 31 165,00 + 25 280,00 и 11 297,23 + 8 617,97
+        assertThat(report.income()).isEqualByComparingTo("56445.00");
+        assertThat(report.expenses()).isEqualByComparingTo("36529.80");
+        assertThat(report.payout()).isEqualByComparingTo("19915.20");
+        assertThat(report.reconciled()).isTrue();
+        assertThat(report.total().reconciliationDiff()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("Неизвестный аккаунт даёт понятную ошибку, а не нули")
+    void unknownAccountFailsLoudly() {
+        // Нули в отчёте читаются как «денег нет». Если аккаунт вообще не синхронизирован,
+        // это техническая проблема, и её нужно назвать, а не маскировать нулём.
+        assertThatThrownBy(() -> analytics.daily("unknown-client", "OZON",
+                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("сначала выполните синхронизацию");
+    }
+
+    @Test
+    @DisplayName("Синхронизированный аккаунт без операций за период даёт нули")
+    void syncedAccountWithoutDataReturnsZeros() {
+        syncAndReport(DAY_2026_04_10, LocalDate.of(2026, 4, 10));
+
+        // Аккаунт есть, но за выбранный день операций не было.
+        var report = analytics.daily(CLIENT_ID, "OZON",
+                LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 1));
+
+        assertThat(report.days()).hasSize(1);
+        assertThat(report.income()).isEqualByComparingTo("0");
+        assertThat(report.expenses()).isEqualByComparingTo("0");
+        assertThat(report.payout()).isEqualByComparingTo("0");
+        assertThat(report.reconciled()).isTrue();
+    }
+}

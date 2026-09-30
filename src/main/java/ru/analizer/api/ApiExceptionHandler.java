@@ -39,6 +39,18 @@ public class ApiExceptionHandler {
         return problem;
     }
 
+    /**
+     * Состояние данных, а не сбой сервера: аккаунт известен, но ещё не синхронизирован.
+     * Отдавать это как 500 с пустым телом значит заставить клиента гадать.
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    public ProblemDetail handleDataNotReady(IllegalStateException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        problem.setTitle("Данные ещё не готовы");
+        problem.setType(URI.create("urn:analizer:error:data-not-ready"));
+        return problem;
+    }
+
     @ExceptionHandler(OzonApiException.class)
     public ProblemDetail handleOzonApi(OzonApiException e) {
         log.error("Ошибка OZON API: {}", e.getMessage(), e);

@@ -70,6 +70,9 @@ abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected ru.analizer.sync.SyncService syncService;
 
+    @Autowired
+    protected ru.analizer.analytics.DailyAnalyticsService analytics;
+
     protected static final String CLIENT_ID = "1154";
     protected static final LocalDate DAY = LocalDate.of(2026, 4, 10);
 
