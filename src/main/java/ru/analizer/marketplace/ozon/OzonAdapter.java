@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import ru.analizer.marketplace.AccrualDto;
 import ru.analizer.marketplace.AccrualPage;
+import ru.analizer.marketplace.AccrualTypeInfo;
 import ru.analizer.marketplace.MarketplaceAdapter;
 import ru.analizer.marketplace.ozon.dto.AccrualType;
 
@@ -34,8 +35,15 @@ public class OzonAdapter implements MarketplaceAdapter {
     }
 
     @Override
-    public List<AccrualType> fetchAccrualTypes() {
-        return client.getAccrualTypes().safeAccrualTypes();
+    public List<AccrualTypeInfo> fetchAccrualTypes() {
+        List<AccrualTypeInfo> types = new ArrayList<>();
+        for (AccrualType remote : client.getAccrualTypes().safeAccrualTypes()) {
+            if (remote.id() == null) {
+                continue;
+            }
+            types.add(new AccrualTypeInfo(remote.id(), remote.name(), remote.description()));
+        }
+        return types;
     }
 
     /**

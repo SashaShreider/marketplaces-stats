@@ -1,0 +1,128 @@
+package ru.analizer.marketplace.ozon;
+
+import org.junit.jupiter.api.Test;
+import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.marketplace.AccrualPage;
+import ru.analizer.marketplace.ozon.dto.FinanceAccrualByDayRequest;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Пагинация {@code /v1/finance/accrual/by-day}.
+ *
+ * <p>У OZON нет ни limit, ни offset — только курсор {@code last_id}. Пустая строка означает
+ * «день вычитан полностью». Дата между страницами обязана оставаться прежней, иначе OZON
+ * отвечает 400, поэтому тест следит за тем, чтобы дата не «поехала».
+ */
+class OzonAdapterPaginationTest {
+
+    private static final LocalDate DAY = LocalDate.of(2026, 4, 10);
+
+    /** Заглушка клиента: отдаёт заранее заданные страницы и записывает запросы. */
+    private static final class ScriptedClient extends OzonClient {
+
+        private final List<List<AccrualDto>> pages = new ArrayList<>();
+        private final List<FinanceAccrualByDayRequest> requests = new ArrayList<>();
+
+        ScriptedClient() {
+            super(RestClientFactory.noop(), OzonPropertiesFixture.configured());
+        }
+
+        void addPage(List<AccrualDto> accruals, String lastId) {
+            pages.add(accruals);
+            lastIds.add(lastId);
+        }
+
+        private final List<String> lastIds = new ArrayList<>();
+
+        @Override
+        public AccrualPage getAccrualsByDay(LocalDate date, String lastId) {
+            requests.add(new FinanceAccrualByDayRequest(date.toString(), lastId == null ? "" : lastId));
+            int index = requests.size() - 1;
+            String next = index < lastIds.size() ? lastIds.get(index) : "";
+            return new AccrualPage(pages.get(index), next);
+        }
+    }
+
+    @Test
+    void walksAllPagesUntilLastIdIsEmpty() {
+        ScriptedClient client = new ScriptedClient();
+        client.addPage(List.of(accrual(1L), accrual(2L)), "cursor-1");
+        client.addPage(List.of(accrual(3L)), "cursor-2");
+        client.addPage(List.of(accrual(4L), accrual(5L)), "");
+
+        List<AccrualDto> result = new OzonAdapter(client).fetchAccrualsByDay(DAY);
+
+        assertThat(result).extracting(AccrualDto::externalId).containsExactly(1L, 2L, 3L, 4L, 5L);
+        assertThat(client.requests).hasSize(3);
+        assertThat(client.requests.get(0).lastId()).as("первый запрос идёт без курсора").isEmpty();
+        assertThat(client.requests.get(1).lastId()).isEqualTo("cursor-1");
+        assertThat(client.requests.get(2).lastId()).isEqualTo("cursor-2");
+    }
+
+    @Test
+    void keepsTheSameDateOnEveryPage() {
+        ScriptedClient client = new ScriptedClient();
+        client.addPage(List.of(accrual(1L)), "cursor-1");
+        client.addPage(List.of(accrual(2L)), "");
+
+        new OzonAdapter(client).fetchAccrualsByDay(DAY);
+
+        // OZON возвращает 400, если вместе с last_id передать другую дату.
+        assertThat(client.requests).allSatisfy(r ->
+                assertThat(r.date()).isEqualTo(DAY.toString()));
+    }
+
+    @Test
+    void singlePageWithEmptyLastIdMeansTheDayIsComplete() {
+        ScriptedClient client = new ScriptedClient();
+        client.addPage(List.of(accrual(1L)), "");
+
+        List<AccrualDto> result = new OzonAdapter(client).fetchAccrualsByDay(DAY);
+
+        assertThat(result).hasSize(1);
+        assertThat(client.requests).hasSize(1);
+    }
+
+    @Test
+    void dayWithoutAccrualsReturnsEmptyList() {
+        ScriptedClient client = new ScriptedClient();
+        client.addPage(List.of(), "");
+
+        assertThat(new OzonAdapter(client).fetchAccrualsByDay(DAY)).isEmpty();
+    }
+
+    @Test
+    void doesNotCallApiWhenCredentialsAreMissing() {
+        OzonClient client = new OzonClient(RestClientFactory.noop(), OzonPropertiesFixture.blank());
+
+        assertThatThrownBy(() -> client.getAccrualsByDay(DAY, null))
+                .isInstanceOf(OzonNotConfiguredException.class)
+                .hasMessageContaining("OZON_CLIENT_ID");
+    }
+
+    private static AccrualDto accrual(long id) {
+        return new AccrualDto(id, DAY, "unit-" + id, AccrualDto.Category.NON_ITEM, null,
+                java.math.BigDecimal.ZERO, "RUB", null, null,
+                new AccrualDto.FeeDetail(1, java.math.BigDecimal.ONE, "RUB"), null, "{}");
+    }
+
+    /** Значения таймаутов не влияют на тест, но конфигурация должна быть валидной. */
+    private static final class OzonPropertiesFixture {
+        static OzonProperties configured() {
+            return new OzonProperties("https://api-seller.ozon.ru", "1154", "key",
+                    Duration.ofSeconds(1), Duration.ofSeconds(1), 0, Duration.ZERO);
+        }
+
+        static OzonProperties blank() {
+            return new OzonProperties("https://api-seller.ozon.ru", "", "",
+                    Duration.ofSeconds(1), Duration.ofSeconds(1), 0, Duration.ZERO);
+        }
+    }
+}

@@ -1,7 +1,6 @@
 package ru.analizer.marketplace;
 
-import ru.analizer.marketplace.ozon.dto.AccrualType;
-
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -19,10 +18,10 @@ public interface MarketplaceAdapter {
      * Справочник типов начислений. Список открыт и может пополняться, поэтому
      * бизнес-логика не должна опираться на захардкоженные значения.
      */
-    List<AccrualType> fetchAccrualTypes();
+    List<AccrualTypeInfo> fetchAccrualTypes();
 
     /**
      * Все начисления за один день, с полной пагинацией.
      */
-    List<AccrualDto> fetchAccrualsByDay(java.time.LocalDate date);
+    List<AccrualDto> fetchAccrualsByDay(LocalDate date);
 }

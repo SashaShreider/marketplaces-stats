@@ -46,6 +46,11 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    // Spring Boot-контекст, Hibernate и Testcontainers в одном процессе: без явных
+    // границ JVM падает с "insufficient memory for the Java Runtime Environment".
+    maxHeapSize = "768m"
+    jvmArgs("-XX:MaxMetaspaceSize=384m", "-Dfile.encoding=UTF-8")
+    maxParallelForks = 1
     testLogging {
         events("passed", "failed", "skipped")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

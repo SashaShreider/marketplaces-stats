@@ -5,7 +5,9 @@ import ru.analizer.marketplace.ozon.dto.Delivery;
 import ru.analizer.marketplace.ozon.dto.DeliveryService;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
 import ru.analizer.marketplace.ozon.dto.ItemFee;
+import ru.analizer.marketplace.ozon.dto.ItemFees;
 import ru.analizer.marketplace.ozon.dto.Money;
+import ru.analizer.marketplace.ozon.dto.NonItemFee;
 import ru.analizer.marketplace.ozon.dto.Posting;
 import ru.analizer.marketplace.ozon.dto.PostingProduct;
 
@@ -17,12 +19,12 @@ import java.util.List;
  * Перевод DTO OZON в маркетплейс-независимое представление.
  * Только преобразование данных: ни запросов, ни обращения к БД.
  */
-final class OzonMapper {
+public final class OzonMapper {
 
     private OzonMapper() {
     }
 
-    static AccrualDto toAccrualDto(FinanceAccrual accrual, String rawJson) {
+    public static AccrualDto toAccrualDto(FinanceAccrual accrual, String rawJson) {
         return new AccrualDto(
                 accrual.accrualId(),
                 accrual.accruedDate(),
@@ -32,11 +34,19 @@ final class OzonMapper {
                 amount(accrual.totalAmount()),
                 currency(accrual.totalAmount(), "RUB"),
                 toPosting(accrual.posting()),
-                toItemFees(accrual.itemFees() == null ? null : accrual.itemFees().safeFees()),
-                toFeeDetail(accrual.nonItemFee() == null ? null : accrual.nonItemFee().typeId(),
-                        accrual.nonItemFee() == null ? null : accrual.nonItemFee().accrued()),
+                toItemFees(accrual.itemFees()),
+                toNonItemFee(accrual.nonItemFee()),
                 toContainerFees(accrual.containerFees()),
                 rawJson);
+    }
+
+    /**
+     * NON_ITEM бывает только у своей категории. Возвращать «пусты��к» FeeDetail здесь нельзя:
+     * вызывающий код проверяет на null, и пустой объект привёл бы к вставке строки
+     * с null type_id вместо её отсутствия.
+     */
+    private static AccrualDto.FeeDetail toNonItemFee(NonItemFee nonItemFee) {
+        return nonItemFee == null ? null : toFeeDetail(nonItemFee.typeId(), nonItemFee.accrued());
     }
 
     private static AccrualDto.Category toCategory(FinanceAccrual accrual) {
@@ -97,12 +107,12 @@ final class OzonMapper {
                 currency(c.salePrice(), "RUB"));
     }
 
-    private static List<AccrualDto.ItemFee> toItemFees(List<ItemFee> fees) {
-        if (fees == null) {
+    private static List<AccrualDto.ItemFee> toItemFees(ItemFees itemFees) {
+        if (itemFees == null) {
             return null;
         }
         List<AccrualDto.ItemFee> result = new ArrayList<>();
-        for (ItemFee fee : fees) {
+        for (ItemFee fee : itemFees.safeFees()) {
             List<AccrualDto.FeeDetail> details = new ArrayList<>();
             for (var detail : fee.safeFees()) {
                 details.add(toFeeDetail(detail.typeId(), detail.accrued()));

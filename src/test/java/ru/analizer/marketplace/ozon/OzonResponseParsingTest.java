@@ -1,5 +1,6 @@
 package ru.analizer.marketplace.ozon;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.marketplace.AccrualDto;
 
@@ -181,6 +182,39 @@ class OzonResponseParsingTest {
     }
 
     @Test
+    @DisplayName("Отсутствующие блоки остаются null, а не превращаются в пустые объекты")
+    void absentBlocksStayNull() throws IOException {
+        // Проверка на null обязательна: вызывающий код создаёт строки БД только при
+        // непустой детализации. «Пустой» FeeDetail с null type_id привёл бы к вставке
+        // мусорной строки вместо её отсутствия — такой баг уже ловил интеграционный тест.
+        for (AccrualDto dto : load(FIXTURE)) {
+            switch (dto.category()) {
+                case POSTING -> {
+                    assertThat(dto.nonItemFee()).as("POSTING %s", dto.externalId()).isNull();
+                    assertThat(dto.itemFees()).as("POSTING %s", dto.externalId()).isNull();
+                    assertThat(dto.posting()).as("POSTING %s", dto.externalId()).isNotNull();
+                }
+                case ITEM -> {
+                    assertThat(dto.posting()).as("ITEM %s", dto.externalId()).isNull();
+                    assertThat(dto.nonItemFee()).as("ITEM %s", dto.externalId()).isNull();
+                    assertThat(dto.itemFees()).as("ITEM %s", dto.externalId()).isNotEmpty();
+                }
+                case NON_ITEM -> {
+                    assertThat(dto.posting()).as("NON_ITEM %s", dto.externalId()).isNull();
+                    assertThat(dto.itemFees()).as("NON_ITEM %s", dto.externalId()).isNull();
+                    assertThat(dto.nonItemFee()).as("NON_ITEM %s", dto.externalId()).isNotNull();
+                    assertThat(dto.nonItemFee().typeId()).as("NON_ITEM %s", dto.externalId()).isNotNull();
+                }
+                default -> {
+                    assertThat(dto.posting()).isNull();
+                    assertThat(dto.itemFees()).isNull();
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Справочный accrual_type в реальном ответе отсутствует — это зафиксировано")
     void accrualLevelTypeIdIsAbsentInRealResponse() throws IOException {
         // Документация OZON объявляет type_id на уровне операции, но в реальном ответе
         // его нет ни разу: тип начисления лежит в детализации. Тест зафиксирован, чтобы
