@@ -1,6 +1,74 @@
-package ru.analizer.sync;import java.math.BigDecimal;import java.time.LocalDate;import java.util.List;/** * Состояние данных за запрошенный период. * * <p>Главная идея: отчёт не должен отдавать нули, не проверив, что данные вообще есть. * Иначе «день без начислений» и «день не загружен» выглядят одинаково — а это разные вещи, * и второе может означать, что день забыли забрать из OZON. * * @param provisionalDays дни, загруженные, но ещё не окончательные: начисления за них *                        могут прийти позже, поэтому суммы могут измениться */public record SyncCoverage(        int requestedDays,        int loadedDays,        int finalDays,        int failedDays,        List<LocalDate> missingDays,        List<LocalDate> provisionalDays,        List<LocalDate> failedDates,        BigDecimal sumOfLoadedDays) {    /**     * Готов ли период целиком.     *     * <p>Все дни загружены и ни одно не провалилось — значит лимитов на месяц хватает.     */    @com.fasterxml.jackson.annotation.JsonProperty
-    public boolean complete() {        return failedDays == 0 && loadedDays == requestedDays;    }    /**     * Все ли загруженные дни окончательные.     *     * <p>Даже при полном покрытии последние дни обычно не окончательные: начисления за них     * ещё могут прийти. Отчёт об этом обязан сказать.     */    @com.fasterxml.jackson.annotation.JsonProperty
-    public boolean allFinal() {        return complete() && finalDays == loadedDays;    }    /** Доля готовых дней периода, от 0 до 100. */    @com.fasterxml.jackson.annotation.JsonProperty
-    public int percentLoaded() {        if (requestedDays <= 0) {            return 100;        }        return (int) Math.round(loadedDays * 100.0 / requestedDays);    }    @com.fasterxml.jackson.annotation.JsonProperty
-    public boolean isEmpty() {        return loadedDays == 0;    }    /**     * Есть ли смысл предлагать догрузку.     */    @com.fasterxml.jackson.annotation.JsonProperty
-    public boolean needsSync() {        return !complete();    }    /**     * Период, в котором не загружено ни одного дня: все даты числятся недостающими.     *     * <p>Нужен, чтобы об отчёте по ещё не синхронизированному аккаунту можно было сказать     * «ничего не загружено», не пытаясь достать несуществующий аккаунт.     */    public static SyncCoverage empty(LocalDate from, LocalDate to) {        List<LocalDate> missing = new java.util.ArrayList<>();        for (LocalDate date = from; date != null && to != null && !date.isAfter(to); date = date.plusDays(1)) {            missing.add(date);        }        return new SyncCoverage(missing.size(), 0, 0, 0, missing,                List.of(), List.of(), BigDecimal.ZERO);    }}
+package ru.analizer.sync;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * * Состояние данных за запрошенный период. * *
+ * <p>
+ * Главная идея: отчёт не должен отдавать нули, не проверив, что данные вообще
+ * есть. * Иначе «день без начислений» и «день не загружен» выглядят одинаково —
+ * а это разные вещи, * и второе может означать, что день забыли забрать из
+ * OZON. * * @param provisionalDays дни, загруженные, но ещё не окончательные:
+ * начисления за них * могут прийти позже, поэтому суммы могут измениться
+ */
+public record SyncCoverage(int requestedDays, int loadedDays, int finalDays, int failedDays,
+        List<LocalDate> missingDays, List<LocalDate> provisionalDays, List<LocalDate> failedDates,
+        BigDecimal sumOfLoadedDays) {
+    /**
+     * * Готов ли период целиком. * *
+     * <p>
+     * Все дни загружены и ни одно не провалилось — значит лимитов на месяц хватает.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public boolean complete() {
+        return failedDays == 0 && loadedDays == requestedDays;
+    }
+
+    /**
+     * * Все ли загруженные дни окончательные. * *
+     * <p>
+     * Даже при полном покрытии последние дни обычно не окончательные: начисления за
+     * них * ещё могут прийти. Отчёт об этом обязан сказать.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public boolean allFinal() {
+        return complete() && finalDays == loadedDays;
+    }
+
+    /** Доля готовых дней периода, от 0 до 100. */
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public int percentLoaded() {
+        if (requestedDays <= 0) {
+            return 100;
+        }
+        return (int) Math.round(loadedDays * 100.0 / requestedDays);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public boolean isEmpty() {
+        return loadedDays == 0;
+    }
+
+    /** * Есть ли смысл предлагать догрузку. */
+    @com.fasterxml.jackson.annotation.JsonProperty
+    public boolean needsSync() {
+        return !complete();
+    }
+
+    /**
+     * * Период, в котором не загружено ни одного дня: все даты числятся
+     * недостающими. * *
+     * <p>
+     * Нужен, чтобы об отчёте по ещё не синхронизированному аккаунту можно было
+     * сказать * «ничего не загружено», не пытаясь достать несуществующий аккаунт.
+     */
+    public static SyncCoverage empty(LocalDate from, LocalDate to) {
+        List<LocalDate> missing = new java.util.ArrayList<>();
+        for (LocalDate date = from; date != null && to != null && !date.isAfter(to); date = date.plusDays(1)) {
+            missing.add(date);
+        }
+        return new SyncCoverage(missing.size(), 0, 0, 0, missing, List.of(), List.of(), BigDecimal.ZERO);
+    }
+}
