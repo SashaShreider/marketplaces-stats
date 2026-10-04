@@ -10,9 +10,15 @@ import java.time.LocalDate;
  */
 public interface SyncProgressListener {
 
+    /** Начало загрузки периода. */
     void onStart(int totalDays, int daysToFetch);
 
+    /** Взялись за день: он сейчас обрабатывается. */
     void onDayStart(LocalDate day, int processedDays, int daysToFetch);
 
+    /** День успешно загружен. */
+    void onDayDone(LocalDate day, int processedDays, int daysToFetch);
+
+    /** День не удалось загрузить: он числится пропущенным, а не пустым. */
     void onDayFailed(LocalDate day, RuntimeException error);
 }

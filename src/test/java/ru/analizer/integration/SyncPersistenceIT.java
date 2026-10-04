@@ -1,5 +1,7 @@
 package ru.analizer.integration;
 
+import org.springframework.context.annotation.Import;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.sync.SyncReport;
@@ -10,12 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Контрольная точка IMPLEMENTATION §19 Этап 4: реальные данные OZON попали в PostgreSQL
  * без потерь. Сверяются все поля, перечисленные в документе.
  */
+@Import(FixtureAdapterConfig.class)
 class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
     private SyncReport sync() {
-        FixtureAdapterConfig.FIXTURES.put(DAY, DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
         syncService.syncAccrualTypes();
         return syncService.sync(CLIENT_ID, DAY, DAY);
     }
@@ -96,12 +99,12 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
         // а содержимое: сохранённый JSONB должен быть равен исходному элементу массива.
         String stored = jdbc.queryForObject(
                 "select raw_data::text from finance_accrual where external_id = 48762627746", String.class);
-        String original = parse(DAY_2026_04_10).stream()
+        String original = FixtureAdapters.parse(DAY_2026_04_10).stream()
                 .filter(a -> a.externalId() == 48762627746L)
                 .findFirst().orElseThrow()
                 .rawJson();
 
-        assertThat(OzonTestJson.sameJson(stored, original))
+        assertThat(FixtureAdapters.sameJson(stored, original))
                 .as("raw_data должен содержать те же значения, что прислал OZON")
                 .isTrue();
 
@@ -290,7 +293,7 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("День без начислений не создаёт строк")
     void emptyDayCreatesNothing() {
-        FixtureAdapterConfig.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.clear();
         SyncReport report = syncService.sync(CLIENT_ID, offsetDay(1), offsetDay(1));
 
         assertThat(report.accrualsReceived()).isZero();

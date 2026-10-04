@@ -1,5 +1,7 @@
 package ru.analizer.integration;
 
+import org.springframework.context.annotation.Import;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.analytics.DataCoverage;
@@ -17,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * начислений» было невозможно отличить от «день не забрали из OZON». Именно это и было
  * неправильное поведение, с которого началась работа.
  */
+@Import(FixtureAdapterConfig.class)
 class ReportHonestyIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
@@ -31,8 +34,8 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
      */
     private void createAccount() {
         LocalDate anchor = LocalDate.of(2026, 4, 10);
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(anchor, DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(anchor, DAY_2026_04_10);
         syncService.sync(CLIENT_ID, anchor, anchor);
     }
 
@@ -78,8 +81,8 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Частично загруженный период показывает PARTIAL и перечисляет недостающие дни")
     void partialPeriodTellsWhatIsMissing() {
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
         var report = analytics.daily(CLIENT_ID, "OZON",
@@ -100,8 +103,8 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Полностью загруженный период даёт READY")
     void fullyLoadedPeriodIsReady() {
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
         var report = analytics.daily(CLIENT_ID, "OZON",
@@ -116,8 +119,8 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Свежий день не окончательный: отчёт это признаёт")
     void freshDayIsMarkedProvisional() {
         LocalDate today = LocalDate.now();
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(today, DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(today, DAY_2026_04_10);
         syncService.sync(CLIENT_ID, today, today);
 
         var report = analytics.daily(CLIENT_ID, "OZON", today, today);
@@ -132,9 +135,9 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("День без начислений не путается с незагруженным днём")
     void emptyLoadedDayIsNotTheSameAsMissingDay() {
         LocalDate oldDay = LocalDate.of(2026, 4, 10);
-        FixtureAdapterConfig.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.clear();
         // Адаптер отдаёт пустой ответ: день загружен, начислений действительно нет.
-        FixtureAdapterConfig.FIXTURES.put(oldDay, "fixtures/empty-day.json");
+        FixtureAdapters.FIXTURES.put(oldDay, "fixtures/empty-day.json");
 
         syncService.sync(CLIENT_ID, oldDay, oldDay);
 
@@ -153,8 +156,8 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Эндпоинт покрытия отвечает без обращения к OZON")
     void coverageEndpointAnswers() {
         LocalDate oldDay = LocalDate.of(2026, 4, 10);
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(oldDay, DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(oldDay, DAY_2026_04_10);
         syncService.sync(CLIENT_ID, oldDay, oldDay);
 
         SyncCoverage coverage = syncDayService.coverage(accountId(),

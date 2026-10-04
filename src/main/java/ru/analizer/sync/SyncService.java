@@ -153,6 +153,9 @@ public class SyncService {
                 totals.inserted += counts.inserted();
                 totals.updated += counts.updated();
                 totals.skipped += counts.skipped();
+                if (progress != null) {
+                    progress.onDayDone(date, totals.processedDays(), pending.size());
+                }
             } catch (RuntimeException e) {
                 // День не загрузился — это должно быть видно, а не выглядеть как «нулей нет».
                 syncDayService.markFailed(account, date, e.getMessage());

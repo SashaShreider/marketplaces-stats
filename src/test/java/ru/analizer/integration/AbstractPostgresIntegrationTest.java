@@ -3,40 +3,29 @@ package ru.analizer.integration;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import ru.analizer.marketplace.AccrualDto;
-import ru.analizer.marketplace.MarketplaceAdapter;
-import ru.analizer.marketplace.ozon.OzonMapper;
-import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Интеграционная проверка сохранения на настоящем PostgreSQL (Testcontainers).
+ * Интеграционная проверка на настоящем PostgreSQL (Testcontainers).
  *
- * <p>Адаптер подменён на фикстурный: реальный HTTP не используется, но путь данных
- * тот же, что в бою — разбор JSON в DTO, маппинг в домен, запись в БД.
+ * <p>Адаптер маркетплейса подменяет конкретный тест: {@link FixtureAdapterConfig} для
+ * одиночных дней и {@link BulkAdapterConfig} для длинных периодов. Реальный HTTP не
+ * используется, но путь данных тот же, что в бою — разбор JSON в DTO, маппинг в домен,
+ * запись в БД.
+ *
+ * <p>Контейнер поднимается один на весь JVM и работает в отдельной базе: данные тестов
+ * не попадают в базу разработки.
  */
 @SpringBootTest
-@Import(AbstractPostgresIntegrationTest.FixtureAdapterConfig.class)
 abstract class AbstractPostgresIntegrationTest {
 
     /**
@@ -44,7 +33,7 @@ abstract class AbstractPostgresIntegrationTest {
      *
      * <p>Аннотации {@code @Testcontainers} + {@code @Container} останавливали бы контейнер
      * после каждого класса, тогда как Spring-контекст кэшируется и следующий класс получал
-     * уже остановленную базу. Ручной запуск в статическом блоке это исключает.
+     * бы уже остановленную базу. Ручной запуск в статическом блоке это исключает.
      */
     @SuppressWarnings("resource")
     static final PostgreSQLContainer POSTGRES;
@@ -71,107 +60,32 @@ abstract class AbstractPostgresIntegrationTest {
     protected ru.analizer.sync.SyncService syncService;
 
     @Autowired
+    protected ru.analizer.sync.SyncJobService syncJobService;
+
+    @Autowired
     protected ru.analizer.analytics.DailyAnalyticsService analytics;
 
     @Autowired
     protected ru.analizer.sync.SyncDayService syncDayService;
 
+    @Autowired
+    protected ru.analizer.persistence.repository.SyncJobRepository syncJobRepository;
+
+    @Autowired
+    protected ru.analizer.persistence.repository.MarketplaceRepository marketplaceRepository;
+
+    @Autowired
+    protected ru.analizer.persistence.repository.SellerAccountRepository sellerAccountRepository;
+
     protected static final String CLIENT_ID = "1154";
-    protected static final LocalDate DAY = LocalDate.of(2026, 4, 10);
 
-    private static final tools.jackson.databind.ObjectMapper MAPPER = JsonMapper.builder()
-            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .build();
-
-    /**
-     * Фикстурный адаптер: тот же контракт, что у OZON, но данные берутся из файла.
-     * Ни одного обращения к api-seller.ozon.ru.
-     */
-    @TestConfiguration
-    static class FixtureAdapterConfig {
-
-        /**
-         * День → файл с ответом API. Заполняется конкретным тестом.
-         *
-         * <p>Справочник типов — реальный ответ {@code /v1/finance/accrual/types},
-         * а не выдуманный: угадывать названия бессмысленно, OZON может их менять,
-         * и именно поэтому бизнес-логика не должна опираться на захардкоженный список.
-         */
-        static final Map<LocalDate, String> FIXTURES = new LinkedHashMap<>();
-
-        static String accrualTypesJson() {
-            try (InputStream in = AbstractPostgresIntegrationTest.class.getClassLoader()
-                    .getResourceAsStream("fixtures/accrual-types-real.json")) {
-                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-            } catch (IOException e) {
-                throw new IllegalStateException("Не найдена фикстура справочника типов начислений", e);
-            }
-        }
-
-        @Bean
-        @Primary
-        FixtureMarketplaceAdapter fixtureAdapter() {
-            return new FixtureMarketplaceAdapter();
-        }
-    }
-
-    static final class FixtureMarketplaceAdapter implements MarketplaceAdapter {
-
-        @Override
-        public String marketplaceCode() {
-            return "OZON";
-        }
-
-        @Override
-        public List<ru.analizer.marketplace.AccrualTypeInfo> fetchAccrualTypes() {
-            var root = MAPPER.readTree(FixtureAdapterConfig.accrualTypesJson());
-            List<ru.analizer.marketplace.AccrualTypeInfo> types = new ArrayList<>();
-            for (var node : root.get("accrual_types")) {
-                var type = MAPPER.treeToValue(node, ru.analizer.marketplace.ozon.dto.AccrualType.class);
-                types.add(new ru.analizer.marketplace.AccrualTypeInfo(type.id(), type.name(), type.description()));
-            }
-            return types;
-        }
-
-        @Override
-        public List<AccrualDto> fetchAccrualsByDay(LocalDate date) {
-            String resource = FixtureAdapterConfig.FIXTURES.get(date);
-            if (resource == null) {
-                return List.of();
-            }
-            return parse(resource);
-        }
-    }
-
-    static List<AccrualDto> parse(String resource) {
-        try (InputStream in = open(resource)) {
-            var root = MAPPER.readTree(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-            List<AccrualDto> result = new ArrayList<>();
-            for (var node : root.get("accruals")) {
-                result.add(OzonMapper.toAccrualDto(
-                        MAPPER.treeToValue(node, FinanceAccrual.class), node.toString()));
-            }
-            return result;
-        } catch (IOException e) {
-            throw new IllegalStateException("Не удалось прочитать фикстуру " + resource, e);
-        }
-    }
-
-    private static InputStream open(String resource) throws IOException {
-        InputStream in = AbstractPostgresIntegrationTest.class.getClassLoader()
-                .getResourceAsStream(resource);
-        if (in == null) {
-            in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(resource));
-        }
-        if (in == null) {
-            throw new IOException("Фикстура не найдена: " + resource);
-        }
-        return in;
-    }
+    /** Дата, которую используют тесты одиночных дней. */
+    protected static final java.time.LocalDate DAY = java.time.LocalDate.of(2026, 4, 10);
 
     @BeforeEach
     void resetDatabase() {
-        FixtureAdapterConfig.FIXTURES.clear();
+        awaitBackgroundJobs();
+        FixtureAdapters.clearAll();
         jdbc.execute("""
                 TRUNCATE TABLE finance_accrual, posting, posting_product, delivery_service,
                                item_fee, item_fee_detail, non_item_fee, container_fee,
@@ -181,6 +95,33 @@ abstract class AbstractPostgresIntegrationTest {
         jdbc.update("INSERT INTO marketplace (code, name) VALUES ('OZON', 'OZON')");
     }
 
+    /**
+     * Дожидаемся фоновых загрузок перед очисткой базы.
+     *
+     * <p>TRUNCATE требует эксклюзивной блокировки на всех таблицах, а фоновая задача
+     * продолжает писать, пока тест считает её завершённой по статусу. Без этого ожидания
+     * PostgreSQL сообщает о deadlock между очисткой и загрузкой.
+     */
+    private void awaitBackgroundJobs() {
+        Instant deadline = Instant.now().plus(Duration.ofMinutes(2));
+        while (Instant.now().isBefore(deadline)) {
+            Integer active = jdbc.queryForObject("""
+                    select count(*) from sync_job
+                    where status in ('PENDING', 'RUNNING')
+                    """, Integer.class);
+            if (active == null || active == 0) {
+                return;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        throw new AssertionError("Фоновые задачи синхронизации не завершились за 2 минуты");
+    }
+
     protected long count(String table) {
         Long value = jdbc.queryForObject("select count(*) from " + table, Long.class);
         return value == null ? 0 : value;
@@ -188,6 +129,28 @@ abstract class AbstractPostgresIntegrationTest {
 
     protected BigDecimalAssert sumTotal(String table) {
         return new BigDecimalAssert(jdbc.queryForObject(
-                "select coalesce(sum(total_amount), 0) from " + table, java.math.BigDecimal.class));
+                "select coalesce(sum(total_amount), 0) from " + table, BigDecimal.class));
+    }
+
+    /** Проверка суммы читается в тестах как {@code bd(x).is("11297.23")}. */
+    protected static final class BigDecimalAssert {
+
+        private final BigDecimal actual;
+
+        BigDecimalAssert(BigDecimal actual) {
+            this.actual = actual;
+        }
+
+        void is(String expected) {
+            assertThat(actual).isEqualByComparingTo(new BigDecimal(expected));
+        }
+
+        void isNegative() {
+            assertThat(actual.signum()).isNegative();
+        }
+
+        void isZero() {
+            assertThat(actual.signum()).isZero();
+        }
     }
 }

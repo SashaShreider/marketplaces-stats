@@ -2,9 +2,11 @@ package ru.analizer.sync;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.analizer.persistence.entity.JobStatus;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
@@ -16,21 +18,36 @@ import ru.analizer.persistence.repository.SyncJobRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Фоновая загрузка периода.
  *
  * <p>Зачем она нужна: загрузка месяца — это десятки обращений к OZON, а года — сотни.
- * Если делать это внутри HTTP-запроса, браузер или клиент отвалится по таймауту, хотя
- * данные наполовину загрузятся. Поэтому запрос создаёт задачу и сразу возвращает её номер,
- * а работа идёт в отдельном потоке.
+ * Если делать это внутри HTTP-запроса, клиент отвалится по таймауту, хотя данные наполовину
+ * загрузятся. Поэтому запрос создаёт задачу и сразу возвращает её номер, а работа уходит
+ * в отдельный поток.
  *
- * <p>Задача хранится в базе, а не только в памяти: после перезапуска приложения видно,
- * что было прервано, и загрузку можно повторить — она докачает только недостающие дни.
+ * <p>Два решения сделаны явно, без опоры на прокси Spring:
+ * <ul>
+ *   <li>фон — {@link TaskExecutor}, потому что {@code @Async} работает только при вызове
+ *       через прокси, и прямой вызов метода того же класса выполнялся бы синхронно
+ *       (POST-запрос «зависал» бы на все 30 дней);</li>
+ *   <li>транзакции — {@link TransactionTemplate} по той же причине: {@code @Transactional}
+ *       на собственном методе не срабатывает.</li>
+ * </ul>
+ * Явная граница видна в коде и не ломается следующим же рефакторингом.
  *
- * <p>TODO(#scheduler): автоматический перезапуск прерванных задач при старте приложения.
- * Сейчас пользователь запускает их заново сам.
+ * <p>Две задачи, пересекающиеся по датам, запустить нельзя: они писали бы одни и те же
+ * операции. Проверка и создание задачи выполняются под одним монитором, поэтому два
+ * одновременных POST-запроса не пройдут оба.
+ *
+ * <p>TODO(#multi-instance): защита от гонки опирается на память одного процесса. При
+ * нескольких экземплярах приложения блокировку нужно перенести в базу — например,
+ * частичным уникальным индексом на активные задачи.
  */
 @Service
 public class SyncJobService {
@@ -41,17 +58,28 @@ public class SyncJobService {
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
     private final SyncService syncService;
+    private final TaskExecutor taskExecutor;
+    private final TransactionTemplate tx;
     private final Clock clock;
+
+    /**
+     * Монитор создания задач: защищает проверку пересечения и вставку строки от гонки.
+     */
+    private final Object submitLock = new Object();
 
     public SyncJobService(SyncJobRepository syncJobRepository,
                           MarketplaceRepository marketplaceRepository,
                           SellerAccountRepository sellerAccountRepository,
                           SyncService syncService,
+                          @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
+                          PlatformTransactionManager transactionManager,
                           Clock clock) {
         this.syncJobRepository = syncJobRepository;
         this.marketplaceRepository = marketplaceRepository;
         this.sellerAccountRepository = sellerAccountRepository;
         this.syncService = syncService;
+        this.taskExecutor = taskExecutor;
+        this.tx = new TransactionTemplate(transactionManager);
         this.clock = clock;
     }
 
@@ -59,8 +87,9 @@ public class SyncJobService {
      * Создаёт задачу и сразу возвращает её номер. Сама загрузка выполняется в фоне.
      *
      * @param syncTypes обновить ли справочник типов начислений перед загрузкой
+     * @throws PeriodAlreadySyncingException если по этому аккаунту уже идёт загрузка,
+     *                                    пересекающаяся с запрошенным периодом
      */
-    @Transactional
     public SyncJobStatus submit(String clientId, String marketplaceCode,
                                 LocalDate dateFrom, LocalDate dateTo, boolean syncTypes) {
         if (dateFrom == null || dateTo == null) {
@@ -70,69 +99,100 @@ public class SyncJobService {
             throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
         }
 
-        Marketplace marketplace = marketplaceRepository.findByCode(marketplaceCode)
-                .orElseThrow(() -> new IllegalArgumentException("Неизвестный маркетплейс: " + marketplaceCode));
-        SellerAccount account = sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
-                .orElseGet(() -> sellerAccountRepository.save(
-                        new SellerAccount(marketplace, marketplaceCode + " " + clientId, clientId)));
+        Long jobId;
+        synchronized (submitLock) {
+            Long accountId = tx.execute(status ->
+                    resolveAccount(clientId, marketplaceCode).getId());
+            if (accountId == null) {
+                throw new IllegalStateException("Не удалось определить аккаунт продавца");
+            }
 
-        int totalDays = (int) (dateTo.toEpochDay() - dateFrom.toEpochDay() + 1);
-        SyncJob job = syncJobRepository.save(new SyncJob(
-                account, marketplaceCode, dateFrom, dateTo, totalDays));
+            Optional<SyncJob> active = findOverlapping(accountId, dateFrom, dateTo);
+            if (active.isPresent()) {
+                throw new PeriodAlreadySyncingException(
+                        describe(active.get()), dateFrom, dateTo);
+            }
 
-        runAsync(job.getId(), clientId, syncTypes);
-        return status(job.getId()).orElseThrow(() ->
-                new IllegalStateException("Задача " + job.getId() + " не найдена сразу после создания"));
+            SyncJob job = tx.execute(status -> syncJobRepository.save(new SyncJob(
+                    resolveAccount(clientId, marketplaceCode), marketplaceCode,
+                    dateFrom, dateTo, countDays(dateFrom, dateTo))));
+            if (job == null) {
+                throw new IllegalStateException("Не удалось создать задачу синхронизации");
+            }
+            jobId = job.getId();
+        }
+
+        // Запуск после выхода из монитора: иначе фоновая работа могла бы начаться
+        // и занять его раньше, чем проверка завершится.
+        taskExecutor.execute(() -> runJob(jobId, clientId, syncTypes));
+
+        return status(jobId).orElseThrow(() ->
+                new IllegalStateException("Задача " + jobId + " не найдена сразу после создания"));
     }
 
     /**
-     * Фоновая работа. Отдельный поток: HTTP-запрос к этому моменту уже закрыт.
+     * Тело фоновой работы. Собственной транзакции здесь нет намеренно: каждый день
+     * коммитится отдельно, поэтому результат виден сразу, а прерванная загрузка
+     * не откатывается целиком.
      */
-    @Async
-    public void runAsync(Long jobId, String clientId, boolean syncTypes) {
-        try {
-            SyncJob job = syncJobRepository.findById(jobId).orElse(null);
-            if (job == null) {
-                log.warn("Задача {} не найдена, запуск отменён", jobId);
-                return;
-            }
-            job.start(Instant.now(clock));
-            syncJobRepository.save(job);
+    void runJob(Long jobId, String clientId, boolean syncTypes) {
+        Optional<SyncJob> found = syncJobRepository.findById(jobId);
+        if (found.isEmpty()) {
+            log.warn("Задача {} не найдена, запуск отменён", jobId);
+            return;
+        }
+        LocalDate from = found.get().getDateFrom();
+        LocalDate to = found.get().getDateTo();
 
+        try {
+            touch(jobId, job -> job.start(Instant.now(clock)));
             if (syncTypes) {
                 syncService.syncAccrualTypes();
             }
-
-            syncService.sync(clientId, job.getDateFrom(), job.getDateTo(), new JobProgressListener(jobId));
-            finish(jobId, null);
+            syncService.sync(clientId, from, to, new JobProgressListener(jobId));
+            touch(jobId, job -> job.finish(Instant.now(clock)));
         } catch (RuntimeException e) {
             log.error("Фоновая задача {} не выполнена", jobId, e);
-            finish(jobId, e.getMessage());
+            touch(jobId, job -> job.fail(String.valueOf(e.getMessage()), Instant.now(clock)));
         }
     }
 
-    private void finish(Long jobId, String error) {
-        syncJobRepository.findById(jobId).ifPresent(job -> {
-            if (error == null) {
-                job.finish(Instant.now(clock));
-            } else {
-                job.fail(error, Instant.now(clock));
-            }
-            syncJobRepository.save(job);
-        });
-    }
-
-    @Transactional(readOnly = true)
     public Optional<SyncJobStatus> status(Long jobId) {
-        return syncJobRepository.findById(jobId).map(this::toStatus);
+        return tx.execute(status -> syncJobRepository.findById(jobId).map(this::toStatus));
     }
 
-    @Transactional(readOnly = true)
-    public java.util.List<SyncJobStatus> recent() {
-        return syncJobRepository.findTop20ByOrderByCreatedAtDesc().stream()
+    public List<SyncJobStatus> recent() {
+        return tx.execute(status -> syncJobRepository.findTop20ByOrderByCreatedAtDesc().stream()
                 .map(this::toStatus)
-                .toList();
+                .toList());
+    }
+
+    /**
+     * Активная задача того же аккаунта, пересекающаяся с запрошенным периодом.
+     *
+     * <p>Пересечение, а не точное совпадение: задачи за сентябрь и за конец августа
+     * конфликтуют по общим дням так же, как две задачи за один период.
+     */
+    private Optional<SyncJob> findOverlapping(Long accountId, LocalDate from, LocalDate to) {
+        return tx.execute(status -> syncJobRepository.findActiveOverlapping(accountId, from, to));
+    }
+
+    /** Обновление задачи в собственной транзакции, чтобы прогресс был виден сразу. */
+    private void touch(Long jobId, Consumer<SyncJob> change) {
+        tx.executeWithoutResult(status -> syncJobRepository.findById(jobId).ifPresent(job -> {
+            change.accept(job);
+            syncJobRepository.save(job);
+        }));
+    }
+
+    private SellerAccount resolveAccount(String clientId, String marketplaceCode) {
+        Marketplace marketplace = marketplaceRepository.findByCode(marketplaceCode)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Неизвестный маркетплейс: " + marketplaceCode));
+        return sellerAccountRepository
+                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
+                .orElseGet(() -> sellerAccountRepository.save(
+                        new SellerAccount(marketplace, marketplaceCode + " " + clientId, clientId)));
     }
 
     private SyncJobStatus toStatus(SyncJob job) {
@@ -154,6 +214,14 @@ public class SyncJobService {
                 job.getStatus() == JobStatus.RUNNING || job.getStatus() == JobStatus.PENDING);
     }
 
+    private static int countDays(LocalDate from, LocalDate to) {
+        return (int) (to.toEpochDay() - from.toEpochDay() + 1);
+    }
+
+    private static String describe(SyncJob job) {
+        return "задача №" + job.getId() + " за период " + job.getDateFrom() + " — " + job.getDateTo();
+    }
+
     /** Пишет прогресс задачи по мере загрузки дней. */
     private final class JobProgressListener implements SyncProgressListener {
 
@@ -165,24 +233,22 @@ public class SyncJobService {
 
         @Override
         public void onStart(int totalDays, int daysToFetch) {
-            touch(job -> job.currentDay(null));
+            touch(jobId, job -> job.currentDay(null));
         }
 
         @Override
         public void onDayStart(LocalDate day, int processedDays, int daysToFetch) {
-            touch(job -> job.currentDay(day));
+            touch(jobId, job -> job.currentDay(day));
+        }
+
+        @Override
+        public void onDayDone(LocalDate day, int processedDays, int daysToFetch) {
+            touch(jobId, SyncJob::dayDone);
         }
 
         @Override
         public void onDayFailed(LocalDate day, RuntimeException error) {
-            touch(SyncJob::dayFailed);
-        }
-
-        private void touch(java.util.function.Consumer<SyncJob> change) {
-            syncJobRepository.findById(jobId).ifPresent(job -> {
-                change.accept(job);
-                syncJobRepository.save(job);
-            });
+            touch(jobId, SyncJob::dayFailed);
         }
     }
 }

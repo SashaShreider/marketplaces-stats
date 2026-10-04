@@ -1,5 +1,7 @@
 package ru.analizer.integration;
 
+import org.springframework.context.annotation.Import;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.sync.SyncCoverage;
@@ -16,12 +18,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Отдельно проверяется, что дочерние строки не накапливаются: при обновлении операции
  * детализация пересобирается, а не добавляется поверх прежней.
  */
+@Import(FixtureAdapterConfig.class)
 class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
     private SyncReport firstSync() {
-        FixtureAdapterConfig.FIXTURES.put(DAY, DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
         syncService.syncAccrualTypes();
         return syncService.sync(CLIENT_ID, DAY, DAY);
     }
@@ -64,8 +67,8 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         // дни продолжают приходить. Если бы повторный запуск пропускал загруженные дни,
         // данные за вчерашний день так и остались бы неполными навсегда.
         LocalDate yesterday = LocalDate.now().minusDays(1);
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(yesterday, DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(yesterday, DAY_2026_04_10);
 
         syncService.syncAccrualTypes();
         SyncReport first = syncService.sync(CLIENT_ID, yesterday, yesterday);

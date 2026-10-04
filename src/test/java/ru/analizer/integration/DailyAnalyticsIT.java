@@ -1,5 +1,7 @@
 package ru.analizer.integration;
 
+import org.springframework.context.annotation.Import;
+
 import org.junit.jupiter.api.DisplayName;
 import ru.analizer.analytics.DailyReport;
 import ru.analizer.analytics.ReportStatus;
@@ -17,14 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Ожидаемые значения подсчитаны вручную по двум реальным выгрузкам OZON,
  * поэтому проверяется не «посчиталось ли что-то», а «посчиталось ли то же, что у OZON».
  */
+@Import(FixtureAdapterConfig.class)
 class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
     private static final String DAY_2026_09_26 = "fixtures/accruals-2026-09-26-full.json";
 
     private DailyReport syncAndReport(String fixture, LocalDate date) {
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(date, fixture);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(date, fixture);
         syncService.syncAccrualTypes();
         syncService.sync(CLIENT_ID, date, date);
         return analytics.daily(CLIENT_ID, "OZON", date, date);
@@ -89,9 +92,9 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Период из нескольких дней даёт сумму и показывает пустые дни")
     void multiDayPeriod() {
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
         syncService.syncAccrualTypes();
         syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 9), LocalDate.of(2026, 4, 11));
 
@@ -111,9 +114,9 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Итог за период равен сумме дней и сходится с данными OZON")
     void periodTotalMatchesDays() {
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
         syncService.syncAccrualTypes();
         syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 9, 26));
 

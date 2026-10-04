@@ -1,5 +1,7 @@
 package ru.analizer.integration;
 
+import org.springframework.context.annotation.Import;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.marketplace.AccrualTypeInfo;
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * а не захардкожен: при смене имён OZON аналитика обязана увидеть новое значение, а
  * бизнес-логика — не опираться на конкретные {@code type_id}.
  */
+@Import(FixtureAdapterConfig.class)
 class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
@@ -28,7 +31,7 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Справочник загружается целиком из ответа API")
     void loadsDictionaryFromApi() {
-        List<AccrualTypeInfo> remote = new FixtureMarketplaceAdapter().fetchAccrualTypes();
+        List<AccrualTypeInfo> remote = FixtureAdapters.types();
 
         assertThat(remote).as("реальный справочник OZON на 2026-09-30").hasSize(132);
 
@@ -47,12 +50,12 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Каждый применённый type_id есть в справочнике — расходы не останутся безымянными")
     void everyAppliedTypeExistsInDictionary() {
-        List<AccrualTypeInfo> remote = new FixtureMarketplaceAdapter().fetchAccrualTypes();
+        List<AccrualTypeInfo> remote = FixtureAdapters.types();
         Set<Integer> known = remote.stream().map(AccrualTypeInfo::externalId).collect(Collectors.toSet());
 
         Set<Integer> applied = new TreeSet<>();
         for (String day : List.of(DAY_2026_04_10, DAY_2026_09_26)) {
-            for (AccrualDto dto : parse(day)) {
+            for (AccrualDto dto : FixtureAdapters.parse(day)) {
                 if (dto.nonItemFee() != null) {
                     applied.add(dto.nonItemFee().typeId());
                 }
@@ -79,7 +82,7 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
     void namesComeFromApiNotFromCode() {
         syncService.syncAccrualTypes();
 
-        Map<Integer, String> byExternalId = new FixtureMarketplaceAdapter().fetchAccrualTypes().stream()
+        Map<Integer, String> byExternalId = FixtureAdapters.types().stream()
                 .collect(Collectors.toMap(AccrualTypeInfo::externalId, AccrualTypeInfo::name));
 
         // Названия, которые в реальности означают совсем не то, что можно было бы угадать.

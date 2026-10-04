@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.analizer.marketplace.ozon.OzonApiException;
 import ru.analizer.marketplace.ozon.OzonNotConfiguredException;
+import ru.analizer.sync.PeriodAlreadySyncingException;
 
 import java.net.URI;
 
@@ -39,15 +40,32 @@ public class ApiExceptionHandler {
         return problem;
     }
 
-    /**
-     * Состояние данных, а не сбой сервера: аккаунт известен, но ещё не синхронизирован.
-     * Отдавать это как 500 с пустым телом значит заставить клиента гадать.
-     */
-    @ExceptionHandler(IllegalStateException.class)
+/**
+ * Состояние данных, а не сбой сервера: аккаунт известен, но ещё не синхронизирован.
+ * Отдавать это как 500 с пустым телом значит заставить клиента гадать.
+ */
+@ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleDataNotReady(IllegalStateException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
         problem.setTitle("Данные ещё не готовы");
         problem.setType(URI.create("urn:analizer:error:data-not-ready"));
+        return problem;
+    }
+
+    /**
+     * По этому аккаунту уже идёт загрузка пересекающегося периода.
+     *
+     * <p>Отдельный 409 с указанием активной задачи: пользователю нужно знать, что
+     * дождаться, а не что он сделал что-то не так.
+     */
+    @ExceptionHandler(PeriodAlreadySyncingException.class)
+    public ProblemDetail handleAlreadySyncing(PeriodAlreadySyncingException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        problem.setTitle("Загрузка этого периода уже выполняется");
+        problem.setType(URI.create("urn:analizer:error:already-syncing"));
+        problem.setProperty("activeJob", e.getActiveDescription());
+        problem.setProperty("requestedFrom", e.getRequestedFrom());
+        problem.setProperty("requestedTo", e.getRequestedTo());
         return problem;
     }
 

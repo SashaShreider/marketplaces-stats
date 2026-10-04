@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * и основные колонки, и детализацию для подробного отчёта.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(AbstractPostgresIntegrationTest.FixtureAdapterConfig.class)
+@Import(FixtureAdapterConfig.class)
 class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
 
     @LocalServerPort
@@ -59,8 +59,8 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
     }
 
     private void syncApr10() {
-        FixtureAdapterConfig.FIXTURES.clear();
-        FixtureAdapterConfig.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         syncService.syncAccrualTypes();
         syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
     }
