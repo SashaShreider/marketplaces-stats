@@ -4,8 +4,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.repository.MarketplaceRepository;
-import ru.analizer.persistence.repository.SellerAccountRepository;
+import ru.analizer.persistence.AccountLookup;
+
+import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.DayStateService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,38 +15,59 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Ежедневная аналитика за произвольный период.
  *
  * <p>Считает по сохранённым операциям, а не по ответу OZON: отчёт должен оставаться
  * прежним при смене правил расчёта.
+ *
+ * <p>Отчёт всегда отдаёт состояние данных ({@link ReportStatus}, {@link ReportCoverage}).
+ * Без этого нули за незагруженный день неотличимы от нулей за день без начислений,
+ * и пользователь решил бы, что денег не было.
  */
 @Service
 public class DailyAnalyticsService {
 
     private final AnalyticsFactsRepository facts;
-    private final MarketplaceRepository marketplaceRepository;
-    private final SellerAccountRepository sellerAccountRepository;
+    private final DayStateService dayStateService;
+    private final AccountLookup accountLookup;
 
-    public DailyAnalyticsService(AnalyticsFactsRepository facts,
-                                 MarketplaceRepository marketplaceRepository,
-                                 SellerAccountRepository sellerAccountRepository) {
+public DailyAnalyticsService(AnalyticsFactsRepository facts,
+                                 DayStateService dayStateService,
+                                 AccountLookup accountLookup) {
         this.facts = facts;
-        this.marketplaceRepository = marketplaceRepository;
-        this.sellerAccountRepository = sellerAccountRepository;
+        this.dayStateService = dayStateService;
+        this.accountLookup = accountLookup;
     }
 
     @Transactional(readOnly = true)
-    public DailyReport daily(String clientId, String marketplaceCode, LocalDate from, LocalDate to) {
+    public DailyReport dailyReport(String marketplaceCode, LocalDate from, LocalDate to) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
         if (to.isBefore(from)) {
             throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
         }
+        // Аккаунта может ещё не быть — это не сбой, а «данных нет». Отчёт обязан сказать
+        // об этом прямо (NOT_LOADED), иначе фронтенд не сможет предложить загрузку.
+        Optional<Long> account = accountLookup.findAccount(marketplaceCode)
+                .map(SellerAccount::getId);
 
-        Long accountId = resolveAccount(clientId, marketplaceCode);
+        if (account.isEmpty()) {
+            PeriodCoverage nothing = PeriodCoverage.empty(from, to);
+            return emptyReport(marketplaceCode, from, to, ReportCoverage.from(nothing), nothing);
+        }
+        Long accountId = account.get();
+
+        PeriodCoverage periodCoverage = dayStateService.coverage(accountId, from, to);
+        ReportCoverage coverage = ReportCoverage.from(periodCoverage);
+
+        if (periodCoverage.isEmpty()) {
+            return emptyReport(marketplaceCode, from, to, coverage, periodCoverage);
+        }
+
         Map<Integer, String> typeNames = facts.accrualTypeNames();
 
         List<ProductFact> products = facts.products(accountId, from, to);
@@ -59,23 +82,20 @@ public class DailyAnalyticsService {
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             byDate.put(date, FinancialSummary.empty(date, date));
         }
-        for (Map.Entry<LocalDate, BigDecimal> e : payouts.entrySet()) {
-            BigDecimal payout = e.getValue() == null ? BigDecimal.ZERO : e.getValue();
-            byDate.put(e.getKey(), new FinancialSummary(e.getKey(), e.getKey(),
+        for (Map.Entry<LocalDate, BigDecimal> entry : payouts.entrySet()) {
+            BigDecimal payout = entry.getValue() == null ? BigDecimal.ZERO : entry.getValue();
+            byDate.put(entry.getKey(), new FinancialSummary(entry.getKey(), entry.getKey(),
                     BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, payout));
         }
 
-        // Сводим по дням. Товары и расходы приходят одним списком за весь период,
-        // поэтому на каждый день отбираем свою часть.
+        // Товары и расходы приходят одним списком за весь период, поэтому на каждый
+        // день отбираем свою часть.
         for (LocalDate date : byDate.keySet()) {
             BigDecimal payout = n(byDate.get(date).payout());
             List<ProductFact> dayProducts = filterByDate(products, date);
             List<FeeFact> dayFees = filterFeesByDate(fees, date);
-
-            FinancialSummary day = FinancialModel.summarize(
-                    date, date, dayProducts, dayFees, Map.of(date, payout));
-            byDate.put(date, day);
+            byDate.put(date, FinancialModel.summarize(date, date, dayProducts, dayFees, Map.of(date, payout)));
         }
 
         List<DailyRow> rows = new ArrayList<>();
@@ -89,14 +109,45 @@ public class DailyAnalyticsService {
             total = total.plus(day);
         }
 
-        return new DailyReport(marketplaceCode, from, to, rows,
+        return new DailyReport(marketplaceCode, from, to, statusOf(periodCoverage), coverage, rows,
                 total.income(), total.expenses(), total.payoutValue(), total, reconciles(byDate));
+    }
+
+    private DailyReport emptyReport(String marketplaceCode, LocalDate from, LocalDate to,
+                                    ReportCoverage coverage, PeriodCoverage periodCoverage) {
+        List<DailyRow> rows = new ArrayList<>();
+        for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
+            rows.add(DailyRow.of(FinancialSummary.empty(date, date),
+                    new FinancialSummary.ExpenseByType(List.of())));
+        }
+        FinancialSummary zero = FinancialSummary.empty(from, to);
+        return new DailyReport(marketplaceCode, from, to, statusOf(periodCoverage), coverage, rows,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, zero, true);
+    }
+
+    /**
+     * Итоговый статус отчёта по покрытию периода.
+     *
+     * <p>Порядок важен: наличие ошибок важнее полноты, а полнота — важнее успеха.
+     * Пользователь должен видеть, почему цифры неполны, а не просто «0».
+     */
+    public static ReportStatus statusOf(PeriodCoverage coverage) {
+        if (coverage.failedDays() > 0) {
+            return ReportStatus.HAS_ERRORS;
+        }
+        if (coverage.isEmpty()) {
+            return ReportStatus.NOT_LOADED;
+        }
+        if (!coverage.complete()) {
+            return ReportStatus.PARTIAL;
+        }
+        return ReportStatus.READY;
     }
 
     /**
      * Проверка, что по каждому дню доходы минус расходы равны данным OZON.
      * Ненулевое расхождение означало бы, что мы не учли какой-то вид начисления —
-     * такой день в отчёте помечается, а не замалчивается.
+     * такой день помечается, а не замалчивается.
      */
     private boolean reconciles(Map<LocalDate, FinancialSummary> byDate) {
         return byDate.values().stream().allMatch(FinancialSummary::reconciles);
@@ -110,70 +161,9 @@ public class DailyAnalyticsService {
         return fees.stream().filter(f -> f.date().equals(date)).toList();
     }
 
-    private Long resolveAccount(String clientId, String marketplaceCode) {
-        Marketplace marketplace = marketplaceRepository.findByCode(marketplaceCode)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Неизвестный маркетплейс: " + marketplaceCode));
-        return sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
-                .map(SellerAccount::getId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Аккаунт продавца " + clientId + " не найден — сначала выполните синхронизацию"));
-    }
+
 
     private static BigDecimal n(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
     }
-
-    /** Строка отчёта за один день. */
-    public record DailyRow(
-            LocalDate date,
-            BigDecimal income,
-            BigDecimal expenses,
-            BigDecimal payout,
-            Breakdown breakdown,
-            List<FinancialSummary.TypeAmount> expensesByType
-    ) {
-        public static DailyRow of(FinancialSummary day,
-                                  FinancialSummary.ExpenseByType byType) {
-            return new DailyRow(day.dateFrom(), day.income(), day.expenses(), day.payoutValue(),
-                    new Breakdown(day.sales(), day.returns(), day.partnerProgramme(),
-                            day.commission(), day.logistics(), day.otherExpenses()),
-                    byType.items());
-        }
-
-        /**
-         * Детализация показателей дня. Отдаём её вместе с итогом, чтобы подробный
-         * отчёт можно было построить позже, не переделывая ни модель, ни API.
-         */
-        public record Breakdown(
-                BigDecimal sales,
-                BigDecimal returns,
-                BigDecimal partnerProgramme,
-                BigDecimal commission,
-                BigDecimal logistics,
-                BigDecimal otherExpenses
-        ) {
-        }
-    }
-
-    /**
- * Отчёт за период.
- *
- * <p>Три основные величины — компоненты записи, а не вычисляемые методы: Jackson
- * сериализует только компоненты, и frontend получил бы отчёт без итогов.
- * Полная раскладка отдаётся рядом, чтобы подробный отчёт собрать позже.
- */
-public record DailyReport(
-        String marketplace,
-        LocalDate dateFrom,
-        LocalDate dateTo,
-        List<DailyRow> days,
-        BigDecimal income,
-        BigDecimal expenses,
-        BigDecimal payout,
-        FinancialSummary total,
-        boolean reconciled
-) {
-}
 }

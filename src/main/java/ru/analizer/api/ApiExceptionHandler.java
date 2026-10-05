@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.analizer.marketplace.ozon.OzonApiException;
 import ru.analizer.marketplace.ozon.OzonNotConfiguredException;
+import ru.analizer.sync.ImportConflictException;
 
 import java.net.URI;
 
@@ -39,15 +40,54 @@ public class ApiExceptionHandler {
         return problem;
     }
 
-    /**
-     * Состояние данных, а не сбой сервера: аккаунт известен, но ещё не синхронизирован.
-     * Отдавать это как 500 с пустым телом значит заставить клиента гадать.
-     */
-    @ExceptionHandler(IllegalStateException.class)
+/**
+ * Состояние данных, а не сбой сервера: аккаунт известен, но ничего не импортировано.
+ * Отдавать это как 500 с пустым телом значит заставить клиента гадать.
+ */
+@ExceptionHandler(IllegalStateException.class)
     public ProblemDetail handleDataNotReady(IllegalStateException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
         problem.setTitle("Данные ещё не готовы");
         problem.setType(URI.create("urn:analizer:error:data-not-ready"));
+        return problem;
+    }
+
+/**
+     * Импорт нельзя запустить: уже идёт другой, либо на маркетплейсе несколько аккаунтов.
+     *
+     * <p>Отдельный 409 с машиночитаемым полем {@code conflict}: клиенту нужно знать, что
+     * дождаться, а не что он сделал что-то не так. Значение {@code conflict} позволяет
+     * отличить случаи, не разбирая текст сообщения.
+     */
+    @ExceptionHandler(ImportConflictException.class)
+    public ProblemDetail handleImportConflict(ImportConflictException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
+        problem.setTitle(e.title());
+        problem.setType(URI.create("urn:analizer:error:import-conflict"));
+        problem.setProperty("conflict", e.conflict().name());
+        if (e.activeImportId() != null) {
+            problem.setProperty("activeImportId", e.activeImportId());
+        }
+        if (e.activeDescription() != null) {
+            problem.setProperty("activeImport", e.activeDescription());
+        }
+        if (e.requestedFrom() != null) {
+            problem.setProperty("requestedFrom", e.requestedFrom());
+        }
+        if (e.requestedTo() != null) {
+            problem.setProperty("requestedTo", e.requestedTo());
+        }
+        return problem;
+    }
+
+@ExceptionHandler(ru.analizer.persistence.UnknownMarketplaceException.class)
+    public ProblemDetail handleUnknownMarketplace(ru.analizer.persistence.UnknownMarketplaceException e) {
+        // Отдельный 404, а не 400: адрес верен, ресурса по нему просто нет.
+        // Иначе клиент принял бы опечатку в пути за ошибку своих параметров.
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        problem.setTitle("Неизвестный маркетплейс");
+        problem.setType(URI.create("urn:analizer:error:unknown-marketplace"));
+        problem.setProperty("marketplace", e.code());
         return problem;
     }
 

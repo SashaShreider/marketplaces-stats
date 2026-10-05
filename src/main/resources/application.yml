@@ -29,7 +29,7 @@ spring:
     locations: classpath:db/migration
 
   jackson:
-    default-property-inclusion: non_null
+    default-property-inclusion: always
     deserialization:
       fail-on-unknown-properties: false
 
@@ -57,7 +57,17 @@ ozon:
   retry-backoff: ${OZON_RETRY_BACKOFF:2s}
 
 sync:
+  # Курсор last_id живёт 15 минут: если OZON его отверг, страницу перезапрашиваем с начала.
   max-page-retries: ${SYNC_MAX_PAGE_RETRIES:2}
+  # Окно зрелости, дней. День считается окончательным, только если он старше окна:
+  # начисления за свежие дни ещё приходят. Значение уточняется по статистике изменений.
+  maturity-days: ${SYNC_MATURITY_DAYS:3}
+  # Сколько ждать прерванную фоновую задачу при старте приложения.
+  background-timeout-seconds: ${SYNC_BACKGROUND_TIMEOUT:30}
+
+spring.task.execution.pool.core-size: 2
+spring.task.execution.pool.max-size: 4
+spring.task.execution.thread-name-prefix: sync-
 
 logging:
   level:

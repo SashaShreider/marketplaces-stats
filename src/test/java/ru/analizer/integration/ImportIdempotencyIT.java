@@ -1,8 +1,13 @@
 package ru.analizer.integration;
 
+import org.springframework.context.annotation.Import;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.sync.SyncReport;
+import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.AccrualImportReport;
+
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,28 +18,33 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Отдельно проверяется, что дочерние строки не накапливаются: при обновлении операции
  * детализация пересобирается, а не добавляется поверх прежней.
  */
+@Import(FixtureAdapterConfig.class)
 class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
-    private SyncReport firstSync() {
-        FixtureAdapterConfig.FIXTURES.put(DAY, DAY_2026_04_10);
-        syncService.syncAccrualTypes();
-        return syncService.sync(CLIENT_ID, DAY, DAY);
+    private AccrualImportReport firstSync() {
+        FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
+        accrualImportService.refreshAccrualTypes();
+        return accrualImportService.importAccruals(accountId(), DAY, DAY);
     }
 
     @Test
     @DisplayName("Второй запуск за тот же день не создаёт новых операций")
     void secondRunDoesNotInsertDuplicates() {
-        SyncReport first = firstSync();
+        AccrualImportReport first = firstSync();
         assertThat(first.accrualsInserted()).isEqualTo(94);
         assertThat(first.accrualsUpdated()).isZero();
+        assertThat(first.complete()).isTrue();
 
-        SyncReport second = syncService.sync(CLIENT_ID, DAY, DAY);
+        AccrualImportReport second = accrualImportService.importAccruals(accountId(), DAY, DAY);
 
-        assertThat(second.accrualsReceived()).isEqualTo(94);
-        assertThat(second.accrualsInserted()).as("дубликатов быть не должно").isZero();
-        assertThat(second.accrualsUpdated()).isEqualTo(94);
+        // 2026-04-10 давно старше окна зрелости, поэтому день окончательный и повторно
+        // не запрашивается: никаких обращений к OZON и никаких дублей в базе.
+        assertThat(second.accrualsInserted()).isZero();
+        assertThat(second.accrualsUpdated()).isZero();
+        assertThat(second.accrualsReceived()).as("окончательный день не перезапрашивается").isZero();
+        assertThat(second.syncedDays()).isZero();
         assertThat(count("finance_accrual")).isEqualTo(94);
     }
 
@@ -42,13 +52,44 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Третий запуск тоже стабилен, а суммы не меняются")
     void repeatedRunsAreStable() {
         firstSync();
-        syncService.sync(CLIENT_ID, DAY, DAY);
-        SyncReport third = syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+        AccrualImportReport third = accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         assertThat(third.accrualsInserted()).isZero();
-        assertThat(third.accrualsUpdated()).isEqualTo(94);
         assertThat(count("finance_accrual")).isEqualTo(94);
         sumTotal("finance_accrual").is("11297.23");
+    }
+
+    @Test
+    @DisplayName("Свежий день внутри окна зрелости перезапрашивается и обновляется")
+    void provisionalDayIsRefreshedOnNextRun() {
+        // Главная причина, по которой окно зрелости вообще нужно: начисления за свежие
+        // дни продолжают приходить. Если бы повторный запуск пропускал загруженные дни,
+        // данные за вчерашний день так и остались бы неполными навсегда.
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        FixtureAdapters.FIXTURES.clear();
+        FixtureAdapters.FIXTURES.put(yesterday, DAY_2026_04_10);
+
+        accrualImportService.refreshAccrualTypes();
+        AccrualImportReport first = accrualImportService.importAccruals(accountId(), yesterday, yesterday);
+        assertThat(first.accrualsInserted()).isEqualTo(94);
+
+        // День загружен, но он внутри окна зрелости — значит не окончательный.
+        var coverage = dayStateService.coverage(clientId(), yesterday, yesterday);
+        assertThat(coverage.loadedDays()).isEqualTo(1);
+        assertThat(coverage.finalDays()).as("вчерашний день ещё не окончателен").isZero();
+        assertThat(coverage.provisionalDays()).containsExactly(yesterday);
+        assertThat(coverage.allFinal()).isFalse();
+
+        AccrualImportReport second = accrualImportService.importAccruals(accountId(), yesterday, yesterday);
+        assertThat(second.accrualsReceived()).as("свежий день запрашивается заново").isEqualTo(94);
+        assertThat(second.accrualsUpdated()).as("данные обновились, а не продублировались").isEqualTo(94);
+        assertThat(second.accrualsInserted()).isZero();
+        assertThat(count("finance_accrual")).isEqualTo(94);
+    }
+
+    private Long clientId() {
+        return jdbc.queryForObject("select id from seller_account limit 1", Long.class);
     }
 
     @Test
@@ -62,7 +103,7 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         long itemFeeDetails = count("item_fee_detail");
         long nonItemFees = count("non_item_fee");
 
-        syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         assertThat(count("posting")).isEqualTo(postings);
         assertThat(count("posting_product")).isEqualTo(products);
@@ -87,8 +128,8 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         int initial = (int) count("accrual_type");
         assertThat(initial).isEqualTo(132);
 
-        syncService.syncAccrualTypes();
-        syncService.syncAccrualTypes();
+        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes();
 
         assertThat(count("accrual_type")).isEqualTo(initial);
     }
@@ -97,7 +138,7 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Аккаунт продавца не создаётся повторно")
     void sellerAccountIsNotDuplicated() {
         firstSync();
-        syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         assertThat(count("seller_account")).isEqualTo(1);
         assertThat(count("marketplace")).isEqualTo(1);

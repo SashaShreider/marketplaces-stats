@@ -7,10 +7,14 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import ru.analizer.marketplace.AccrualDto;
 import ru.analizer.marketplace.AccrualPage;
+import ru.analizer.marketplace.CatalogPage;
+import ru.analizer.marketplace.ProductEntry;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrualByDayRequest;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrualTypesResponse;
 import ru.analizer.marketplace.ozon.dto.OzonErrorResponse;
+import ru.analizer.marketplace.ozon.dto.ProductAttributesRequest;
+import ru.analizer.marketplace.ozon.dto.ProductInfoV4;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -36,6 +40,7 @@ public class OzonClient {
 
     private static final String PATH_BY_DAY = "/v1/finance/accrual/by-day";
     private static final String PATH_TYPES = "/v1/finance/accrual/types";
+    private static final String PATH_PRODUCT_ATTRIBUTES = "/v4/product/info/attributes";
 
     private final RestClient restClient;
     private final OzonProperties properties;
@@ -93,6 +98,46 @@ public class OzonClient {
                 .body("{}")
                 .retrieve()
                 .body(FinanceAccrualTypesResponse.class));
+    }
+
+    /**
+     * Страница характеристик товаров.
+     *
+     * <p>Курсор {@code last_id} возвращается как есть и непустым даже на последней
+     * странице, поэтому решать, есть ли следующая страница, должен вызывающий —
+     * см. {@link ru.analizer.marketplace.CatalogPager}.
+     *
+     * <p>Исходный JSON каждого товара сохраняется рядом с разобранным: без него
+     * неизвестный атрибут пришлось бы угадывать, а переинтерпретировать данные
+     * при смене правил было бы нечем.
+     */
+    public CatalogPage getProductAttributes(ProductAttributesRequest request) {
+        ObjectNode root = execute("POST " + PATH_PRODUCT_ATTRIBUTES, () -> restClient.post()
+                .uri(PATH_PRODUCT_ATTRIBUTES)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(ObjectNode.class));
+
+        List<ProductEntry> products = new ArrayList<>();
+        JsonNode resultNode = root.get("result");
+        if (resultNode instanceof ArrayNode arrayNode) {
+            for (JsonNode node : arrayNode) {
+                ProductInfoV4 product = mapper.treeToValue(node, ProductInfoV4.class);
+                if (product.sku() == null) {
+                    // Без sku товар не связать с начислениями: в отчёте по товарам
+                    // такой строкой нечего было бы показать.
+                    continue;
+                }
+                products.add(OzonProductMapper.toProductEntry(product, node.toString()));
+            }
+        }
+
+        JsonNode totalNode = root.get("total");
+        JsonNode lastIdNode = root.get("last_id");
+        int total = totalNode == null || totalNode.isNull() ? 0 : totalNode.asInt();
+        String lastId = lastIdNode == null || lastIdNode.isNull() ? "" : lastIdNode.asString();
+        return new CatalogPage(products, total, lastId);
     }
 
     private <T> T execute(String operation, Supplier<T> call) {

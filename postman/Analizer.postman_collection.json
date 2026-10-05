@@ -1,0 +1,1056 @@
+{
+  "info": {
+    "_postman_id": "b0f1c2d4-6a1e-4f2b-9c3d-analizer0001",
+    "name": "Analizer (OZON)",
+    "description": "Все REST-эндпоинты приложения ru.analizer.\n\nЭндпоинты:\n- GET  /api/analytics/daily — отчёт за период (доходы/расходы/к выплате + детализация)\n- POST /api/sync/ozon — запустить фоновую загрузку из OZON (возвращает 202 + jobId)\n- GET  /api/sync/status — прогресс задачи (по jobId или последняя)\n- GET  /api/sync/jobs — последние задачи\n- GET  /api/sync/coverage — что загружено, а что нет, за период\n- GET  /api/sync/day — что известно про один день\n\nПериоды (1 день, неделя, месяц, полгода) заданы скриптом Pre-request на уровне коллекции: даты считаются от «вчера» относительно текущего момента, поэтому запросы остаются рабочими без правок. Всего 6 диапазонов:\n- {{dateFromDay}} … {{dateToDay}} — 1 день\n- {{dateFromWeek}} … {{dateToWeek}} — неделя (7 дней)\n- {{dateFromMonth}} … {{dateToMonth}} — месяц (30 дней)\n- {{dateFromHalfYear}} … {{dateToHalfYear}} — полгода (180 дней)\n\nПеременные коллекции: baseUrl, clientId (необязательный — по умолчанию берётся из конфигурации приложения), jobId (заполняется тест-скриптом запросов синхронизации).\n\nЗапуск: SERVER_PORT по умолчанию 8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "clientId", "value": "", "type": "string" },
+    { "key": "jobId", "value": "", "type": "string" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Периоды считаются динамически, чтобы коллекция не устаревала.",
+          "// Конец периода — «вчера»: за текущий день начисления в OZON ещё не окончательные.",
+          "const MS_DAY = 24 * 60 * 60 * 1000;",
+          "const iso = (d) => d.toISOString().slice(0, 10);",
+          "",
+          "const now = new Date();",
+          "const to = new Date(now.getTime() - MS_DAY);",
+          "const from = (days) => new Date(now.getTime() - days * MS_DAY);",
+          "",
+          "pm.collectionVariables.set('today', iso(now));",
+          "pm.collectionVariables.set('yesterday', iso(to));",
+          "",
+          "pm.collectionVariables.set('dateFromDay', iso(from(1)));",
+          "pm.collectionVariables.set('dateToDay', iso(to));",
+          "",
+          "pm.collectionVariables.set('dateFromWeek', iso(from(7)));",
+          "pm.collectionVariables.set('dateToWeek', iso(to));",
+          "",
+          "pm.collectionVariables.set('dateFromMonth', iso(from(30)));",
+          "pm.collectionVariables.set('dateToMonth', iso(to));",
+          "",
+          "pm.collectionVariables.set('dateFromHalfYear', iso(from(180)));",
+          "pm.collectionVariables.set('dateToHalfYear', iso(to));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Аналитика — GET /api/analytics/daily",
+      "description": "Отчёт строится по сохранённым операциям, а не по ответу OZON. GET никогда сам не ходит в OZON: если данных нет, в ответе будет status=NOT_LOADED и coverage.needsSync=true, а нули будут означать лишь отсутствие начислений.",
+      "item": [
+        {
+          "name": "Отчёт за 1 день",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromDay}}&dateTo={{dateToDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromDay}}", "description": "Дата начала, ISO yyyy-MM-dd" },
+                { "key": "dateTo", "value": "{{dateToDay}}", "description": "Дата окончания, ISO yyyy-MM-dd" },
+                { "key": "clientId", "value": "{{clientId}}", "description": "Необязательно. Пусто — аккаунт из конфигурации", "disabled": true }
+              ]
+            },
+            "description": "Один день. Пустые дни в периоде тоже присутствуют в days[] — пропуск дня не должен молча выглядеть как «денег не было»."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('marketplace = OZON', () => pm.expect(b.marketplace).to.eql('OZON'));",
+                  "pm.test('есть income/expenses/payout', () => {",
+                  "  pm.expect(b).to.have.property('income');",
+                  "  pm.expect(b).to.have.property('expenses');",
+                  "  pm.expect(b).to.have.property('payout');",
+                  "});",
+                  "pm.test('status задан', () => pm.expect(b.status).to.be.oneOf(['READY', 'PARTIAL', 'NOT_LOADED', 'HAS_ERRORS']));",
+                  "pm.test('rows = 1', () => pm.expect(b.days.length).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "День с данными (READY)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"marketplace\": \"OZON\",\n  \"dateFrom\": \"2026-04-10\",\n  \"dateTo\": \"2026-04-10\",\n  \"status\": \"READY\",\n  \"coverage\": {\n    \"requestedDays\": 1,\n    \"loadedDays\": 1,\n    \"finalDays\": 1,\n    \"failedDays\": 0,\n    \"percentLoaded\": 100,\n    \"missingDays\": [],\n    \"provisionalDays\": [],\n    \"failedDates\": [],\n    \"fullyFinal\": true,\n    \"needsSync\": false,\n    \"suitableForProfit\": true\n  },\n  \"days\": [\n    {\n      \"date\": \"2026-04-10\",\n      \"income\": \"31165.00\",\n      \"expenses\": \"19867.77\",\n      \"payout\": \"11297.23\",\n      \"breakdown\": {\n        \"sales\": \"19804.67\",\n        \"returns\": \"-1039.05\",\n        \"partnerProgramme\": \"12399.38\",\n        \"commission\": \"-12879.33\",\n        \"logistics\": \"-3000.71\",\n        \"otherExpenses\": \"-3987.73\"\n      },\n      \"expensesByType\": [\n        { \"typeId\": 41, \"name\": \"PayPerClick\", \"amount\": \"-2267.09\" },\n        { \"typeId\": 0, \"name\": \"Прочее\", \"amount\": \"-1720.64\" }\n      ]\n    }\n  ],\n  \"income\": \"31165.00\",\n  \"expenses\": \"19867.77\",\n  \"payout\": \"11297.23\",\n  \"total\": {\n    \"dateFrom\": \"2026-04-10\",\n    \"dateTo\": \"2026-04-10\",\n    \"sales\": \"19804.67\",\n    \"returns\": \"-1039.05\",\n    \"partnerProgramme\": \"12399.38\",\n    \"commission\": \"-12879.33\",\n    \"logistics\": \"-3000.71\",\n    \"otherExpenses\": \"-3987.73\",\n    \"payout\": \"11297.23\",\n    \"reconciles\": true\n  },\n  \"reconciled\": true,\n  \"final\": true\n}"
+            },
+            {
+              "name": "Данных нет (NOT_LOADED)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"marketplace\": \"OZON\",\n  \"dateFrom\": \"2026-04-10\",\n  \"dateTo\": \"2026-04-12\",\n  \"status\": \"NOT_LOADED\",\n  \"coverage\": {\n    \"requestedDays\": 3,\n    \"loadedDays\": 0,\n    \"finalDays\": 0,\n    \"failedDays\": 0,\n    \"percentLoaded\": 0,\n    \"missingDays\": [\"2026-04-10\", \"2026-04-11\", \"2026-04-12\"],\n    \"provisionalDays\": [],\n    \"failedDates\": [],\n    \"fullyFinal\": false,\n    \"needsSync\": true,\n    \"suitableForProfit\": false\n  },\n  \"days\": [],\n  \"income\": \"0\",\n  \"expenses\": \"0\",\n  \"payout\": \"0\",\n  \"total\": {\n    \"dateFrom\": \"2026-04-10\",\n    \"dateTo\": \"2026-04-12\",\n    \"sales\": \"0\",\n    \"returns\": \"0\",\n    \"partnerProgramme\": \"0\",\n    \"commission\": \"0\",\n    \"logistics\": \"0\",\n    \"otherExpenses\": \"0\",\n    \"payout\": \"0\",\n    \"reconciles\": true\n  },\n  \"reconciled\": true,\n  \"final\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "Отчёт за неделю (7 дней)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromWeek}}&dateTo={{dateToWeek}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromWeek}}" },
+                { "key": "dateTo", "value": "{{dateToWeek}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Недельный срез: 7 строк в days[], итоги income/expenses/payout за неделю."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('rows = 7', () => pm.expect(b.days.length).to.eql(7));",
+                  "pm.test('reconciled', () => pm.expect(b.reconciled).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Отчёт за месяц (30 дней)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromMonth}}&dateTo={{dateToMonth}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromMonth}}" },
+                { "key": "dateTo", "value": "{{dateToMonth}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Месячный срез: 30 строк. Последние дни обычно provisional — суммы за них ещё могут измениться, об этом сообщает coverage.provisionalDays и final=false."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('rows = 30', () => pm.expect(b.days.length).to.eql(30));",
+                  "pm.test('coverage.percentLoaded задан', () => pm.expect(b.coverage.percentLoaded).to.be.a('number'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Отчёт за полгода (180 дней)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromHalfYear}}&dateTo={{dateToHalfYear}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromHalfYear}}" },
+                { "key": "dateTo", "value": "{{dateToHalfYear}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Полугодовой срез: 180 строк. Если часть периода не загружена, статус станет PARTIAL, а missingDays перечислит недостающие даты для догрузки."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('rows = 180', () => pm.expect(b.days.length).to.eql(180));",
+                  "pm.test('итог = сумма строк', () => {",
+                  "  const sum = (f) => b.days.reduce((a, r) => a + Number(r[f]), 0);",
+                  "  pm.expect(Number(b.payout)).to.be.closeTo(sum('payout'), 0.01);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Отчёт с явным clientId",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromDay}}&dateTo={{dateToDay}}&clientId={{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromDay}}" },
+                { "key": "dateTo", "value": "{{dateToDay}}" },
+                { "key": "clientId", "value": "{{clientId}}", "description": "Client-Id продавца OZON" }
+              ]
+            },
+            "description": "Параметр оставлен на будущее: модель допускает несколько аккаунтов. Задайте переменную clientId на уровне коллекции."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Загрузка данных — POST /api/sync/ozon",
+      "description": "Загрузка запускается только явной командой и идёт в фоне: ответ 202 с номером задачи приходит сразу. Догружаются только недостающие дни — повторный запуск не создаёт дублей и не ходит в OZON зря. Тест-скрипт каждого запроса сохраняет jobId в переменную коллекции, чтобы следующий запрос статуса подхватил его автоматически.",
+      "item": [
+        {
+          "name": "Загрузить 1 день",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{dateFromDay}}&dateTo={{dateToDay}}&syncTypes=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromDay}}" },
+                { "key": "dateTo", "value": "{{dateToDay}}" },
+                { "key": "syncTypes", "value": "false", "description": "true — дополнительно обновить справочник типов начислений" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Минимальная загрузка одного дня. 202 Accepted + тело со статусом задачи."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "const b = pm.response.json();",
+                  "pm.test('задача создана', () => pm.expect(b.id).to.be.a('number'));",
+                  "pm.test('статус известен', () => pm.expect(b.status).to.be.oneOf(['PENDING', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED']));",
+                  "pm.test('totalDays = 1', () => pm.expect(b.totalDays).to.eql(1));",
+                  "pm.collectionVariables.set('jobId', String(b.id));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "202 — задача принята",
+              "status": "Accepted",
+              "code": 202,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 42,\n  \"marketplace\": \"OZON\",\n  \"dateFrom\": \"2026-09-25\",\n  \"dateTo\": \"2026-09-25\",\n  \"status\": \"PENDING\",\n  \"totalDays\": 1,\n  \"doneDays\": 0,\n  \"skippedDays\": 0,\n  \"failedDays\": 0,\n  \"currentDay\": null,\n  \"error\": null,\n  \"createdAt\": \"2026-09-26T10:15:30Z\",\n  \"startedAt\": null,\n  \"finishedAt\": null,\n  \"inProgress\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "Загрузить неделю (7 дней)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{dateFromWeek}}&dateTo={{dateToWeek}}&syncTypes=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromWeek}}" },
+                { "key": "dateTo", "value": "{{dateToWeek}}" },
+                { "key": "syncTypes", "value": "false" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Недельная догрузка. totalDays=7, уже загруженные дни попадут в skippedDays."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "const b = pm.response.json();",
+                  "pm.test('totalDays = 7', () => pm.expect(b.totalDays).to.eql(7));",
+                  "pm.collectionVariables.set('jobId', String(b.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Загрузить месяц (30 дней)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{dateFromMonth}}&dateTo={{dateToMonth}}&syncTypes=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromMonth}}" },
+                { "key": "dateTo", "value": "{{dateToMonth}}" },
+                { "key": "syncTypes", "value": "false" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Месячная догрузка: 30 дней."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "const b = pm.response.json();",
+                  "pm.test('totalDays = 30', () => pm.expect(b.totalDays).to.eql(30));",
+                  "pm.collectionVariables.set('jobId', String(b.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Загрузить полгода (180 дней)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{dateFromHalfYear}}&dateTo={{dateToHalfYear}}&syncTypes=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromHalfYear}}" },
+                { "key": "dateTo", "value": "{{dateToHalfYear}}" },
+                { "key": "syncTypes", "value": "true", "description": "true — обновить справочник типов начислений перед загрузкой" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Полугодовая догрузка. Один из немногих кейсов, где полезно syncTypes=true: справочник типов начислений меняется и без него часть расходов попадёт в «Прочее»."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "const b = pm.response.json();",
+                  "pm.test('totalDays = 180', () => pm.expect(b.totalDays).to.eql(180));",
+                  "pm.collectionVariables.set('jobId', String(b.id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Догрузить с явным clientId и syncTypes=true",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{dateFromMonth}}&dateTo={{dateToMonth}}&syncTypes=true&clientId={{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromMonth}}" },
+                { "key": "dateTo", "value": "{{dateToMonth}}" },
+                { "key": "syncTypes", "value": "true" },
+                { "key": "clientId", "value": "{{clientId}}" }
+              ]
+            },
+            "description": "Явный аккаунт продавца + обновление справочника типов. Идемпотентно: повторный запуск догрузит только недостающие дни."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('202 Accepted', () => pm.response.to.have.status(202));",
+                  "pm.collectionVariables.set('jobId', String(pm.response.json().id));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Статус и задачи — GET /api/sync/status, /api/sync/jobs",
+      "description": "Загрузка идёт в фоне, поэтому прогресс опрашивают отдельно.",
+      "item": [
+        {
+          "name": "Статус задачи по jobId",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/status?jobId={{jobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "status"],
+              "query": [{ "key": "jobId", "value": "{{jobId}}", "description": "Подставляется автоматически из ответа на POST /api/sync/ozon" }]
+            },
+            "description": "Полный прогресс: totalDays, doneDays, skippedDays, failedDays, currentDay. Пока inProgress=true, опрашивать нужно снова."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('прогресс не превышает объём', () => {",
+                  "  pm.expect(b.doneDays + b.skippedDays + b.failedDays).to.be.at.most(b.totalDays);",
+                  "});",
+                  "pm.test('inProgress задан', () => pm.expect(b).to.have.property('inProgress'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Задача в работе (RUNNING)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 42,\n  \"marketplace\": \"OZON\",\n  \"dateFrom\": \"2026-09-20\",\n  \"dateTo\": \"2026-09-25\",\n  \"status\": \"RUNNING\",\n  \"totalDays\": 6,\n  \"doneDays\": 3,\n  \"skippedDays\": 1,\n  \"failedDays\": 0,\n  \"currentDay\": \"2026-09-24\",\n  \"error\": null,\n  \"createdAt\": \"2026-09-26T10:15:30Z\",\n  \"startedAt\": \"2026-09-26T10:15:31Z\",\n  \"finishedAt\": null,\n  \"inProgress\": true\n}"
+            },
+            {
+              "name": "Задача завершена (DONE)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 42,\n  \"marketplace\": \"OZON\",\n  \"dateFrom\": \"2026-09-20\",\n  \"dateTo\": \"2026-09-25\",\n  \"status\": \"DONE\",\n  \"totalDays\": 6,\n  \"doneDays\": 5,\n  \"skippedDays\": 1,\n  \"failedDays\": 0,\n  \"currentDay\": null,\n  \"error\": null,\n  \"createdAt\": \"2026-09-26T10:15:30Z\",\n  \"startedAt\": \"2026-09-26T10:15:31Z\",\n  \"finishedAt\": \"2026-09-26T10:16:02Z\",\n  \"inProgress\": false\n}"
+            },
+            {
+              "name": "Задача провалена (FAILED)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": 42,\n  \"marketplace\": \"OZON\",\n  \"dateFrom\": \"2026-09-20\",\n  \"dateTo\": \"2026-09-25\",\n  \"status\": \"FAILED\",\n  \"totalDays\": 6,\n  \"doneDays\": 2,\n  \"skippedDays\": 0,\n  \"failedDays\": 4,\n  \"currentDay\": null,\n  \"error\": \"OZON API вернул ошибку: превышен лимит запросов\",\n  \"createdAt\": \"2026-09-26T10:15:30Z\",\n  \"startedAt\": \"2026-09-26T10:15:31Z\",\n  \"finishedAt\": \"2026-09-26T10:17:44Z\",\n  \"inProgress\": false\n}"
+            },
+            {
+              "name": "404 — задачи с таким jobId нет",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Статус последней задачи (без jobId)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "status"]
+            },
+            "description": "Без jobId отдаётся последняя задача. Если задач ещё не было — пустой массив [] (не 404 и не 500)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('пусто или последняя задача', () => {",
+                  "  pm.expect(Array.isArray(b) ? b.length === 0 : b.id).to.be.ok;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Список последних задач",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "jobs"]
+            },
+            "description": "История задач синхронизации, свежие сверху. Пустой массив [], если задач не было."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('это массив', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 — список задач",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  {\n    \"id\": 42,\n    \"marketplace\": \"OZON\",\n    \"dateFrom\": \"2026-09-20\",\n    \"dateTo\": \"2026-09-25\",\n    \"status\": \"DONE\",\n    \"totalDays\": 6,\n    \"doneDays\": 5,\n    \"skippedDays\": 1,\n    \"failedDays\": 0,\n    \"currentDay\": null,\n    \"error\": null,\n    \"createdAt\": \"2026-09-26T10:15:30Z\",\n    \"startedAt\": \"2026-09-26T10:15:31Z\",\n    \"finishedAt\": \"2026-09-26T10:16:02Z\",\n    \"inProgress\": false\n  },\n  {\n    \"id\": 41,\n    \"marketplace\": \"OZON\",\n    \"dateFrom\": \"2026-09-13\",\n    \"dateTo\": \"2026-09-19\",\n    \"status\": \"DONE\",\n    \"totalDays\": 7,\n    \"doneDays\": 7,\n    \"skippedDays\": 0,\n    \"failedDays\": 0,\n    \"currentDay\": null,\n    \"error\": null,\n    \"createdAt\": \"2026-09-20T08:02:11Z\",\n    \"startedAt\": \"2026-09-20T08:02:12Z\",\n    \"finishedAt\": \"2026-09-20T08:02:58Z\",\n    \"inProgress\": false\n  }\n]"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Покрытие данных — GET /api/sync/coverage, /api/sync/day",
+      "description": "Покрытие отвечает и до первой синхронизации: отсутствие аккаунта — это «ничего не загружено», а не ошибка. Именно с этих запросов стоит начинать, чтобы понять, что догружать.",
+      "item": [
+        {
+          "name": "Покрытие за 1 день",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{dateFromDay}}&dateTo={{dateToDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromDay}}" },
+                { "key": "dateTo", "value": "{{dateToDay}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "Один день: загружен он или нет."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('requestedDays = 1', () => pm.expect(b.requestedDays).to.eql(1));",
+                  "pm.test('needsSync согласован с complete', () => pm.expect(b.needsSync).to.eql(!b.complete));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покрытие за неделю",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{dateFromWeek}}&dateTo={{dateToWeek}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromWeek}}" },
+                { "key": "dateTo", "value": "{{dateToWeek}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "7 дней: missingDays — что догружать."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('requestedDays = 7', () => pm.expect(b.requestedDays).to.eql(7));",
+                  "pm.test('percentLoaded 0..100', () => pm.expect(b.percentLoaded).to.be.within(0, 100));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покрытие за месяц",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{dateFromMonth}}&dateTo={{dateToMonth}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromMonth}}" },
+                { "key": "dateTo", "value": "{{dateToMonth}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "30 дней. sumOfLoadedDays — сумма начислений по уже загруженным дням."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('requestedDays = 30', () => pm.expect(b.requestedDays).to.eql(30));",
+                  "pm.test('счётчики сходятся', () => {",
+                  "  pm.expect(b.loadedDays + b.missingDays.length).to.eql(b.requestedDays);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покрытие за полгода",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{dateFromHalfYear}}&dateTo={{dateToHalfYear}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromHalfYear}}" },
+                { "key": "dateTo", "value": "{{dateToHalfYear}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "180 дней. allFinal=false при полном покрытии — последние дни ещё не окончательные."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('requestedDays = 180', () => pm.expect(b.requestedDays).to.eql(180));",
+                  "pm.test('isEmpty согласован с loadedDays', () => pm.expect(b.isEmpty).to.eql(b.loadedDays === 0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покрытие до первой синхронизации (неизвестный аккаунт)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{dateFromWeek}}&dateTo={{dateToWeek}}&clientId=9999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromWeek}}" },
+                { "key": "dateTo", "value": "{{dateToWeek}}" },
+                { "key": "clientId", "value": "9999" }
+              ]
+            },
+            "description": "Аккаунта нет — это 200 с needsSync=true и полным списком missingDays, а не 500."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('loadedDays = 0', () => pm.expect(b.loadedDays).to.eql(0));",
+                  "pm.test('needsSync = true', () => pm.expect(b.needsSync).to.be.true);",
+                  "pm.test('missingDays = весь период', () => pm.expect(b.missingDays.length).to.eql(7));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 — ничего не загружено",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"requestedDays\": 3,\n  \"loadedDays\": 0,\n  \"finalDays\": 0,\n  \"failedDays\": 0,\n  \"missingDays\": [\"2026-04-10\", \"2026-04-11\", \"2026-04-12\"],\n  \"provisionalDays\": [],\n  \"failedDates\": [],\n  \"sumOfLoadedDays\": 0,\n  \"complete\": false,\n  \"allFinal\": false,\n  \"percentLoaded\": 0,\n  \"isEmpty\": true,\n  \"needsSync\": true\n}"
+            },
+            {
+              "name": "200 — период загружен частично",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"requestedDays\": 7,\n  \"loadedDays\": 4,\n  \"finalDays\": 2,\n  \"failedDays\": 1,\n  \"missingDays\": [\"2026-09-24\", \"2026-09-25\"],\n  \"provisionalDays\": [\"2026-09-22\", \"2026-09-23\"],\n  \"failedDates\": [\"2026-09-21\"],\n  \"sumOfLoadedDays\": 42180.55,\n  \"complete\": false,\n  \"allFinal\": false,\n  \"percentLoaded\": 57,\n  \"isEmpty\": false,\n  \"needsSync\": true\n}"
+            }
+          ]
+        },
+        {
+          "name": "Состояние одного дня — GET /api/sync/day",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/day?date={{yesterday}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "day"],
+              "query": [
+                { "key": "date", "value": "{{yesterday}}" },
+                { "key": "clientId", "value": "{{clientId}}", "disabled": true }
+              ]
+            },
+            "description": "То же покрытие, но для одного дня: requestedDays всегда 1. Отвечает 200 даже для дня, которого нет в базе."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('requestedDays = 1', () => pm.expect(b.requestedDays).to.eql(1));",
+                  "pm.test('isEmpty согласован с loadedDays', () => pm.expect(b.isEmpty).to.eql(b.loadedDays === 0));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "200 — день загружен",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"requestedDays\": 1,\n  \"loadedDays\": 1,\n  \"finalDays\": 0,\n  \"failedDays\": 0,\n  \"missingDays\": [],\n  \"provisionalDays\": [\"2026-09-25\"],\n  \"failedDates\": [],\n  \"sumOfLoadedDays\": 11297.23,\n  \"complete\": true,\n  \"allFinal\": false,\n  \"percentLoaded\": 100,\n  \"isEmpty\": false,\n  \"needsSync\": false\n}"
+            },
+            {
+              "name": "200 — день не загружен",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"requestedDays\": 1,\n  \"loadedDays\": 0,\n  \"finalDays\": 0,\n  \"failedDays\": 0,\n  \"missingDays\": [\"2026-09-25\"],\n  \"provisionalDays\": [],\n  \"failedDates\": [],\n  \"sumOfLoadedDays\": 0,\n  \"complete\": false,\n  \"allFinal\": false,\n  \"percentLoaded\": 0,\n  \"isEmpty\": true,\n  \"needsSync\": true\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Негативные кейсы и ошибки",
+      "description": "Формат ошибок единый — RFC 7807 ProblemDetail. Различаются намеренно: нулевой результат и «операции получить не удалось» — разные вещи.",
+      "item": [
+        {
+          "name": "400 — нет параметров (daily)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"]
+            },
+            "description": "dateFrom и dateTo обязательны. Ожидаем 400, а не 500."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — задан только dateFrom (daily)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [{ "key": "dateFrom", "value": "{{dateFromDay}}" }]
+            },
+            "description": "Частично заданный период — тоже 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — dateTo раньше dateFrom (daily)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateToDay}}&dateTo={{dateFromDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateToDay}}", "description": "Более поздняя дата" },
+                { "key": "dateTo", "value": "{{dateFromDay}}", "description": "Более ранняя дата" }
+              ]
+            },
+            "description": "Перевёрнутый период. В теле — ProblemDetail с упоминанием dateTo."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('сообщение про dateTo', () => pm.expect(pm.response.text()).to.include('dateTo'));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "400 — некорректные параметры",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/problem+json" }],
+              "body": "{\n  \"type\": \"about:blank\",\n  \"title\": \"Некорректные параметры запроса\",\n  \"status\": 400,\n  \"detail\": \"dateTo не может быть раньше dateFrom\",\n  \"instance\": \"/api/analytics/daily\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "400 — dateTo раньше dateFrom (coverage)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{dateToDay}}&dateTo={{dateFromDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateToDay}}" },
+                { "key": "dateTo", "value": "{{dateFromDay}}" }
+              ]
+            },
+            "description": "Та же проверка в /api/sync/coverage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — некорректный формат даты",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom=10.04.2026&dateTo=2026-04-12",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "10.04.2026", "description": "Ожидается ISO yyyy-MM-dd" },
+                { "key": "dateTo", "value": "2026-04-12" }
+              ]
+            },
+            "description": "Дата разбирается как ISO_LOCAL_DATE. Другой формат — 400, а не молчаливое «сегодня»."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('400 Bad Request', () => pm.response.to.have.status(400));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "404 — несуществующий jobId",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/status?jobId=999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "status"],
+              "query": [{ "key": "jobId", "value": "999999" }]
+            },
+            "description": "Задачи с таким id нет — 404 с пустым телом."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('404 Not Found', () => pm.response.to.have.status(404));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "200 — отчёт по неизвестному аккаунту (NOT_LOADED)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromWeek}}&dateTo={{dateToWeek}}&clientId=9999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromWeek}}" },
+                { "key": "dateTo", "value": "{{dateToWeek}}" },
+                { "key": "clientId", "value": "9999" }
+              ]
+            },
+            "description": "Раньше здесь был 500 с пустым телом. Теперь отчёт прямо говорит, что данных нет, и перечисляет недостающие дни — этого достаточно, чтобы предложить загрузку."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK, а не 500', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('status = NOT_LOADED', () => pm.expect(b.status).to.eql('NOT_LOADED'));",
+                  "pm.test('coverage.needsSync = true', () => pm.expect(b.coverage.needsSync).to.be.true);",
+                  "pm.test('нули не выдаются за «денег не было»', () => {",
+                  "  pm.expect(b.coverage.loadedDays).to.eql(0);",
+                  "  pm.expect(b.coverage.missingDays.length).to.eql(7);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "503 — OZON API не сконфигурирован",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{dateFromDay}}&dateTo={{dateToDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromDay}}" },
+                { "key": "dateTo", "value": "{{dateToDay}}" }
+              ]
+            },
+            "description": "Кейс конфигурации: OZON_CLIENT_ID / OZON_API_KEY не заданы в .env. Это состояние конфигурации, а не ошибка запроса, поэтому 503, а не 500. Проходит, если реквизиты OZON настроены."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ожидается 202 или 503', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([202, 503]);",
+                  "});",
+                  "if (pm.response.code === 503) {",
+                  "  pm.test('ProblemDetail с типом ozon-not-configured', () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.type).to.eql('urn:analizer:error:ozon-not-configured');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "503 — нет реквизитов OZON",
+              "status": "Service Unavailable",
+              "code": 503,
+              "header": [{ "key": "Content-Type", "value": "application/problem+json" }],
+              "body": "{\n  \"type\": \"urn:analizer:error:ozon-not-configured\",\n  \"title\": \"OZON API не сконфигурирован\",\n  \"status\": 503,\n  \"detail\": \"Не заданы OZON_CLIENT_ID или OZON_API_KEY. Задайте их в .env и перезапустите приложение.\",\n  \"instance\": \"/api/sync/ozon\"\n}"
+            },
+            {
+              "name": "502 — OZON API вернул ошибку",
+              "status": "Bad Gateway",
+              "code": 502,
+              "header": [{ "key": "Content-Type", "value": "application/problem+json" }],
+              "body": "{\n  \"type\": \"urn:analizer:error:ozon-api\",\n  \"title\": \"OZON API вернул ошибку\",\n  \"status\": 502,\n  \"detail\": \"OZON API вернул ошибку: превышен лимит запросов\",\n  \"instance\": \"/api/sync/ozon\",\n  \"ozonStatus\": 429,\n  \"ozonCode\": \"TOO_MANY_REQUESTS\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "409 — данные ещё не готовы (справочно)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom={{dateFromDay}}&dateTo={{dateToDay}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "{{dateFromDay}}" },
+                { "key": "dateTo", "value": "{{dateToDay}}" }
+              ]
+            },
+            "description": "Состояние данных, а не сбой сервера: аккаунт известен, но ещё не синхронизирован. Отдаётся как 409 с ProblemDetail urn:analizer:error:data-not-ready. В текущей реализации /api/analytics/daily отвечает 200 с status=NOT_LOADED, поэтому запрос включён как справочный и не падает."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ожидается 200 (NOT_LOADED) или 409', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 409]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "409 — данные ещё не готовы",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/problem+json" }],
+              "body": "{\n  \"type\": \"urn:analizer:error:data-not-ready\",\n  \"title\": \"Данные ещё не готовы\",\n  \"status\": 409,\n  \"detail\": \"За период 2026-09-20 — 2026-09-25 данные ещё не загружены. Выполните синхронизацию.\",\n  \"instance\": \"/api/analytics/daily\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
