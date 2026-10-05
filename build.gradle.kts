@@ -51,8 +51,27 @@ tasks.withType<Test>().configureEach {
     // Spring Boot-контекст, Hibernate и Testcontainers в одном процессе: без явных
     // границ JVM падает с "insufficient memory for the Java Runtime Environment".
     maxHeapSize = "768m"
-    jvmArgs("-XX:MaxMetaspaceSize=384m", "-Dfile.encoding=UTF-8")
+    jvmArgs(
+        "-XX:MaxMetaspaceSize=384m",
+        "-Dfile.encoding=UTF-8",
+        // Полный JIT компилирует методы под нагрузку, которой в тестах нет: профилировщик
+        // работает впустую, зато Spring-контексты поднимаются быстрее.
+        "-XX:TieredStopAtLevel=1",
+    )
+    // Форков больше одного нельзя: на машине 8 ГБ, из них свободно меньше гигабайта,
+    // а каждый форк поднимает свой Spring-контекст и Testcontainers.
     maxParallelForks = 1
+
+    // `-Pfast` гоняет только модульные тесты, без поднятия PostgreSQL и контекста.
+    // Полный прогон занимает около десяти минут, и почти всё это время уходит на старт
+    // контекстов: пока идёт правка кода, запускать его не нужно.
+    if (project.hasProperty("fast")) {
+        filter {
+            excludeTestsMatching("*IT")
+            isFailOnNoMatchingTests = false
+        }
+    }
+
     testLogging {
         events("passed", "failed", "skipped")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
