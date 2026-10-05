@@ -87,8 +87,12 @@ public class ProductAnalyticsService {
             pageIndex = Math.max(0, totalPages - 1);
         }
 
+        // Порядок строк задаёт SQL: постраничная выборка и сортировка должны быть
+        // одним шагом, иначе «по доходу» покажет лучшие товары той страницы, на
+        // которой они случайно оказались.
         List<CatalogFacts.ProductCatalogRow> pageRows = catalogFacts.productsPage(
-                account, authorKey, authorSurname, query, pageIndex * pageSize, pageSize);
+                account, authorKey, authorSurname, query, from, to,
+                sort, pageIndex * pageSize, pageSize);
         List<Long> skus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
 
         Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(account, skus);
@@ -120,7 +124,6 @@ public class ProductAnalyticsService {
                     accrualCounts.getOrDefault(row.sku(), 0),
                     financial));
         }
-        sortRows(rows, sort);
 
         BigDecimal payout = financeFacts.payoutsByDate(account, from, to).values().stream()
                 .map(v -> v == null ? BigDecimal.ZERO : v)
@@ -186,20 +189,6 @@ public class ProductAnalyticsService {
                     productsBySku.getOrDefault(k, List.of()), feesBySku.get(k), Map.of()));
         }
         return result;
-    }
-
-    private static void sortRows(List<ProductReport.ProductRow> rows, String sort) {
-        Comparator<ProductReport.ProductRow> byName =
-                Comparator.comparing(ProductReport.ProductRow::name,
-                        Comparator.nullsLast(Comparator.naturalOrder()));
-        String key = sort == null ? "INCOME" : sort.trim().toUpperCase();
-        switch (key) {
-            case "NAME" -> rows.sort(byName);
-            case "SKU" -> rows.sort(Comparator.comparingLong(ProductReport.ProductRow::sku));
-            default -> rows.sort(Comparator
-                    .comparing(ProductReport.ProductRow::income, Comparator.reverseOrder())
-                    .thenComparing(ProductReport.ProductRow::sku));
-        }
     }
 
     private ProductReport emptyReport(String marketplaceCode, LocalDate from, LocalDate to,

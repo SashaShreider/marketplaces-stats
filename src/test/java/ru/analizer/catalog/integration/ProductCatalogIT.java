@@ -350,6 +350,110 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    @DisplayName("Сортировка по доходу на первой странице даёт лучших товаров всего каталога")
+    void sortedByIncomeAcrossPagesGivesGlobalTop() {
+        // Именно этот случай раньше проходил незамеченным: проверка брала size=500,
+        // то есть весь каталог целиком, и сортировка в памяти давала правильный ответ.
+        // Настоящая беда видна только когда страниц несколько.
+        importCatalogAndFinance();
+
+        ProductReport firstPage = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 10);
+        ProductReport everything = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 500);
+
+        assertThat(everything.rows()).hasSizeGreaterThan(10);
+        assertThat(firstPage.rows()).hasSize(10);
+
+        List<Long> globalTop = everything.rows().stream()
+                .map(r -> r.sku())
+                .limit(10)
+                .toList();
+        assertThat(firstPage.rows().stream().map(r -> r.sku()).toList())
+                .as("первая страница по доходу должна совпадать с началом полного списка")
+                .isEqualTo(globalTop);
+
+        // Итоги не зависят от того, какую страницу смотрит пользователь.
+        assertThat(firstPage.totals().income()).isEqualTo(everything.totals().income());
+    }
+
+    @Test
+    @DisplayName("Порядок из SQL совпадает с порядком по доходам в ответе")
+    void sqlOrderMatchesReportedIncome() {
+        importCatalogAndFinance();
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 500);
+
+        // Сортировка по доходу нужна в двух местах: в SQL, чтобы выбрать страницу, и в
+        // FinancialSummary.income(), чтобы показать число. Если формулы разойдутся,
+        // страница окажется отсортирована по одному, а числа — по другому.
+        List<java.math.BigDecimal> incomes = report.rows().stream()
+                .map(r -> r.income()).toList();
+        assertThat(incomes).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    }
+
+    @Test
+    @DisplayName("Без параметра сортировки отчёт приходит по доходу")
+    void defaultSortIsIncome() {
+        importCatalogAndFinance();
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, null, 0, 500);
+
+        List<java.math.BigDecimal> incomes = report.rows().stream()
+                .map(r -> r.income()).toList();
+        assertThat(incomes).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    }
+
+    @Test
+    @DisplayName("Сортировка по названию и по SKU работает и на страницах")
+    void sortByNameAndSkuWorksAcrossPages() {
+        importCatalogAndFinance();
+
+        List<Long> bySku = productAnalytics.productReport(
+                        MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500)
+                .rows().stream().map(r -> r.sku()).toList();
+        assertThat(bySku).isSorted();
+
+        List<Long> byName = productAnalytics.productReport(
+                        MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "NAME", 0, 500)
+                .rows().stream().map(r -> r.sku()).toList();
+        List<Long> sortedByName = new java.util.ArrayList<>(byName);
+        sortedByName.sort(java.util.Comparator.comparing(sku -> nameOfSku(sku),
+                java.util.Comparator.nullsLast(String::compareTo)));
+        assertThat(byName).isEqualTo(sortedByName);
+    }
+
+    @Test
+    @DisplayName("Неизвестный ключ сортировки не ломает запрос, а трактуется как INCOME")
+    void unknownSortFallsBackToIncome() {
+        importCatalogAndFinance();
+
+        // Ключ подставляется в SQL только из белого списка: значение из запроса в
+        // текст запроса не попадает. Неизвестное значение обязано остаться безопасным.
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "'; drop table ozon_product; --",
+                0, 20);
+
+        assertThat(report.rows()).hasSize(20);
+        assertThat(count("ozon_product"))
+                .as("таблица должна остаться на месте")
+                .isEqualTo(108);
+    }
+
+    private String nameOfSku(Long sku) {
+        return jdbc.queryForObject("select name from ozon_product where sku = ?", String.class, sku);
+    }
+
+    /** Каталог и финансы за день: без обоих отчёт пуст. */
+    private void importCatalogAndFinance() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+    }
+
+    @Test
     @DisplayName("Постраничная выборка не ломает итоги")
     void paginationKeepsTotals() {
         catalogImportService.importProducts(accountId(), null);

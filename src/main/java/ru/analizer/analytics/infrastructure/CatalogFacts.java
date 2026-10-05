@@ -39,15 +39,22 @@ public class CatalogFacts {
     }
 
     /**
-     * Страница каталога с фильтрами.
+     * Страница каталога с фильтрами и заданной сортировкой.
      *
      * <p>Все товары аккаунта, а не только проданные: ноль у товара, который есть в
      * каталоге, — честный ответ «продаж не было». Если брать только товары из
      * начислений, отчёт молчал бы о том, что перестало продаваться.
      *
-     * <p>Сортировка по названию: доход считается в памяти, чтобы правила совпали с
-     * дневным отчётом, и в SQL он неизвестен. Поэтому порядок по доходу применяется
-     * после сведения, а постраничная выборка каталога идёт по названию.
+     * <p><b>Сортировка по доходу делается здесь, а не в памяти.</b> Постраничная выборка
+     * и порядок строк — одно и то же: сначала выбирается страница, потом она
+     * упорядочивается. Если упорядочить после выборки, «по доходу» покажет лучшие
+     * товары той страницы, на которой они случайно оказались, а лучший продавец
+     * окажется на последней странице.
+     *
+     * <p>Сумма дохода повторяет формулу {@code FinancialSummary.income()} — продажи плюс
+     * возвраты плюс программа партнёров. Здесь она нужна только чтобы упорядочить строки;
+     * числа в ответе по-прежнему считает {@link FinancialModel}, и тест сверяет, что
+     * порядок из SQL совпадает с порядком по этим числам.
      *
      * <p>Условие по автору одно, а не два: срабатывает ЛИБО совпадение по полному ключу,
      * ЛИБО по фамилии. Иначе ввод «Сурцуков» не нашёл бы ничего — ключ из одного слова
@@ -57,10 +64,12 @@ public class CatalogFacts {
      * @param authorKey сведённое имя «фамилия инициалы»; пустая строка — без фильтра
      * @param authorSurname фамилия; пустая строка — без фильтра
      * @param query подстрока названия, артикула или ISBN; пустая строка — без фильтра
+     * @param sort {@code INCOME}, {@code NAME} или {@code SKU}
      */
     public List<ProductCatalogRow> productsPage(Long accountId, String authorKey,
                                                 String authorSurname, String query,
-                                                int offset, int limit) {
+                                                LocalDate from, LocalDate to,
+                                                String sort, int offset, int limit) {
         RowMapper<ProductCatalogRow> mapper = (rs, i) -> new ProductCatalogRow(
                 rs.getLong("id"),
                 rs.getLong("sku"),
@@ -69,22 +78,61 @@ public class CatalogFacts {
                 rs.getString("primary_image"),
                 rs.getString("isbn"),
                 rs.getLong("type_id"));
-        return namedJdbc.query("""
-                select id, sku, offer_id, name, primary_image, isbn, type_id
-                from ozon_product
-                where seller_account_id = :account
+        // ORDER BY подставляется по метке, а не склейкой блоков: склейка text block'ов
+        // однажды съела перевод строки и дала «order by …offset».
+        String sql = """
+                with income as (
+                    select p.sku,
+                           sum(coalesce(p.sale_price, 0)
+                               + coalesce(p.bonus, 0)
+                               + coalesce(p.coinvestment, 0)) as total
+                    from finance_accrual a
+                    join posting po on po.finance_accrual_id = a.id
+                    join posting_product p on p.posting_id = po.id
+                    where a.seller_account_id = :account
+                      and a.accrual_date between :from and :to
+                    group by p.sku
+                )
+                select pr.id, pr.sku, pr.offer_id, pr.name, pr.primary_image,
+                       pr.isbn, pr.type_id
+                from ozon_product pr
+                left join income i on i.sku = pr.sku
+                where pr.seller_account_id = :account
                   and (cast(:authorKey as text) = ''
-                       or :authorKey = any(author_keys)
-                       or :authorSurname = any(author_surnames))
+                       or :authorKey = any(pr.author_keys)
+                       or :authorSurname = any(pr.author_surnames))
                   and (cast(:queryText as text) = ''
-                       or lower(name) like lower('%' || :queryText || '%')
-                       or lower(coalesce(offer_id, '')) like lower('%' || :queryText || '%')
-                       or lower(coalesce(isbn, '')) like lower('%' || :queryText || '%'))
-                order by name, sku
+                       or lower(pr.name) like lower('%' || :queryText || '%')
+                       or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
+                       or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+                /*ORDER_BY*/
                 offset :offset limit :limit
-                """, filterParams(accountId, authorKey, authorSurname, query)
+                """.replace("/*ORDER_BY*/", orderBy(sort));
+
+        return namedJdbc.query(sql, filterParams(accountId, authorKey, authorSurname, query)
+                        .addValue("from", from)
+                        .addValue("to", to)
                         .addValue("offset", offset)
                         .addValue("limit", limit), mapper);
+    }
+
+    /**
+     * Предложение {@code ORDER BY} по ключу сортировки.
+     *
+     * <p>Ключ подставляется только из этого списка, а не из значения запроса: иначе
+     * подставил бы его прямо в SQL. Второй элемент — SKU — всегда добавляется, чтобы
+     * порядок был воспроизводимым: без него товары с одинаковым доходом или названием
+     * приходили бы в произвольном порядке и между страницами «прыгали».
+     */
+    private static String orderBy(String sort) {
+        String key = sort == null ? "INCOME" : sort.trim().toUpperCase(java.util.Locale.ROOT);
+        return switch (key) {
+            case "NAME" -> "order by pr.name, pr.sku";
+            case "SKU" -> "order by pr.sku";
+            // Товар без начислений получает доход 0 и уходит в конец, а не пропадает:
+            // в каталоге он есть, и молчать о нём значило бы скрыть товар без продаж.
+            default -> "order by coalesce(i.total, 0) desc, pr.sku";
+        };
     }
 
     /** Сколько товаров подходит под фильтры — чтобы клиент знал число страниц. */
