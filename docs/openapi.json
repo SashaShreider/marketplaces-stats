@@ -1,0 +1,1192 @@
+{
+  "components" : {
+    "schemas" : {
+      "Breakdown" : {
+        "properties" : {
+          "commission" : {
+            "type" : "number"
+          },
+          "logistics" : {
+            "type" : "number"
+          },
+          "otherExpenses" : {
+            "type" : "number"
+          },
+          "partnerProgramme" : {
+            "type" : "number"
+          },
+          "returns" : {
+            "type" : "number"
+          },
+          "sales" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "CatalogInfo" : {
+        "properties" : {
+          "lastSyncedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "loaded" : {
+            "type" : "boolean"
+          },
+          "products" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "CatalogState" : {
+        "properties" : {
+          "lastSyncedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "loaded" : {
+            "type" : "boolean"
+          },
+          "products" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "CredentialsRequest" : {
+        "properties" : {
+          "apiKey" : {
+            "type" : "string"
+          },
+          "clientId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CsrfToken" : {
+        "properties" : {
+          "headerName" : {
+            "type" : "string"
+          },
+          "parameterName" : {
+            "type" : "string"
+          },
+          "token" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "CurrentUserInfo" : {
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "login" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DailyReport" : {
+        "properties" : {
+          "coverage" : {
+            "$ref" : "#/components/schemas/ReportCoverage"
+          },
+          "dateFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dateTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "days" : {
+            "items" : {
+              "$ref" : "#/components/schemas/DailyRow"
+            },
+            "type" : "array"
+          },
+          "expenses" : {
+            "type" : "number"
+          },
+          "final" : {
+            "type" : "boolean"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "marketplace" : {
+            "type" : "string"
+          },
+          "payout" : {
+            "type" : "number"
+          },
+          "reconciled" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "enum" : [ "READY", "PARTIAL", "NOT_LOADED", "HAS_ERRORS" ],
+            "type" : "string"
+          },
+          "total" : {
+            "$ref" : "#/components/schemas/FinancialSummary"
+          }
+        },
+        "type" : "object"
+      },
+      "DailyRow" : {
+        "properties" : {
+          "breakdown" : {
+            "$ref" : "#/components/schemas/Breakdown"
+          },
+          "date" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "expenses" : {
+            "type" : "number"
+          },
+          "expensesByType" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TypeAmount"
+            },
+            "type" : "array"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "payout" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "FinancialSummary" : {
+        "properties" : {
+          "commission" : {
+            "type" : "number"
+          },
+          "dateFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dateTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "logistics" : {
+            "type" : "number"
+          },
+          "otherExpenses" : {
+            "type" : "number"
+          },
+          "partnerProgramme" : {
+            "type" : "number"
+          },
+          "payout" : {
+            "type" : "number"
+          },
+          "reconciles" : {
+            "type" : "boolean"
+          },
+          "returns" : {
+            "type" : "number"
+          },
+          "sales" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "ImportProgress" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "currentUnit" : {
+            "type" : "string"
+          },
+          "dateFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dateTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "doneUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "failedUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "finishedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "importType" : {
+            "enum" : [ "FINANCE", "CATALOG" ],
+            "type" : "string"
+          },
+          "inProgress" : {
+            "type" : "boolean"
+          },
+          "marketplace" : {
+            "type" : "string"
+          },
+          "percent" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "skippedUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "PENDING", "RUNNING", "DONE", "FAILED", "CANCELLED" ],
+            "type" : "string"
+          },
+          "totalUnits" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "LoginRequest" : {
+        "properties" : {
+          "login" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "MarketplaceInfo" : {
+        "properties" : {
+          "accountName" : {
+            "type" : "string"
+          },
+          "catalogProducts" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "clientId" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "connected" : {
+            "type" : "boolean"
+          },
+          "importRuns" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PeriodCoverage" : {
+        "properties" : {
+          "allFinal" : {
+            "type" : "boolean"
+          },
+          "complete" : {
+            "type" : "boolean"
+          },
+          "empty" : {
+            "type" : "boolean"
+          },
+          "failedDates" : {
+            "items" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "failedDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "finalDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "loadedDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "missingDays" : {
+            "items" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "needsSync" : {
+            "type" : "boolean"
+          },
+          "percentLoaded" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "provisionalDays" : {
+            "items" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "requestedDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sumOfLoadedDays" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductAuthorView" : {
+        "properties" : {
+          "primary" : {
+            "type" : "boolean"
+          },
+          "raw" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductReport" : {
+        "properties" : {
+          "catalog" : {
+            "$ref" : "#/components/schemas/CatalogInfo"
+          },
+          "coverage" : {
+            "$ref" : "#/components/schemas/ReportCoverage"
+          },
+          "dateFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dateTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "marketplace" : {
+            "type" : "string"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rows" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ProductRow"
+            },
+            "type" : "array"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "skusMissingFromCatalog" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          },
+          "status" : {
+            "enum" : [ "READY", "PARTIAL", "NOT_LOADED", "HAS_ERRORS" ],
+            "type" : "string"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalRows" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/ProductTotals"
+          },
+          "unallocatedExpenses" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductRow" : {
+        "properties" : {
+          "accrualCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "authors" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ProductAuthorView"
+            },
+            "type" : "array"
+          },
+          "expenses" : {
+            "type" : "number"
+          },
+          "financial" : {
+            "$ref" : "#/components/schemas/FinancialSummary"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "isbn" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "offerId" : {
+            "type" : "string"
+          },
+          "primaryImage" : {
+            "type" : "string"
+          },
+          "quantity" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "sku" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "typeId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductTotals" : {
+        "properties" : {
+          "commission" : {
+            "type" : "number"
+          },
+          "expenses" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "itemExpenses" : {
+            "type" : "number"
+          },
+          "logistics" : {
+            "type" : "number"
+          },
+          "partnerProgramme" : {
+            "type" : "number"
+          },
+          "payout" : {
+            "type" : "number"
+          },
+          "productsInCatalog" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "productsWithSales" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "returns" : {
+            "type" : "number"
+          },
+          "sales" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "RegisterRequest" : {
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "login" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ReportCoverage" : {
+        "properties" : {
+          "failedDates" : {
+            "items" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "failedDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "finalDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "fullyFinal" : {
+            "type" : "boolean"
+          },
+          "loadedDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "missingDays" : {
+            "items" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "needsSync" : {
+            "type" : "boolean"
+          },
+          "percentLoaded" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "provisionalDays" : {
+            "items" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "requestedDays" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "suitableForProfit" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "TypeAmount" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "typeId" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      }
+    },
+    "securitySchemes" : {
+      "sessionCookie" : {
+        "description" : "Кука сессии, выданная при входе",
+        "in" : "cookie",
+        "name" : "JSESSIONID",
+        "type" : "apiKey"
+      }
+    }
+  },
+  "info" : {
+    "description" : "Анализ начислений и каталога товаров OZON.\n\n## Как устроен доступ\nАвторизация по сессии в куке, а не по токену:\n1. `GET /api/auth/csrf` — получить куку XSRF-TOKEN.\n2. `POST /api/auth/register` или `POST /api/auth/login`.\n3. Дальше каждый запрос сам приносит куку JSESSIONID.\n\n## CSRF\nКука XSRF-TOKEN обязана быть продублирована в заголовке\n`X-XSRF-TOKEN` для всех методов, меняющих состояние\n(POST, PUT, DELETE). Публичный метод тоже защищён.\n\n## Разделение данных\nЗапросы возвращают только данные текущего пользователя.\nРеквизиты OZON задаются через\n`PUT /api/marketplaces/{mp}/credentials`.\n",
+    "title" : "OZON Analizer API",
+    "version" : "1.0"
+  },
+  "openapi" : "3.1.0",
+  "paths" : {
+    "/api/auth/csrf" : {
+      "get" : {
+        "operationId" : "csrf",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "token",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/CsrfToken"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : {
+                    "type" : "string"
+                  },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CurrentUserInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/register" : {
+      "post" : {
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/marketplaces" : {
+      "get" : {
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/MarketplaceInfo"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "marketplace-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}" : {
+      "delete" : {
+        "operationId" : "disconnect",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "marketplace-connection-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/analytics/daily" : {
+      "get" : {
+        "operationId" : "dailyReport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DailyReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "analytics-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/analytics/products" : {
+      "get" : {
+        "operationId" : "productReport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "analytics-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/credentials" : {
+      "put" : {
+        "operationId" : "connect",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CredentialsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "marketplace-connection-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/data/authors" : {
+      "get" : {
+        "operationId" : "authors",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/data/catalog" : {
+      "get" : {
+        "operationId" : "catalog",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CatalogState"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/data/coverage" : {
+      "get" : {
+        "operationId" : "coverage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PeriodCoverage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "coverage-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/imports" : {
+      "get" : {
+        "operationId" : "listImports",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ImportProgress"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/imports/catalog" : {
+      "post" : {
+        "operationId" : "startCatalogImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportProgress"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/imports/finance" : {
+      "post" : {
+        "operationId" : "startFinanceImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "refreshAccrualTypes",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportProgress"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/imports/{importId}" : {
+      "get" : {
+        "operationId" : "getImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "importId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportProgress"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    }
+  },
+  "security" : [ {
+    "sessionCookie" : [ ]
+  } ]
+}

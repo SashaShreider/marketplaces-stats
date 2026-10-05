@@ -41,7 +41,10 @@ public class SecurityConfig {
             "/api/auth/register",
             "/api/auth/login",
             "/api/auth/csrf",
-            "/actuator/health"
+            "/actuator/health",
+            // Контракт нужен фронтенду до входа — по нему генерируются типы.
+            "/v3/api-docs",
+            "/v3/api-docs/**"
     };
 
     /** BCrypt со стандартной стоимостью: смена соли инвалидирует хэши всех пользователей. */

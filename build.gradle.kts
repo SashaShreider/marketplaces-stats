@@ -33,6 +33,11 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
+    // Контракт API в виде машинно-читаемого OpenAPI: /v3/api-docs.
+    // Версия 3.x — под Spring Boot 4. Именно webmvc-api, а не -ui: Swagger UI здесь
+    // не нужен, а тянет за собой статику и веб-интерфейс, которого в проекте нет.
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.1.1")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.security:spring-security-test")
@@ -61,6 +66,16 @@ tasks.withType<Test>().configureEach {
     // Форков больше одного нельзя: на машине 8 ГБ, из них свободно меньше гигабайта,
     // а каждый форк поднимает свой Spring-контекст и Testcontainers.
     maxParallelForks = 1
+
+    // Свойства Gradle из командной строки не доходят до форка тестов сами по себе:
+    // форку передаются только явно перечисленные systemProperty. Через них проходит
+    // пересборка контракта OpenApiContractIT.
+    //
+    // Передаётся именно -P, а не -D: Gradle разбирает -Danalizer.updateOpenApi как
+    // имя задачи и падает с «Task not found». Свойство Gradle такого подвоха не имеет.
+    listOf("analizer.updateOpenApi").forEach { name ->
+        providers.gradleProperty(name).orNull?.let { systemProperty(name, it) }
+    }
 
     // `-Pfast` гоняет только модульные тесты, без поднятия PostgreSQL и контекста.
     // Полный прогон занимает около десяти минут, и почти всё это время уходит на старт
