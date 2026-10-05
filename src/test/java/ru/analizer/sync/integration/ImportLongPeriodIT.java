@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * периода запрещён, а после загрузки отчёт показывает полное покрытие.
  */
 @Import(BulkAdapterConfig.class)
-class ImportRunLongPeriodIT extends AbstractPostgresIntegrationTest {
+class ImportLongPeriodIT extends AbstractPostgresIntegrationTest {
 
     /** Полгода: 1 апреля — 30 сентября. */
     private static final LocalDate FROM = LocalDate.of(2026, 4, 1);

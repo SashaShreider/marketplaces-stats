@@ -11,11 +11,14 @@ import ru.analizer.sync.domain.AccrualImportReport;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Контрольная точка IMPLEMENTATION §19 Этап 4: реальные данные OZON попали в PostgreSQL
- * без потерь. Сверяются все поля, перечисленные в документе.
+ * Данные OZON попадают в PostgreSQL без потерь: сверяются все поля ответа адаптера.
+ *
+ * <p>Проверяется построчно, а не итогами. Итоги сойдутся и при потерянных нулях, а
+ * потерянный ноль в `sale_price` — это товар, который в отчёте не попал ни в выручку,
+ * ни в число продаж.
  */
 @Import(FixtureAdapterConfig.class)
-class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
+class ImportPersistenceIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
 

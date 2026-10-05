@@ -92,8 +92,8 @@ class FinancialModelTest {
     @DisplayName("Без учёта бонусов и ковейста отчёт разошёлся бы на их сумму")
     void partnerProgrammeIsRequiredForReconciliation() {
         // Это причина, по которой бонусы вынесены в доходы, а не оставлены без внимания:
-        // IMPLEMENTATION.md §15 их не перечисляет, и «к выплате» разошёлся бы ровно
-        // на сумму начислений по программе партнёров.
+// Бонусы и ковейстем легко счесть расходом или упустить: и то и другое
+          // разводит «к выплате» ровно на сумму начислений по программе партнёров.
         FinancialSummary d1 = summarize(DAY_2026_04_10, D1, D1_PAYOUT);
 
         BigDecimal withoutPartner = d1.sales().add(d1.returns())

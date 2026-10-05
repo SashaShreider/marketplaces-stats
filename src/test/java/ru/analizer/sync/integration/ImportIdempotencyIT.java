@@ -13,14 +13,18 @@ import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Контрольная точка IMPLEMENTATION §19 Этап 5: повторная синхронизация того же периода
- * не создаёт дубликатов.
+ * Повторный импорт того же периода не создаёт дубликатов.
+ *
+ * <p>Проверка неочевидна: импорт можно запускать сколько угодно раз — следовало бы
+ * считать его идемпотентным по построению. Но импорт идёт постранично, и страница может
+ * прийти повторно после сбоя, поэтому дубликаты вполне возможны и должны гаситься на
+ * уровне ограничений в базе.
  *
  * <p>Отдельно проверяется, что дочерние строки не накапливаются: при обновлении операции
  * детализация пересобирается, а не добавляется поверх прежней.
  */
 @Import(FixtureAdapterConfig.class)
-class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
+class ImportIdempotencyIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
 
