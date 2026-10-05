@@ -6,37 +6,75 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080" },
-    { "key": "mp", "value": "ozon" },
-    { "key": "day", "value": "2026-09-26" },
-    { "key": "periodStart", "value": "2026-09-01" },
-    { "key": "periodEnd", "value": "2026-09-30" },
-    { "key": "catalogImportId", "value": "" },
-    { "key": "financeImportId", "value": "" },
-    { "key": "surtukovRows", "value": "" },
-    { "key": "periodIncome", "value": "" },
-    { "key": "totalProducts", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "mp",
+      "value": "ozon"
+    },
+    {
+      "key": "day",
+      "value": "2026-09-26"
+    },
+    {
+      "key": "periodStart",
+      "value": "2026-09-01"
+    },
+    {
+      "key": "periodEnd",
+      "value": "2026-09-30"
+    },
+    {
+      "key": "catalogImportId",
+      "value": ""
+    },
+    {
+      "key": "financeImportId",
+      "value": ""
+    },
+    {
+      "key": "surtukovRows",
+      "value": ""
+    },
+    {
+      "key": "periodIncome",
+      "value": ""
+    },
+    {
+      "key": "totalProducts",
+      "value": ""
+    },
+    {
+      "key": "login",
+      "value": "postman"
+    },
+    {
+      "key": "password",
+      "value": "postman-password-1"
+    },
+    {
+      "key": "ozonClientId",
+      "value": "1154"
+    },
+    {
+      "key": "ozonApiKey",
+      "value": ""
+    }
   ],
   "item": [
     {
-      "name": "00 — Подготовка",
-      "description": "Проверяет, что приложение живо. Запускать ПЕРВЫМ.\n\nНет ответа — приложение не запущено или порт 8080 занят.",
+      "name": "00 — Вход",
+      "description": "Вход обязателен: без сессии любой метод отвечает 401, и Postman сам объявит все\nостальные папки проваленными.\n\nКуки и CSRF Postman подставляет сам: после первого запроса вкладка Cookies\nпокажет JSESSIONID и XSRF-TOKEN, а заголовок X-XSRF-TOKEN подставляется\nавтоматически. Вручную ничего вписывать не нужно.\n\nЗапускать ПЕРВОЙ.",
       "item": [
         {
-          "name": "Приложение отвечает",
+          "name": "Гость получает 401, а не редирект",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/coverage?dateFrom={{periodStart}}&dateTo={{periodEnd}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "coverage"],
-              "query": [
-                { "key": "dateFrom", "value": "{{periodStart}}" },
-                { "key": "dateTo", "value": "{{periodEnd}}" }
-              ]
-            },
-            "description": "Самый дешёвый запрос: чтение из базы, обращения к OZON не будет."
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "description": "Без сессии сервер отвечает кодом, а не отправляет на страницу входа: какую страницу показать, решает фронтенд."
           },
           "event": [
             {
@@ -44,14 +82,204 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Приложение отвечает 200', function () {",
+                  "pm.test('Без сессии — 401', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Редиректа на страницу входа нет', function () {",
+                  "  pm.expect(pm.response.headers.get('Location')).to.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Регистрация",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"login\":\"{{login}}\",\"password\":\"{{password}}\",\"displayName\":\"Продавец из Postman\"}"
+            },
+            "description": "Сессия не создаётся: сначала вход отдельным шагом."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('Регистрация прошла', function () {",
+                  "  pm.expect(status).to.be.oneOf([201, 409]);",
+                  "});",
+                  "pm.test('409 означает, что логин уже занят', function () {",
+                  "  if (status === 409) console.log('Пользователь уже заведён — это нормально, коллекция перезапускается');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Вход",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"login\":\"{{login}}\",\"password\":\"{{password}}\"}"
+            },
+            "description": "Ответ несёт Set-Cookie с JSESSIONID. Дальше коллекция идёт от этого пользователя."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Вход вернул 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const cookie = (pm.response.headers.get('Set-Cookie') || '');",
+                  "pm.test('Выдана кука сессии', function () {",
+                  "  pm.expect(cookie).to.include('JSESSIONID=');",
+                  "});",
+                  "const b = pm.response.json();",
+                  "pm.test('Пароль и хэш в ответе нет', function () {",
+                  "  pm.expect(JSON.stringify(b)).to.not.include('{{password}}');",
+                  "  pm.expect(JSON.stringify(b)).to.not.include('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Кто я",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "description": "Фронтенд вызывает это при старте: 200 — показать приложение, 401 — форму входа."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Сессия жива', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
                   "const b = pm.response.json();",
-                  "pm.test('Покрытие вернулось', function () {",
-                  "  pm.expect(b.requestedDays).to.be.a('number');",
+                  "pm.test('Ответ содержит логин', function () {",
+                  "  pm.expect(b.login).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Подключить реквизиты OZON",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clientId\":\"{{ozonClientId}}\",\"apiKey\":\"{{ozonApiKey}}\"}"
+            },
+            "description": "Обязательный шаг перед первым импортом. Ключи проверяются настоящим запросом к OZON и только потом сохраняются."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('Реквизиты приняты или уже были заданы', function () {",
+                  "  pm.expect(status).to.be.oneOf([200, 400]);",
                   "});",
-                  "console.log('Приложение живо, маркетплейс ' + '{{mp}}' + ' отвечает');"
+                  "if (status === 400) console.log('OZON отверг ключи: ' + pm.response.text());",
+                  "pm.test('Секретный ключ в ответе не возвращается', function () {",
+                  "  pm.expect(pm.response.text()).to.not.include('{{ozonApiKey}}');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Список маркетплейсов: видно, что подключено",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "description": "Показывает маркетплейсы системы и отмечает подключённые. Секретный ключ здесь не бывает."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Список вернул 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const list = pm.response.json();",
+                  "const ozon = list.find(m => m.code === 'OZON');",
+                  "pm.test('OZON найден', function () {",
+                  "  pm.expect(ozon).to.exist;",
+                  "});",
+                  "pm.test('API-ключ не утекает', function () {",
+                  "  pm.expect(JSON.stringify(list)).to.not.include('{{ozonApiKey}}');",
+                  "});",
+                  "pm.test('connected отвечает на подключение', function () {",
+                  "  pm.expect(ozon.connected).to.be.a('boolean');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Выход",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "System.Collections.Specialized.OrderedDictionary",
+            "description": "Сессия уничтожается. После него защищённые методы снова отвечают 401. Последний запрос в коллекции."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Выход вернул 204', function () {",
+                  "  pm.response.to.have.status(204);",
+                  "});"
                 ]
               }
             }
@@ -70,8 +298,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces"
+              ]
             },
             "description": "Позволяет построить выбор маркетплейса, не зная кодов заранее.\n\nСмотрите на credentialsConfigured: при false запуск импорта вернёт 503, и клиенту лучше сказать об этом заранее."
           },
@@ -136,11 +369,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/coverage?dateFrom={{periodStart}}&dateTo={{periodEnd}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "coverage"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "coverage"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{periodStart}}" },
-                { "key": "dateTo", "value": "{{periodEnd}}" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{periodStart}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{periodEnd}}"
+                }
               ]
             }
           },
@@ -178,8 +425,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/catalog",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "catalog"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "catalog"
+              ]
             },
             "description": "loaded = false при products = 0 означает «ещё не импортировался», а НЕ «у продавца нет товаров»."
           },
@@ -212,8 +467,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/authors",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "authors"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "authors"
+              ]
             }
           },
           "event": [
@@ -243,8 +506,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports"
+              ]
             },
             "description": "Всегда массив, даже когда импортов ещё не было: клиенту не нужно различать пустой список и null."
           },
@@ -274,11 +544,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom={{periodStart}}&dateTo={{periodEnd}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{periodStart}}" },
-                { "key": "dateTo", "value": "{{periodEnd}}" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{periodStart}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{periodEnd}}"
+                }
               ]
             },
             "description": "ГЛАВНАЯ ПРОВЕРКА ЧЕСТНОСТИ.\n\nНа чистой базе отчёт обязан сказать NOT_LOADED и перечислить недостающие дни. Молчаливые нули означали бы «продаж не было» — и это была бы ложь.\n\nПоля status, coverage.missingDays, coverage.needsSync обязаны присутствовать."
@@ -321,12 +605,29 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{periodStart}}&dateTo={{periodEnd}}&size=1",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{periodStart}}" },
-                { "key": "dateTo", "value": "{{periodEnd}}" },
-                { "key": "size", "value": "1" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{periodStart}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{periodEnd}}"
+                },
+                {
+                  "key": "size",
+                  "value": "1"
+                }
               ]
             }
           },
@@ -365,8 +666,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/catalog",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "catalog"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "catalog"
+              ]
             },
             "description": "Даты не нужны: у каталога нет периода.\n\nЗАСЕКИТЕ ВРЕМЯ ОТВЕТА — меньше секунды. Если POST «зависнет», значит загрузка идёт синхронно, и это баг.\n\nАккаунт создаётся автоматически, если его ещё нет: на чистой установке первый импорт и должен приводить систему в рабочее состояние."
           },
@@ -410,8 +719,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/{{catalogImportId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "{{catalogImportId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "{{catalogImportId}}"
+              ]
             },
             "description": "Повторяйте, пока inProgress не станет false.\n\nЗАВИСАНИЕ ЗДЕСЬ — ПРИЗНАК БАГА. У метода OZON курсор last_id приходит непустым даже на последней странице, поэтому наивный цикл «пока курсор не пуст» не завершился бы никогда.\n\nПрогресс идёт по товарам: doneUnits растёт от 0 до 108, а totalUnits — это 108 ТОВАРОВ, а не дней."
           },
@@ -452,8 +769,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/catalog",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "catalog"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "catalog"
+              ]
             },
             "description": "Эталон для этого аккаунта: products = 108, loaded = true, появилась lastSyncedAt."
           },
@@ -488,8 +813,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/authors",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "authors"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "authors"
+              ]
             },
             "description": "Варианты для подсказок фильтра строятся из данных ПРОДАВЦА, а не из предположений. Эталон — 86 вариантов.\n\nВ списке будут странные значения вроде «анхель г. (. г.» — это реальные ошибки продавца в карточках."
           },
@@ -534,8 +867,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/catalog",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "catalog"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "catalog"
+              ]
             }
           },
           "event": [
@@ -559,8 +900,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/catalog",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "catalog"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "catalog"
+              ]
             },
             "description": "Должен вернуть 409 с conflict = CATALOG_BUSY: два процесса переписывали бы одни и те же товары."
           },
@@ -605,12 +954,29 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/finance?dateFrom={{day}}&dateTo={{day}}&refreshAccrualTypes=false",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "finance"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "finance"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "refreshAccrualTypes", "value": "false" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "refreshAccrualTypes",
+                  "value": "false"
+                }
               ]
             },
             "description": "refreshAccrualTypes=false — не тратим лишний запрос на справочник типов начислений. Поставьте true, если хотите его обновить (+1 запрос)."
@@ -651,8 +1017,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/{{financeImportId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "{{financeImportId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "{{financeImportId}}"
+              ]
             },
             "description": "Здесь currentUnit — это ДАТА в работе, а не SKU: единица работы у финансового импорта."
           },
@@ -680,11 +1054,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/coverage?dateFrom={{day}}&dateTo={{day}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "coverage"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "coverage"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                }
               ]
             },
             "description": "Про один день: переданы одинаковые dateFrom и dateTo. Отдельного метода «про день» нет намеренно."
@@ -721,11 +1109,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom={{day}}&dateTo={{day}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                }
               ]
             },
             "description": "ГЛАВНАЯ ПРОВЕРКА ТОЖДЕСТВА.\n\nПроверяется соотношение: income − expenses − payout = unallocatedExpenses из отчёта по товарам.\n\nНЕ income − expenses = payout: в отчёте по товарам расходы не включают то, что не привязано к SKU."
@@ -788,11 +1190,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom={{day}}&dateTo={{day}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                }
               ]
             },
             "description": "В breakdown расходы ОТРИЦАТЕЛЬНЫЕ — так их отдаёт OZON. Наружу expenses положительное. Это разные поля намеренно: отчёт должен совпадать с кабинетом и не путать пользователя."
@@ -837,13 +1253,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "INCOME" },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "INCOME"
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "size=500 взят СПЕЦИАЛЬНО: сортировка по доходу работает только внутри уже выбранной страницы, поэтому на маленькой странице первыми окажутся товары с названиями на «А», а не лучшие продажи. Запросив всё одной страницей, получаете честную сортировку.\n\nИтоги при этом всегда считаются по всем товарам, независимо от size.\n\nСравните productsInCatalog с productsWithSales и с totalRows: строк столько же, сколько товаров в каталоге, даже если продавались немногие."
@@ -905,12 +1341,29 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&size=1",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "size", "value": "1" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "size",
+                  "value": "1"
+                }
               ]
             },
             "description": "Расходы типов NON_ITEM и CONTAINER приходят от OZON БЕЗ привязки к товару. Распределить их между товарами можно было бы только выдумав правило, поэтому в коде этого нет, а сумма показана отдельно.\n\nСЛЕДСТВИЕ: сумма расходов по товарам намеренно МЕНЬШЕ дневной. Если бы их тихо размазали по товарам, отчёт показывал бы правдоподобные, но выдуманные цифры."
@@ -949,13 +1402,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "INCOME" },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "INCOME"
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "У товара financial.reconciles может быть false, и это НОРМАЛЬНО: выплата приходит на начисление целиком, а начисление может относиться сразу к нескольким товарам. Распределять её — значит выдумать пропорцию.\n\nТождество проверяется на уровне периода, а не товара."
@@ -1015,13 +1488,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Сурцуков&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "author", "value": "Сурцуков" },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "author",
+                  "value": "Сурцуков"
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "ПОЛНЫМ ИМЕНЕМ: пользователь ввёл только фамилию. Ожидается 4 товара — и те, где автор записан как «Сурцуков А.», и те, где «Сурцуков Анатолий».\n\nРезультат сохраняется, чтобы следующие два запроса могли с ним сравниться."
@@ -1063,13 +1556,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Сурцуков Анатолий&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "author", "value": "Сурцуков Анатолий" },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "author",
+                  "value": "Сурцуков Анатолий"
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "Второе написание того же человека. Число товаров ДОЛЖНО совпасть с предыдущим запросом.\n\nЕсли здесь 2 товара, а в предыдущем было 4 — фильтр работает только на буквальное совпадение и бесполезен."
@@ -1100,13 +1613,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Сурцуков А.&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "author", "value": "Сурцуков А." },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "author",
+                  "value": "Сурцуков А."
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "Третье написание. Число товаров обязано совпасть с первыми двумя.\n\nВсе три запроса возвращают один и тот же список — значит пользователь не обязан угадывать, как именно продавец записал автора."
@@ -1137,13 +1670,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Умнова-Конюхова&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "author", "value": "Умнова-Конюхова" },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "author",
+                  "value": "Умнова-Конюхова"
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "Сложный случай: у этого товара поле «автор на обложке» перечисляет три ФОРМЫ ОДНОГО человека. После сведения к «фамилия + инициалы» это даст три РАЗНЫХ ключа, потому что один человек записан через три фамилии.\n\nАвтоматика этого не лечит: понадобится таблица ручных склеек. Выдумывать правило склейки значит рисковать склеить разных людей."
@@ -1171,13 +1724,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=ТакогоАвтораНет&size=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "author", "value": "ТакогоАвтораНет" },
-                { "key": "size", "value": "10" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "author",
+                  "value": "ТакогоАвтораНет"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
               ]
             },
             "description": "Несуществующий автор — нормальный результат фильтра, а не ошибка. Должно быть 200 и ноль строк."
@@ -1209,13 +1782,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&query=9785907081338&size=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "query", "value": "9785907081338" },
-                { "key": "size", "value": "10" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "query",
+                  "value": "9785907081338"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
               ]
             },
             "description": "Тот же параметр query ищет по названию, своему артикулу и ISBN."
@@ -1246,13 +1839,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&query=itsbook025&size=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "query", "value": "itsbook025" },
-                { "key": "size", "value": "10" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "query",
+                  "value": "itsbook025"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
               ]
             },
             "description": "offer_id продавца. Удобно, когда известен свой артикул, а не ISBN."
@@ -1286,11 +1899,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom=2026-07-01&dateTo=2026-07-10",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "2026-07-01" },
-                { "key": "dateTo", "value": "2026-07-10" }
+                {
+                  "key": "dateFrom",
+                  "value": "2026-07-01"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2026-07-10"
+                }
               ]
             },
             "description": "Каталог импортирован, но финансовых данных за июль нет. Отчёт обязан сказать NOT_LOADED и перечислить 10 недостающих дней."
@@ -1329,11 +1956,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom={{day}}&dateTo=2026-09-28",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "2026-09-28" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2026-09-28"
+                }
               ]
             },
             "description": "Загружен только один день, запрошено три. Ожидается PARTIAL с двумя недостающими днями.\n\nЕсли загрузить остальные дни тоже, здесь будет READY — и это правильно."
@@ -1369,11 +2010,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom={{day}}&dateTo={{day}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                }
               ]
             },
             "description": "Тот же день, что импортировали. Должен быть READY — это доказывает, что PARTIAL появился из-за реально недостающих дней, а не всегда."
@@ -1412,13 +2067,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=500",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "INCOME" },
-                { "key": "size", "value": "500" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "INCOME"
+                },
+                {
+                  "key": "size",
+                  "value": "500"
+                }
               ]
             },
             "description": "size=500 обязателен для честной сортировки по доходу. Итоги сохраняются для сравнения."
@@ -1454,14 +2129,37 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&page=0&size=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "INCOME" },
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "INCOME"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             },
             "description": "ГЛАВНАЯ ПРОВЕРКА ПОСТРАНИЧНОСТИ: totals.income должен совпасть с предыдущим запросом, где было показано 108 товаров вместо 20.\n\nИтоги считаются по ВСЕМ товарам периода, а не по текущей странице. Иначе итог зависел бы от того, какую страницу смотрит пользователь."
@@ -1505,13 +2203,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&page=999&size=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "page", "value": "999" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "page",
+                  "value": "999"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             },
             "description": "Поведение: номер страницы ЗАЖИМАЕТСЯ на последнюю. Запрошено page=999, вернулся последний.\n\nЭто удачнее, чем ошибка: клиенту не нужно самому считать границы, а пустая страница не показывается."
@@ -1547,13 +2265,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=NAME&size=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "NAME" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "NAME"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           },
@@ -1580,13 +2318,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=SKU&size=20",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "SKU" },
-                { "key": "size", "value": "20" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "SKU"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
               ]
             }
           },
@@ -1615,13 +2373,33 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=МУСОР&size=5",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "products"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "products"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "sort", "value": "МУСОР" },
-                { "key": "size", "value": "5" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "sort",
+                  "value": "МУСОР"
+                },
+                {
+                  "key": "size",
+                  "value": "5"
+                }
               ]
             },
             "description": "Неизвестный sort молча сортирует по доходу — по умолчанию. Это 200, а не ошибка."
@@ -1655,8 +2433,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/wildberries/imports",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "wildberries", "imports"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "wildberries",
+                "imports"
+              ]
             },
             "description": "Отдельный 404, а не 400: адрес верен, ресурса по нему просто нет. Иначе клиент принял бы опечатку в пути за ошибку своих параметров."
           },
@@ -1692,8 +2477,16 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/imports/777777",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "imports", "777777"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "imports",
+                "777777"
+              ]
             },
             "description": "Задачи с таким номером нет. Так же отвечает и прогон чужого аккаунта."
           },
@@ -1718,11 +2511,25 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateFrom=2026-09-30&dateTo=2026-09-01",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "2026-09-30" },
-                { "key": "dateTo", "value": "2026-09-01" }
+                {
+                  "key": "dateFrom",
+                  "value": "2026-09-30"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "2026-09-01"
+                }
               ]
             },
             "description": "Ошибка пользователя, а не состояние данных. Должен быть 400 с понятным текстом, а не 500."
@@ -1753,9 +2560,22 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/analytics/daily?dateTo=2026-09-01",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "analytics", "daily"],
-              "query": [{ "key": "dateTo", "value": "2026-09-01" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "analytics",
+                "daily"
+              ],
+              "query": [
+                {
+                  "key": "dateTo",
+                  "value": "2026-09-01"
+                }
+              ]
             },
             "description": "Без dateFrom отчёт не собрать. 400."
           },
@@ -1780,12 +2600,29 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/data/coverage?dateFrom={{day}}&dateTo={{day}}&clientId=9999",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "marketplaces", "{{mp}}", "data", "coverage"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "data",
+                "coverage"
+              ],
               "query": [
-                { "key": "dateFrom", "value": "{{day}}" },
-                { "key": "dateTo", "value": "{{day}}" },
-                { "key": "clientId", "value": "9999" }
+                {
+                  "key": "dateFrom",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "dateTo",
+                  "value": "{{day}}"
+                },
+                {
+                  "key": "clientId",
+                  "value": "9999"
+                }
               ]
             },
             "description": "Параметр clientId УДАЛЁН из контракта. Переданный параметр должен игнорироваться, а не влиять на результат — иначе старый клиент молча получал бы данные чужого аккаунта."

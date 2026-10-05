@@ -23,15 +23,7 @@ public class ImportConflictException extends RuntimeException {
         OVERLAPPING_PERIOD,
 
         /** Импорт каталога уже идёт: каталог у аккаунта один. */
-        CATALOG_BUSY,
-
-        /**
-         * На маркетплейс заведено несколько аккаунтов, а запрос не указывает какой.
-         *
-         * <p>Молча выбрать один значило бы отдать данные не того продавца, поэтому
-         * ситуация считается ошибкой настройки, а не загадкой.
-         */
-        AMBIGUOUS_ACCOUNT
+        CATALOG_BUSY
     }
 
     private final transient Conflict conflict;
@@ -71,21 +63,11 @@ public class ImportConflictException extends RuntimeException {
                 activeImportId, "задача №" + activeImportId, null, null);
     }
 
-    public static ImportConflictException ambiguousAccount(int accounts, String marketplaceCode) {
-        return new ImportConflictException(
-                Conflict.AMBIGUOUS_ACCOUNT,
-                "На маркетплейс " + marketplaceCode + " заведено " + accounts + " аккаунтов, "
-                        + "а запрос не указывает, чей. Выберите один аккаунт или оставьте единственный.",
-                "Несколько аккаунтов на одном маркетплейсе",
-                null, null, null, null);
-    }
-
     /** Короткий заголовок для поля {@code title} в ответе. */
     public String title() {
         return switch (conflict) {
             case OVERLAPPING_PERIOD -> "Импорт пересекающегося периода уже выполняется";
             case CATALOG_BUSY -> "Импорт каталога уже выполняется";
-            case AMBIGUOUS_ACCOUNT -> "Несколько аккаунтов на одном маркетплейсе";
         };
     }
 

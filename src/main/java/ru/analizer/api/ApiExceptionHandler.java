@@ -9,7 +9,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.analizer.marketplace.CredentialsRejectedException;
 import ru.analizer.marketplace.ozon.OzonApiException;
-import ru.analizer.marketplace.ozon.OzonNotConfiguredException;
 import ru.analizer.sync.ImportConflictException;
 
 import java.net.URI;
@@ -25,15 +24,6 @@ import java.net.URI;
 public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
-
-    /** Реквизиты OZON не заданы — это состояние конфигурации, а не ошибка запроса. */
-    @ExceptionHandler(OzonNotConfiguredException.class)
-    public ProblemDetail handleNotConfigured(OzonNotConfiguredException e) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
-        problem.setTitle("OZON API не сконфигурирован");
-        problem.setType(URI.create("urn:analizer:error:ozon-not-configured"));
-        return problem;
-    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleBadRequest(IllegalArgumentException e) {
