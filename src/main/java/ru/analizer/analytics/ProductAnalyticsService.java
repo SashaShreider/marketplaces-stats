@@ -6,10 +6,10 @@ import ru.analizer.catalog.AuthorNormalizer;
 import ru.analizer.analytics.CatalogFacts.ProductAuthorView;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.repository.MarketplaceRepository;
-import ru.analizer.persistence.repository.SellerAccountRepository;
-import ru.analizer.sync.SyncCoverage;
-import ru.analizer.sync.SyncDayService;
+import ru.analizer.persistence.AccountLookup;
+
+import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.DayStateService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -42,20 +42,17 @@ public class ProductAnalyticsService {
 
     private final CatalogFacts catalogFacts;
     private final AnalyticsFactsRepository financeFacts;
-    private final SyncDayService syncDayService;
-    private final MarketplaceRepository marketplaceRepository;
-    private final SellerAccountRepository sellerAccountRepository;
+    private final DayStateService dayStateService;
+    private final AccountLookup accountLookup;
 
     public ProductAnalyticsService(CatalogFacts catalogFacts,
                                    AnalyticsFactsRepository financeFacts,
-                                   SyncDayService syncDayService,
-                                   MarketplaceRepository marketplaceRepository,
-                                   SellerAccountRepository sellerAccountRepository) {
+                                   DayStateService dayStateService,
+                                   AccountLookup accountLookup) {
         this.catalogFacts = catalogFacts;
         this.financeFacts = financeFacts;
-        this.syncDayService = syncDayService;
-        this.marketplaceRepository = marketplaceRepository;
-        this.sellerAccountRepository = sellerAccountRepository;
+        this.dayStateService = dayStateService;
+        this.accountLookup = accountLookup;
     }
 
     /**
@@ -66,7 +63,7 @@ public class ProductAnalyticsService {
      * @param sort как упорядочить: {@code INCOME}, {@code NAME}, {@code SKU}
      */
     @Transactional(readOnly = true)
-    public ProductReport products(String clientId, String marketplaceCode,
+    public ProductReport productReport(String marketplaceCode,
                                   LocalDate from, LocalDate to,
                                   String author, String query,
                                   String sort, int page, int size) {
@@ -79,22 +76,17 @@ public class ProductAnalyticsService {
         int pageSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
         int pageIndex = Math.max(page, 0);
 
-        Marketplace marketplace = marketplaceRepository.findByCode(marketplaceCode)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Неизвестный маркетплейс: " + marketplaceCode));
-
         // Аккаунта может ещё не быть — это «данных нет», а не ошибка. Отчёт обязан
         // сказать об этом прямо, иначе клиент не предложил бы загрузку.
-        Optional<Long> account = sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
+        Optional<Long> account = accountLookup.findAccount(marketplaceCode)
                 .map(SellerAccount::getId);
         if (account.isEmpty()) {
             return emptyReport(marketplaceCode, from, to, pageIndex, pageSize);
         }
         Long accountId = account.get();
 
-        SyncCoverage syncCoverage = syncDayService.coverage(accountId, from, to);
-        DataCoverage coverage = DataCoverage.from(syncCoverage);
+        PeriodCoverage periodCoverage = dayStateService.coverage(accountId, from, to);
+        ReportCoverage coverage = ReportCoverage.from(periodCoverage);
 
         String authorKey = AuthorNormalizer.toKey(author);
         String authorSurname = AuthorNormalizer.toSurname(author);
@@ -161,7 +153,7 @@ public class ProductAnalyticsService {
                 (int) catalogProducts, withSales);
 
         return new ProductReport(marketplaceCode, from, to,
-                DailyAnalyticsService.statusOf(syncCoverage), coverage,
+                DailyAnalyticsService.statusOf(periodCoverage), coverage,
                 new ProductReport.CatalogInfo(catalogProducts,
                         catalogFacts.lastCatalogSync(accountId), catalogProducts > 0),
                 totals, rows, pageIndex, pageSize, totalRows, totalPages,
@@ -222,10 +214,10 @@ public class ProductAnalyticsService {
 
     private ProductReport emptyReport(String marketplaceCode, LocalDate from, LocalDate to,
                                       int pageIndex, int pageSize) {
-        SyncCoverage nothing = SyncCoverage.empty(from, to);
+        PeriodCoverage nothing = PeriodCoverage.empty(from, to);
         FinancialSummary zero = FinancialSummary.empty(from, to);
         return new ProductReport(marketplaceCode, from, to,
-                DailyAnalyticsService.statusOf(nothing), DataCoverage.from(nothing),
+                DailyAnalyticsService.statusOf(nothing), ReportCoverage.from(nothing),
                 new ProductReport.CatalogInfo(0, null, false),
                 new ProductReport.ProductTotals(
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,

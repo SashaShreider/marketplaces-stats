@@ -22,22 +22,22 @@ import java.util.List;
  * целиком — зато он не может разойтись с кабинетом.
  */
 @Service
-public class CatalogSyncService {
+public class CatalogImportService {
 
     /** Максимум по спецификации метода. */
     private static final int PAGE_LIMIT = 1000;
 
-    private static final Logger log = LoggerFactory.getLogger(CatalogSyncService.class);
+    private static final Logger log = LoggerFactory.getLogger(CatalogImportService.class);
 
     private final ProductCatalogAdapter catalogAdapter;
     private final MarketplaceAdapter financeAdapter;
-    private final CatalogWriter writer;
+    private final ProductWriter writer;
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
 
-    public CatalogSyncService(ProductCatalogAdapter catalogAdapter,
+    public CatalogImportService(ProductCatalogAdapter catalogAdapter,
                               MarketplaceAdapter financeAdapter,
-                              CatalogWriter writer,
+                              ProductWriter writer,
                               MarketplaceRepository marketplaceRepository,
                               SellerAccountRepository sellerAccountRepository) {
         this.catalogAdapter = catalogAdapter;
@@ -55,8 +55,8 @@ public class CatalogSyncService {
      *
      * @param progress необязательный получатель прогресса для фоновой задачи
      */
-    public CatalogSyncReport sync(String clientId, CatalogProgressListener progress) {
-        SellerAccount account = resolveAccount(clientId);
+    public CatalogImportReport importProducts(Long accountId, CatalogImportProgressListener progress) {
+        SellerAccount account = requireAccount(accountId);
         List<ProductEntry> products = catalogAdapter.fetchAllProducts(PAGE_LIMIT);
 
         int total = products.size();
@@ -84,17 +84,16 @@ public class CatalogSyncService {
             }
         }
         log.info("Каталог {}: сохранено {} из {} товаров, с ошибкой {}", account.getId(), saved, total, failed);
-        return CatalogSyncReport.of(total, saved, failed);
+        return CatalogImportReport.of(total, saved, failed);
     }
 
-    private SellerAccount resolveAccount(String clientId) {
-        String code = financeAdapter.marketplaceCode();
-        Marketplace marketplace = marketplaceRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Маркетплейс " + code + " не найден в таблице marketplace"));
-        return sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
-                .orElseGet(() -> sellerAccountRepository.save(
-                        new SellerAccount(marketplace, code + " " + clientId, clientId)));
+    /**
+     * Аккаунт по идентификатору.
+     *
+     * <p>Идентификатор приходит из пути запроса, а не из параметра клиента.
+     */
+    private SellerAccount requireAccount(Long accountId) {
+        return sellerAccountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalStateException("Аккаунт " + accountId + " не найден"));
     }
 }

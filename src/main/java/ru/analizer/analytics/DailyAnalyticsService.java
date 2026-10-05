@@ -4,10 +4,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.repository.MarketplaceRepository;
-import ru.analizer.persistence.repository.SellerAccountRepository;
-import ru.analizer.sync.SyncCoverage;
-import ru.analizer.sync.SyncDayService;
+import ru.analizer.persistence.AccountLookup;
+
+import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.DayStateService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,7 +23,7 @@ import java.util.Optional;
  * <p>Считает по сохранённым операциям, а не по ответу OZON: отчёт должен оставаться
  * прежним при смене правил расчёта.
  *
- * <p>Отчёт всегда отдаёт состояние данных ({@link ReportStatus}, {@link DataCoverage}).
+ * <p>Отчёт всегда отдаёт состояние данных ({@link ReportStatus}, {@link ReportCoverage}).
  * Без этого нули за незагруженный день неотличимы от нулей за день без начислений,
  * и пользователь решил бы, что денег не было.
  */
@@ -31,49 +31,41 @@ import java.util.Optional;
 public class DailyAnalyticsService {
 
     private final AnalyticsFactsRepository facts;
-    private final SyncDayService syncDayService;
-    private final MarketplaceRepository marketplaceRepository;
-    private final SellerAccountRepository sellerAccountRepository;
+    private final DayStateService dayStateService;
+    private final AccountLookup accountLookup;
 
-    public DailyAnalyticsService(AnalyticsFactsRepository facts,
-                                 SyncDayService syncDayService,
-                                 MarketplaceRepository marketplaceRepository,
-                                 SellerAccountRepository sellerAccountRepository) {
+public DailyAnalyticsService(AnalyticsFactsRepository facts,
+                                 DayStateService dayStateService,
+                                 AccountLookup accountLookup) {
         this.facts = facts;
-        this.syncDayService = syncDayService;
-        this.marketplaceRepository = marketplaceRepository;
-        this.sellerAccountRepository = sellerAccountRepository;
+        this.dayStateService = dayStateService;
+        this.accountLookup = accountLookup;
     }
 
     @Transactional(readOnly = true)
-    public DailyReport daily(String clientId, String marketplaceCode, LocalDate from, LocalDate to) {
+    public DailyReport dailyReport(String marketplaceCode, LocalDate from, LocalDate to) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
         if (to.isBefore(from)) {
             throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
         }
-        Marketplace marketplace = marketplaceRepository.findByCode(marketplaceCode)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Неизвестный маркетплейс: " + marketplaceCode));
-
         // Аккаунта может ещё не быть — это не сбой, а «данных нет». Отчёт обязан сказать
         // об этом прямо (NOT_LOADED), иначе фронтенд не сможет предложить загрузку.
-        Optional<Long> account = sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
+        Optional<Long> account = accountLookup.findAccount(marketplaceCode)
                 .map(SellerAccount::getId);
 
         if (account.isEmpty()) {
-            SyncCoverage nothing = SyncCoverage.empty(from, to);
-            return emptyReport(marketplaceCode, from, to, DataCoverage.from(nothing), nothing);
+            PeriodCoverage nothing = PeriodCoverage.empty(from, to);
+            return emptyReport(marketplaceCode, from, to, ReportCoverage.from(nothing), nothing);
         }
         Long accountId = account.get();
 
-        SyncCoverage syncCoverage = syncDayService.coverage(accountId, from, to);
-        DataCoverage coverage = DataCoverage.from(syncCoverage);
+        PeriodCoverage periodCoverage = dayStateService.coverage(accountId, from, to);
+        ReportCoverage coverage = ReportCoverage.from(periodCoverage);
 
-        if (syncCoverage.isEmpty()) {
-            return emptyReport(marketplaceCode, from, to, coverage, syncCoverage);
+        if (periodCoverage.isEmpty()) {
+            return emptyReport(marketplaceCode, from, to, coverage, periodCoverage);
         }
 
         Map<Integer, String> typeNames = facts.accrualTypeNames();
@@ -117,19 +109,19 @@ public class DailyAnalyticsService {
             total = total.plus(day);
         }
 
-        return new DailyReport(marketplaceCode, from, to, statusOf(syncCoverage), coverage, rows,
+        return new DailyReport(marketplaceCode, from, to, statusOf(periodCoverage), coverage, rows,
                 total.income(), total.expenses(), total.payoutValue(), total, reconciles(byDate));
     }
 
     private DailyReport emptyReport(String marketplaceCode, LocalDate from, LocalDate to,
-                                    DataCoverage coverage, SyncCoverage syncCoverage) {
+                                    ReportCoverage coverage, PeriodCoverage periodCoverage) {
         List<DailyRow> rows = new ArrayList<>();
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             rows.add(DailyRow.of(FinancialSummary.empty(date, date),
                     new FinancialSummary.ExpenseByType(List.of())));
         }
         FinancialSummary zero = FinancialSummary.empty(from, to);
-        return new DailyReport(marketplaceCode, from, to, statusOf(syncCoverage), coverage, rows,
+        return new DailyReport(marketplaceCode, from, to, statusOf(periodCoverage), coverage, rows,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, zero, true);
     }
 
@@ -139,7 +131,7 @@ public class DailyAnalyticsService {
      * <p>Порядок важен: наличие ошибок важнее полноты, а полнота — важнее успеха.
      * Пользователь должен видеть, почему цифры неполны, а не просто «0».
      */
-    public static ReportStatus statusOf(SyncCoverage coverage) {
+    public static ReportStatus statusOf(PeriodCoverage coverage) {
         if (coverage.failedDays() > 0) {
             return ReportStatus.HAS_ERRORS;
         }

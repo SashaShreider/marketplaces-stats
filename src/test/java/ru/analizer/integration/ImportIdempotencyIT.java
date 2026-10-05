@@ -4,8 +4,8 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.sync.SyncCoverage;
-import ru.analizer.sync.SyncReport;
+import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.AccrualImportReport;
 
 import java.time.LocalDate;
 
@@ -23,21 +23,21 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
-    private SyncReport firstSync() {
+    private AccrualImportReport firstSync() {
         FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
-        syncService.syncAccrualTypes();
-        return syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.refreshAccrualTypes();
+        return accrualImportService.importAccruals(accountId(), DAY, DAY);
     }
 
     @Test
     @DisplayName("Второй запуск за тот же день не создаёт новых операций")
     void secondRunDoesNotInsertDuplicates() {
-        SyncReport first = firstSync();
+        AccrualImportReport first = firstSync();
         assertThat(first.accrualsInserted()).isEqualTo(94);
         assertThat(first.accrualsUpdated()).isZero();
         assertThat(first.complete()).isTrue();
 
-        SyncReport second = syncService.sync(CLIENT_ID, DAY, DAY);
+        AccrualImportReport second = accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         // 2026-04-10 давно старше окна зрелости, поэтому день окончательный и повторно
         // не запрашивается: никаких обращений к OZON и никаких дублей в базе.
@@ -52,8 +52,8 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Третий запуск тоже стабилен, а суммы не меняются")
     void repeatedRunsAreStable() {
         firstSync();
-        syncService.sync(CLIENT_ID, DAY, DAY);
-        SyncReport third = syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+        AccrualImportReport third = accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         assertThat(third.accrualsInserted()).isZero();
         assertThat(count("finance_accrual")).isEqualTo(94);
@@ -70,18 +70,18 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(yesterday, DAY_2026_04_10);
 
-        syncService.syncAccrualTypes();
-        SyncReport first = syncService.sync(CLIENT_ID, yesterday, yesterday);
+        accrualImportService.refreshAccrualTypes();
+        AccrualImportReport first = accrualImportService.importAccruals(accountId(), yesterday, yesterday);
         assertThat(first.accrualsInserted()).isEqualTo(94);
 
         // День загружен, но он внутри окна зрелости — значит не окончательный.
-        var coverage = syncDayService.coverage(clientId(), yesterday, yesterday);
+        var coverage = dayStateService.coverage(clientId(), yesterday, yesterday);
         assertThat(coverage.loadedDays()).isEqualTo(1);
         assertThat(coverage.finalDays()).as("вчерашний день ещё не окончателен").isZero();
         assertThat(coverage.provisionalDays()).containsExactly(yesterday);
         assertThat(coverage.allFinal()).isFalse();
 
-        SyncReport second = syncService.sync(CLIENT_ID, yesterday, yesterday);
+        AccrualImportReport second = accrualImportService.importAccruals(accountId(), yesterday, yesterday);
         assertThat(second.accrualsReceived()).as("свежий день запрашивается заново").isEqualTo(94);
         assertThat(second.accrualsUpdated()).as("данные обновились, а не продублировались").isEqualTo(94);
         assertThat(second.accrualsInserted()).isZero();
@@ -103,7 +103,7 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         long itemFeeDetails = count("item_fee_detail");
         long nonItemFees = count("non_item_fee");
 
-        syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         assertThat(count("posting")).isEqualTo(postings);
         assertThat(count("posting_product")).isEqualTo(products);
@@ -128,8 +128,8 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         int initial = (int) count("accrual_type");
         assertThat(initial).isEqualTo(132);
 
-        syncService.syncAccrualTypes();
-        syncService.syncAccrualTypes();
+        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes();
 
         assertThat(count("accrual_type")).isEqualTo(initial);
     }
@@ -138,7 +138,7 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Аккаунт продавца не создаётся повторно")
     void sellerAccountIsNotDuplicated() {
         firstSync();
-        syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         assertThat(count("seller_account")).isEqualTo(1);
         assertThat(count("marketplace")).isEqualTo(1);

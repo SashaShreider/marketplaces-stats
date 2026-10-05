@@ -7,7 +7,7 @@ package ru.analizer.persistence.entity;
  * проверяется пересечение дат, у загрузки каталога достаточно, чтобы активная была
  * одна — иначе два процесса переписывали бы одни и те же товары.
  */
-public enum JobType {
+public enum ImportType {
 
     /** Выгрузка начислений за период. */
     FINANCE,

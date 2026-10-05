@@ -15,12 +15,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *                        прежде чем признать её прерванной
  */
 @ConfigurationProperties(prefix = "sync")
-public record SyncProperties(
+public record ImportProperties(
         int maxPageRetries,
         int maturityDays,
         int backgroundTimeoutSeconds
 ) {
-    public SyncProperties {
+    public ImportProperties {
         if (maturityDays <= 0) {
             maturityDays = 3;
         }

@@ -56,29 +56,29 @@ abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected JdbcTemplate jdbc;
 
-    @Autowired
-    protected ru.analizer.sync.SyncService syncService;
-
-    @Autowired
-    protected ru.analizer.sync.SyncJobService syncJobService;
-
 @Autowired
-protected ru.analizer.analytics.DailyAnalyticsService analytics;
+    protected ru.analizer.sync.AccrualImportService accrualImportService;
 
     @Autowired
-protected ru.analizer.analytics.ProductAnalyticsService productAnalytics;
+    protected ru.analizer.sync.ImportService importService;
 
     @Autowired
-protected ru.analizer.catalog.CatalogSyncService catalogSyncService;
+    protected ru.analizer.analytics.DailyAnalyticsService analytics;
 
     @Autowired
-protected ru.analizer.analytics.CatalogFacts catalogFacts;
+    protected ru.analizer.analytics.ProductAnalyticsService productAnalytics;
 
     @Autowired
-protected ru.analizer.sync.SyncDayService syncDayService;
+    protected ru.analizer.catalog.CatalogImportService catalogImportService;
 
     @Autowired
-    protected ru.analizer.persistence.repository.SyncJobRepository syncJobRepository;
+    protected ru.analizer.analytics.CatalogFacts catalogFacts;
+
+    @Autowired
+    protected ru.analizer.sync.DayStateService dayStateService;
+
+    @Autowired
+    protected ru.analizer.persistence.repository.ImportRunRepository importRunRepository;
 
     @Autowired
     protected ru.analizer.persistence.repository.MarketplaceRepository marketplaceRepository;
@@ -88,8 +88,34 @@ protected ru.analizer.sync.SyncDayService syncDayService;
 
     protected static final String CLIENT_ID = "1154";
 
+    /** Код маркетплейса, подставляемый в путь запроса. */
+    protected static final String MARKETPLACE = "OZON";
+
     /** Дата, которую используют тесты одиночных дней. */
     protected static final java.time.LocalDate DAY = java.time.LocalDate.of(2026, 4, 10);
+
+    /**
+     * Идентификатор аккаунта теста, создавая его при необходимости.
+     *
+     * <p>Идентификатор аккаунта приходит из пути запроса, а не от клиента, поэтому тестам
+     * нужно получить его у репозитория — ровно так же, как это делает контроллер.
+     */
+    protected Long accountId() {
+        return account().getId();
+    }
+
+    protected ru.analizer.persistence.entity.SellerAccount account() {
+        return sellerAccountRepository
+                .findByMarketplaceIdAndClientId(marketplace().getId(), CLIENT_ID)
+                .orElseGet(() -> sellerAccountRepository.save(
+                        new ru.analizer.persistence.entity.SellerAccount(
+                                marketplace(), MARKETPLACE + " " + CLIENT_ID, CLIENT_ID)));
+    }
+
+    protected ru.analizer.persistence.entity.Marketplace marketplace() {
+        return marketplaceRepository.findByCode(MARKETPLACE)
+                .orElseThrow(() -> new AssertionError("Маркетплейс не найден"));
+    }
 
     @BeforeEach
     void resetDatabase() {
@@ -98,7 +124,7 @@ protected ru.analizer.sync.SyncDayService syncDayService;
 jdbc.execute("""
                 TRUNCATE TABLE finance_accrual, posting, posting_product, delivery_service,
                                item_fee, item_fee_detail, non_item_fee, container_fee,
-                               sync_day, sync_job, accrual_type, seller_account, marketplace,
+                               imported_day, import_run, accrual_type, seller_account, marketplace,
                                product_author, ozon_product_attribute, ozon_product
                 RESTART IDENTITY CASCADE
                 """);
@@ -116,7 +142,7 @@ jdbc.execute("""
         Instant deadline = Instant.now().plus(Duration.ofMinutes(2));
         while (Instant.now().isBefore(deadline)) {
             Integer active = jdbc.queryForObject("""
-                    select count(*) from sync_job
+                    select count(*) from import_run
                     where status in ('PENDING', 'RUNNING')
                     """, Integer.class);
             if (active == null || active == 0) {
@@ -145,24 +171,24 @@ protected long count(String table) {
      * проверки статуса: так тест упадёт на зависшей задаче, а не пройдёт по счастливой
      * последовательности.
      */
-    protected ru.analizer.sync.SyncJobStatus awaitJob(Long jobId) {
+    protected ru.analizer.sync.ImportProgress awaitJob(Long importId) {
         java.time.Instant deadline = java.time.Instant.now().plus(Duration.ofMinutes(3));
         while (java.time.Instant.now().isBefore(deadline)) {
-            var status = syncJobService.status(jobId).orElseThrow();
-            if (status.finished()) {
-                if (status.status() == ru.analizer.persistence.entity.JobStatus.FAILED) {
-                    throw new AssertionError("Задача " + jobId + " провалилась: " + status.error());
+            var progress = importService.progressOf(importId, accountId()).orElseThrow();
+            if (progress.finished()) {
+                if (progress.status() == ru.analizer.persistence.entity.RunState.FAILED) {
+                    throw new AssertionError("Прогон " + importId + " провалился: " + progress.error());
                 }
-                return status;
+                return progress;
             }
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new AssertionError("Ожидание задачи прервано");
+                throw new AssertionError("Ожидание прогона прервано");
             }
         }
-        throw new AssertionError("Задача " + jobId + " не завершилась за 3 минуты");
+throw new AssertionError("Прогон " + importId + " не завершился за 3 минуты");
     }
 
     protected BigDecimalAssert sumTotal(String table) {

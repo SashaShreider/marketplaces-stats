@@ -1,6 +1,6 @@
 package ru.analizer.analytics;
 
-import ru.analizer.sync.SyncCoverage;
+import ru.analizer.sync.PeriodCoverage;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.List;
  * @param provisionalDays дни, загруженные, но ещё не окончательные: начисления за них могут
  *                        прийти позже, поэтому суммы могут измениться
  */
-public record DataCoverage(
+public record ReportCoverage(
         int requestedDays,
         int loadedDays,
         int finalDays,
@@ -46,8 +46,8 @@ public record DataCoverage(
         return fullyFinal();
     }
 
-    public static DataCoverage from(SyncCoverage coverage) {
-        return new DataCoverage(coverage.requestedDays(), coverage.loadedDays(),
+    public static ReportCoverage from(PeriodCoverage coverage) {
+        return new ReportCoverage(coverage.requestedDays(), coverage.loadedDays(),
                 coverage.finalDays(), coverage.failedDays(), coverage.percentLoaded(),
                 coverage.missingDays(), coverage.provisionalDays(), coverage.failedDates());
     }

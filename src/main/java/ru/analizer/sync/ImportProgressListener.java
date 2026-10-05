@@ -8,7 +8,7 @@ import java.time.LocalDate;
  * <p>Фоновая задача реализует его, чтобы отчёт мог показывать «12 из 30 дней»,
  * пока HTTP-запрос пользователя давно завершился.
  */
-public interface SyncProgressListener {
+public interface ImportProgressListener {
 
     /** Начало загрузки периода. */
     void onStart(int totalDays, int daysToFetch);

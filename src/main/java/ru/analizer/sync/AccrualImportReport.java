@@ -12,7 +12,7 @@ import java.time.LocalDate;
  * @param syncedDays    сколько дней реально догружено этим запуском
  * @param complete      загружен ли весь период
  */
-public record SyncReport(
+public record AccrualImportReport(
         String marketplace,
         LocalDate dateFrom,
         LocalDate dateTo,

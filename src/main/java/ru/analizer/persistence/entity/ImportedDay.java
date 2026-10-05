@@ -23,8 +23,8 @@ import java.time.LocalDate;
  * и чтобы знать, какие дни периода осталось догрузить.
  */
 @Entity
-@Table(name = "sync_day")
-public class SyncDay {
+@Table(name = "imported_day")
+public class ImportedDay {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -80,10 +80,10 @@ public class SyncDay {
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private Instant updatedAt;
 
-    protected SyncDay() {
+    protected ImportedDay() {
     }
 
-    public SyncDay(SellerAccount sellerAccount, LocalDate day) {
+    public ImportedDay(SellerAccount sellerAccount, LocalDate day) {
         this.sellerAccount = sellerAccount;
         this.day = day;
         this.status = DayStatus.PENDING;

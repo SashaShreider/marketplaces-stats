@@ -2,7 +2,7 @@ package ru.analizer.sync;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.analytics.DataCoverage;
+import ru.analizer.analytics.ReportCoverage;
 import ru.analizer.analytics.DailyAnalyticsService;
 import ru.analizer.analytics.ReportStatus;
 import ru.analizer.persistence.entity.DayStatus;
@@ -17,17 +17,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Правила зрелости данных и покрытия периода.
  *
- * <p>Проверяются на самой сущности {@code SyncDay}: репозиторий и Spring здесь не нужны,
+ * <p>Проверяются на самой сущности {@code ImportedDay}: репозиторий и Spring здесь не нужны,
  * потому что вся логика зрелости — в самом объекте. Так тест остаётся быстрым и
  * не подменяет часы по умолчанию.
  */
-class SyncDayFinalityTest {
+class DayStateFinalityTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 30);
     private static final int MATURITY_DAYS = 3;
 
-    private ru.analizer.persistence.entity.SyncDay day(LocalDate date) {
-        ru.analizer.persistence.entity.SyncDay syncDay = new ru.analizer.persistence.entity.SyncDay(null, date);
+    private ru.analizer.persistence.entity.ImportedDay day(LocalDate date) {
+        ru.analizer.persistence.entity.ImportedDay syncDay = new ru.analizer.persistence.entity.ImportedDay(null, date);
         syncDay.refreshFinality(TODAY, MATURITY_DAYS, true);
         return syncDay;
     }
@@ -50,9 +50,9 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Окно зрелости в 3 дня: граница ровно на 3-м дне назад")
     void maturityWindowBoundary() {
-        ru.analizer.persistence.entity.SyncDay boundary = new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(3));
+        ru.analizer.persistence.entity.ImportedDay boundary = new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(3));
         boundary.refreshFinality(TODAY, 3, true);
-        ru.analizer.persistence.entity.SyncDay justInside = new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(2));
+        ru.analizer.persistence.entity.ImportedDay justInside = new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(2));
         justInside.refreshFinality(TODAY, 3, true);
 
         assertThat(boundary.isFinalDay()).isTrue();
@@ -62,8 +62,8 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Недозагруженный день не бывает окончательным даже если старый")
     void failedDayIsNeverFinal() {
-        ru.analizer.persistence.entity.SyncDay record =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(30));
+        ru.analizer.persistence.entity.ImportedDay record =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(30));
         record.markFailed("OZON вернул 500", Instant.now());
         record.refreshFinality(TODAY, 3, record.dataProvenStable(3, TODAY));
 
@@ -75,8 +75,8 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Повторная загрузка без изменений не увеличивает счётчик изменений")
     void unchangedResyncDoesNotCountAsChange() {
-        ru.analizer.persistence.entity.SyncDay record =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(1));
+        ru.analizer.persistence.entity.ImportedDay record =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
         Instant now = Instant.now();
 
         assertThat(record.recordSyncResult(new BigDecimal("100"), 5, now)).as("первая загрузка").isFalse();
@@ -88,8 +88,8 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Повторная загрузка с изменившейся суммой фиксирует изменение")
     void changedResyncIsCounted() {
-        ru.analizer.persistence.entity.SyncDay record =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(1));
+        ru.analizer.persistence.entity.ImportedDay record =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
         Instant now = Instant.now();
 
         record.recordSyncResult(new BigDecimal("100"), 5, now);
@@ -103,8 +103,8 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Изменение количества операций тоже считается изменением")
     void changedCountIsDetectedEvenIfAmountIsEqual() {
-        ru.analizer.persistence.entity.SyncDay record =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(1));
+        ru.analizer.persistence.entity.ImportedDay record =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
         Instant now = Instant.now();
 
         record.recordSyncResult(new BigDecimal("100"), 5, now);
@@ -115,8 +115,8 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Данные признаются стабильными только после успешной загрузки")
     void stabilityRequiresSuccess() {
-        ru.analizer.persistence.entity.SyncDay record =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(1));
+        ru.analizer.persistence.entity.ImportedDay record =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
         assertThat(record.dataProvenStable(3, TODAY)).as("до загрузки").isFalse();
 
         record.markFailed("сеть", Instant.now());
@@ -129,8 +129,8 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Очень старый день считается стабильным без повторных проверок")
     void veryOldDayIsStableByAge() {
-        ru.analizer.persistence.entity.SyncDay record =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusYears(1));
+        ru.analizer.persistence.entity.ImportedDay record =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusYears(1));
         record.recordSyncResult(new BigDecimal("10"), 1, Instant.now());
 
         assertThat(record.dataProvenStable(3, TODAY))
@@ -141,21 +141,21 @@ class SyncDayFinalityTest {
     @Test
     @DisplayName("Покрытие: пустой период, полный и частичный считаются по-разному")
     void coverageArithmetic() {
-        SyncCoverage empty = new SyncCoverage(30, 0, 0, 0,
+        PeriodCoverage empty = new PeriodCoverage(30, 0, 0, 0,
                 List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.ZERO);
         assertThat(empty.isEmpty()).isTrue();
         assertThat(empty.complete()).isFalse();
         assertThat(empty.percentLoaded()).isZero();
         assertThat(empty.needsSync()).isTrue();
 
-        SyncCoverage full = new SyncCoverage(30, 30, 28, 0,
+        PeriodCoverage full = new PeriodCoverage(30, 30, 28, 0,
                 List.<LocalDate>of(), List.of(LocalDate.of(2026, 9, 29), LocalDate.of(2026, 9, 30)),
                 List.of(), BigDecimal.TEN);
         assertThat(full.complete()).isTrue();
         assertThat(full.allFinal()).as("2 дня ещё не окончательные").isFalse();
         assertThat(full.percentLoaded()).isEqualTo(100);
 
-        SyncCoverage withErrors = new SyncCoverage(30, 28, 28, 2,
+        PeriodCoverage withErrors = new PeriodCoverage(30, 28, 28, 2,
                 List.<LocalDate>of(), List.<LocalDate>of(),
                 List.of(LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 16)), BigDecimal.TEN);
         assertThat(withErrors.complete()).isFalse();
@@ -169,27 +169,27 @@ class SyncDayFinalityTest {
         List<LocalDate> two = List.of(LocalDate.of(2026, 9, 15));
 
         assertThat(DailyAnalyticsService.statusOf(
-                new SyncCoverage(30, 30, 30, 0, List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.TEN)))
+                new PeriodCoverage(30, 30, 30, 0, List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.TEN)))
                 .isEqualTo(ReportStatus.READY);
 
         assertThat(DailyAnalyticsService.statusOf(
-                new SyncCoverage(30, 28, 28, 0, List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.TEN)))
+                new PeriodCoverage(30, 28, 28, 0, List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.TEN)))
                 .isEqualTo(ReportStatus.PARTIAL);
 
         assertThat(DailyAnalyticsService.statusOf(
-                new SyncCoverage(30, 0, 0, 0, List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.ZERO)))
+                new PeriodCoverage(30, 0, 0, 0, List.<LocalDate>of(), List.<LocalDate>of(), List.<LocalDate>of(), BigDecimal.ZERO)))
                 .isEqualTo(ReportStatus.NOT_LOADED);
 
         // Ошибка важнее полноты: пользователь должен увидеть именно её.
         assertThat(DailyAnalyticsService.statusOf(
-                new SyncCoverage(30, 28, 28, 2, List.<LocalDate>of(), List.<LocalDate>of(), two, BigDecimal.TEN)))
+                new PeriodCoverage(30, 28, 28, 2, List.<LocalDate>of(), List.<LocalDate>of(), two, BigDecimal.TEN)))
                 .isEqualTo(ReportStatus.HAS_ERRORS);
     }
 
     @Test
     @DisplayName("Покрытие попадает в отчёт и говорит, нужна ли догрузка")
     void coverageFeedsReport() {
-        DataCoverage coverage = DataCoverage.from(new SyncCoverage(30, 28, 26, 0,
+        ReportCoverage coverage = ReportCoverage.from(new PeriodCoverage(30, 28, 26, 0,
                 List.of(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 2)),
                 List.of(LocalDate.of(2026, 9, 29)),
                 List.of(), BigDecimal.TEN));
@@ -206,8 +206,8 @@ class SyncDayFinalityTest {
     @DisplayName("Дни, которых нет, отделяются от дней без начислений")
     void missingDaysAreDistinctFromEmptyDays() {
         // День без начислений — загружен, сумма ноль. Отличаем от «не загружен».
-        ru.analizer.persistence.entity.SyncDay emptyButLoaded =
-                new ru.analizer.persistence.entity.SyncDay(null, TODAY.minusDays(5));
+        ru.analizer.persistence.entity.ImportedDay emptyButLoaded =
+                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(5));
         emptyButLoaded.recordSyncResult(BigDecimal.ZERO, 0, Instant.now());
         emptyButLoaded.refreshFinality(TODAY, 3, emptyButLoaded.dataProvenStable(3, TODAY));
 

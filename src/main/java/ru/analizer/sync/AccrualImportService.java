@@ -26,34 +26,34 @@ import java.util.Map;
  * период не создаёт дубликатов, а обновляет уже сохранённые операции: OZON уточняет
  * начисления после первой выгрузки.
  *
- * <p>Догружаются только те дни, которых ещё нет либо которые упали: см. {@link SyncDayService}.
+ * <p>Догружаются только те дни, которых ещё нет либо которые упали: см. {@link DayStateService}.
  *
  * <p>Транзакция намеренно не охватывает весь запуск: каждый день записывается отдельно
  * (см. {@link AccrualWriter}), иначе загрузка длинного периода держала бы одну
  * гигантскую транзакцию.
  */
 @Service
-public class SyncService {
+public class AccrualImportService {
 
     /** OZON не отдаёт начисления раньше этой даты. */
     private static final LocalDate EARLIEST_ACCRUAL_DATE = LocalDate.of(2022, 1, 1);
 
     private final MarketplaceAdapter adapter;
     private final AccrualWriter accrualWriter;
-    private final SyncDayService syncDayService;
+    private final DayStateService dayStateService;
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
     private final AccrualTypeRepository accrualTypeRepository;
 
-    public SyncService(MarketplaceAdapter adapter,
+    public AccrualImportService(MarketplaceAdapter adapter,
                        AccrualWriter accrualWriter,
-                       SyncDayService syncDayService,
+                       DayStateService dayStateService,
                        MarketplaceRepository marketplaceRepository,
                        SellerAccountRepository sellerAccountRepository,
                        AccrualTypeRepository accrualTypeRepository) {
         this.adapter = adapter;
         this.accrualWriter = accrualWriter;
-        this.syncDayService = syncDayService;
+        this.dayStateService = dayStateService;
         this.marketplaceRepository = marketplaceRepository;
         this.sellerAccountRepository = sellerAccountRepository;
         this.accrualTypeRepository = accrualTypeRepository;
@@ -64,7 +64,7 @@ public class SyncService {
      * а не зашиваем значения в код.
      */
     @Transactional
-    public int syncAccrualTypes() {
+    public int refreshAccrualTypes() {
         Marketplace marketplace = marketplace();
         Map<Integer, AccrualType> existing = new HashMap<>();
         for (AccrualType type : accrualTypeRepository.findByMarketplaceId(marketplace.getId())) {
@@ -93,38 +93,38 @@ public class SyncService {
     /**
      * Загружает период, докачивая только недостающие дни.
      */
-    public SyncReport sync(String clientId, LocalDate dateFrom, LocalDate dateTo) {
-        return sync(clientId, dateFrom, dateTo, null);
+    public AccrualImportReport importAccruals(Long accountId, LocalDate dateFrom, LocalDate dateTo) {
+        return importAccruals(accountId, dateFrom, dateTo, null);
     }
 
     /**
      * @param progress необязательный получатель прогресса; используется фоновой задачей,
      *                 чтобы отчёт мог показывать «12 из 30 дней»
      */
-    public SyncReport sync(String clientId, LocalDate dateFrom, LocalDate dateTo, SyncProgressListener progress) {
+    public AccrualImportReport importAccruals(Long accountId, LocalDate dateFrom, LocalDate dateTo, ImportProgressListener progress) {
         LocalDate from = normalizeFrom(dateFrom);
         LocalDate to = normalizeTo(dateTo);
         if (to.isBefore(from)) {
             throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
         }
 
-        SellerAccount account = resolveAccount(clientId);
+SellerAccount account = requireAccount(accountId);
         Map<Integer, AccrualType> types = loadTypes();
 
         int requestedDays = (int) (to.toEpochDay() - from.toEpochDay() + 1);
 
         // Считаем покрытие ДО загрузки: так понятно, сколько дней уже было в базе,
         // а сколько докачиваем сейчас. После загрузки эти числа уже не различить.
-        SyncCoverage before = syncDayService.coverage(account.getId(), from, to);
+        PeriodCoverage before = dayStateService.coverage(account.getId(), from, to);
         int alreadyLoaded = before.loadedDays();
 
-        List<LocalDate> pending = syncDayService.daysToSync(account.getId(), from, to);
+        List<LocalDate> pending = dayStateService.daysToSync(account.getId(), from, to);
         if (progress != null) {
             progress.onStart(requestedDays, pending.size());
         }
         if (pending.isEmpty()) {
             // Догружать нечего: повторный запуск не должен ходить в OZON зря.
-            return new SyncReport(adapter.marketplaceCode(), from, to, requestedDays,
+            return new AccrualImportReport(adapter.marketplaceCode(), from, to, requestedDays,
                     0, 0, 0, 0, 0, 0, true);
         }
 
@@ -134,7 +134,7 @@ public class SyncService {
                 progress.onDayStart(date, totals.processedDays(), pending.size());
             }
             try {
-                syncDayService.markInProgress(account, date);
+                dayStateService.markInProgress(account, date);
                 totals.syncedDays++;
 
                 List<AccrualDto> accruals = adapter.fetchAccrualsByDay(date);
@@ -147,7 +147,7 @@ public class SyncService {
                         .map(v -> v == null ? BigDecimal.ZERO : v)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-                syncDayService.markLoaded(account, date, dayTotal, accruals.size());
+                dayStateService.markLoaded(account, date, dayTotal, accruals.size());
 
                 totals.received += accruals.size();
                 totals.inserted += counts.inserted();
@@ -158,7 +158,7 @@ public class SyncService {
                 }
             } catch (RuntimeException e) {
                 // День не загрузился — это должно быть видно, а не выглядеть как «нулей нет».
-                syncDayService.markFailed(account, date, e.getMessage());
+                dayStateService.markFailed(account, date, e.getMessage());
                 totals.failedDays++;
                 totals.syncedDays--;
                 if (progress != null) {
@@ -169,7 +169,7 @@ public class SyncService {
 
         boolean complete = totals.failedDays == 0
                 && alreadyLoaded + totals.syncedDays == requestedDays;
-        return new SyncReport(adapter.marketplaceCode(), from, to, requestedDays,
+        return new AccrualImportReport(adapter.marketplaceCode(), from, to, requestedDays,
                 totals.received, totals.inserted, totals.updated, totals.skipped, 0,
                 totals.syncedDays, complete);
     }
@@ -205,21 +205,26 @@ public class SyncService {
         return date == null;
     }
 
-    private Marketplace marketplace() {
+private Marketplace marketplace() {
         return marketplaceRepository.findByCode(adapter.marketplaceCode())
                 .orElseThrow(() -> new IllegalStateException(
                         "Маркетплейс " + adapter.marketplaceCode() + " не найден в таблице marketplace"));
     }
 
-    private SellerAccount resolveAccount(String clientId) {
-        Marketplace marketplace = marketplace();
-        return sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace.getId(), clientId)
-                .orElseGet(() -> sellerAccountRepository.save(
-                        new SellerAccount(marketplace, adapter.marketplaceCode() + " " + clientId, clientId)));
+    /**
+     * Аккаунт по идентификатору.
+     *
+     * <p>Идентификатор приходит из пути запроса, а не из параметра клиента: {@code clientId}
+     * — понятие OZON, у Wildberries это {@code companyId}, и выставлять его в общем API
+     * значило бы зашить в контракт одно конкретное имя.
+     */
+    private SellerAccount requireAccount(Long accountId) {
+        return sellerAccountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Аккаунт " + accountId + " не найден"));
     }
 
-    private Map<Integer, AccrualType> loadTypes() {
+private Map<Integer, AccrualType> loadTypes() {
         Marketplace marketplace = marketplace();
         Map<Integer, AccrualType> types = new HashMap<>();
         for (AccrualType type : accrualTypeRepository.findByMarketplaceId(marketplace.getId())) {

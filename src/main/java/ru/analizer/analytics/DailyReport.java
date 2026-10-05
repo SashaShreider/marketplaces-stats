@@ -11,7 +11,7 @@ import java.util.List;
  * вычисляемые методы: Jackson сериализует только компоненты, и frontend получил бы
  * отчёт без итогов.
  *
- * <p>Рядом всегда идут {@link ReportStatus} и {@link DataCoverage}: без них отчёт
+ * <p>Рядом всегда идут {@link ReportStatus} и {@link ReportCoverage}: без них отчёт
  * выглядит одинаково для «день без начислений» и «день не загружен», и нули в нём
  * читаются как «денег не было».
  */
@@ -20,7 +20,7 @@ public record DailyReport(
         LocalDate dateFrom,
         LocalDate dateTo,
         ReportStatus status,
-        DataCoverage coverage,
+        ReportCoverage coverage,
         List<DailyRow> days,
         BigDecimal income,
         BigDecimal expenses,

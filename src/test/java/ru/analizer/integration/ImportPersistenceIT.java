@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.sync.SyncReport;
+import ru.analizer.sync.AccrualImportReport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,16 +17,16 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
-    private SyncReport sync() {
+    private AccrualImportReport sync() {
         FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
-        syncService.syncAccrualTypes();
-        return syncService.sync(CLIENT_ID, DAY, DAY);
+        accrualImportService.refreshAccrualTypes();
+        return accrualImportService.importAccruals(accountId(), DAY, DAY);
     }
 
     @Test
     @DisplayName("Синхронизация дня: количество операций и отчёт")
     void syncsWholeDay() {
-        SyncReport report = sync();
+        AccrualImportReport report = sync();
 
         assertThat(report.requestedDays()).isEqualTo(1);
         assertThat(report.syncedDays()).isEqualTo(1);
@@ -294,7 +294,7 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
     @DisplayName("День без начислений не создаёт строк")
     void emptyDayCreatesNothing() {
         FixtureAdapters.FIXTURES.clear();
-        SyncReport report = syncService.sync(CLIENT_ID, offsetDay(1), offsetDay(1));
+        AccrualImportReport report = accrualImportService.importAccruals(accountId(), offsetDay(1), offsetDay(1));
 
         assertThat(report.accrualsReceived()).isZero();
         assertThat(count("finance_accrual")).isZero();

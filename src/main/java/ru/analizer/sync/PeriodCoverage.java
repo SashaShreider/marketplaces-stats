@@ -13,7 +13,7 @@ import java.util.List;
  * OZON. * * @param provisionalDays дни, загруженные, но ещё не окончательные:
  * начисления за них * могут прийти позже, поэтому суммы могут измениться
  */
-public record SyncCoverage(int requestedDays, int loadedDays, int finalDays, int failedDays,
+public record PeriodCoverage(int requestedDays, int loadedDays, int finalDays, int failedDays,
         List<LocalDate> missingDays, List<LocalDate> provisionalDays, List<LocalDate> failedDates,
         BigDecimal sumOfLoadedDays) {
     /**
@@ -64,11 +64,11 @@ public record SyncCoverage(int requestedDays, int loadedDays, int finalDays, int
      * Нужен, чтобы об отчёте по ещё не синхронизированному аккаунту можно было
      * сказать * «ничего не загружено», не пытаясь достать несуществующий аккаунт.
      */
-    public static SyncCoverage empty(LocalDate from, LocalDate to) {
+    public static PeriodCoverage empty(LocalDate from, LocalDate to) {
         List<LocalDate> missing = new java.util.ArrayList<>();
         for (LocalDate date = from; date != null && to != null && !date.isAfter(to); date = date.plusDays(1)) {
             missing.add(date);
         }
-        return new SyncCoverage(missing.size(), 0, 0, 0, missing, List.of(), List.of(), BigDecimal.ZERO);
+        return new PeriodCoverage(missing.size(), 0, 0, 0, missing, List.of(), List.of(), BigDecimal.ZERO);
     }
 }

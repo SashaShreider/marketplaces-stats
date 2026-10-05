@@ -61,16 +61,16 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
     private void syncApr10() {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
-        syncService.syncAccrualTypes();
-        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
+        accrualImportService.refreshAccrualTypes();
+        accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
     }
 
     @Test
-    @DisplayName("GET /api/analytics/daily отдаёт доходы, расходы и к выплате за день")
+    @DisplayName("GET /api/marketplaces/ozon/analytics/daily отдаёт доходы, расходы и к выплате за день")
     void dailyReport() throws Exception {
         syncApr10();
 
-        HttpResponse<String> response = get("/api/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
+        HttpResponse<String> response = get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
         assertThat(response.statusCode()).as("ответ: %s", response.body()).isEqualTo(200);
 
         JsonNode body = MAPPER.readTree(response.body());
@@ -118,7 +118,7 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
         syncApr10();
 
         JsonNode body = MAPPER.readTree(
-                get("/api/analytics/daily?dateFrom=2026-05-01&dateTo=2026-05-03").body());
+                get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-05-01&dateTo=2026-05-03").body());
 
         assertThat(new BigDecimal(body.get("payout").asString())).isEqualByComparingTo("0");
         assertThat(body.get("reconciled").asBoolean()).isTrue();
@@ -128,7 +128,7 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Неверный период возвращает 400 с понятным сообщением")
     void invalidPeriodReturnsBadRequest() throws Exception {
-        HttpResponse<String> response = get("/api/analytics/daily?dateFrom=2026-04-12&dateTo=2026-04-10");
+        HttpResponse<String> response = get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-12&dateTo=2026-04-10");
 
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(response.body()).contains("dateTo");
@@ -137,8 +137,8 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Отсутствующие параметры возвращают 400, а не 500")
     void missingParametersReturnBadRequest() throws Exception {
-        assertThat(get("/api/analytics/daily").statusCode()).isEqualTo(400);
-        assertThat(get("/api/analytics/daily?dateFrom=2026-04-10").statusCode()).isEqualTo(400);
+        assertThat(get("/api/marketplaces/ozon/analytics/daily").statusCode()).isEqualTo(400);
+        assertThat(get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10").statusCode()).isEqualTo(400);
     }
 
     @Test
@@ -147,7 +147,7 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
         syncApr10();
 
         JsonNode body = MAPPER.readTree(
-                get("/api/analytics/daily?dateFrom=2026-04-09&dateTo=2026-04-11").body());
+                get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-09&dateTo=2026-04-11").body());
 
         // Пустые дни в периоде тоже присутствуют: пропуск дня молча выглядел бы
         // как «денег не было», хотя данных могло просто не быть в базе.
@@ -161,7 +161,7 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
         // Раньше здесь был 500 с пустым телом. Теперь отчёт прямо говорит, что данных
         // нет, и перечисляет недостающие дни — этого достаточно, чтобы предложить загрузку.
         HttpResponse<String> response = get(
-                "/api/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-12&clientId=9999");
+                "/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-12");
 
         assertThat(response.statusCode()).isEqualTo(200);
 
@@ -182,7 +182,7 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Покрытие отвечает даже до первой синхронизации")
     void coverageAnswersBeforeFirstSync() throws Exception {
         HttpResponse<String> response = get(
-                "/api/sync/coverage?dateFrom=2026-04-10&dateTo=2026-04-12&clientId=9999");
+                "/api/marketplaces/ozon/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-12");
 
         assertThat(response.statusCode()).isEqualTo(200);
         JsonNode body = MAPPER.readTree(response.body());

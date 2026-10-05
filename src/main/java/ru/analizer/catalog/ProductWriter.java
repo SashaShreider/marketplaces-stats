@@ -24,7 +24,7 @@ import java.util.Set;
 /**
  * Запись товаров каталога — по одному товару в своей транзакции.
  *
- * <p>Отдельный компонент, а не метод {@link CatalogSyncService}, по той же причине,
+ * <p>Отдельный компонент, а не метод {@link CatalogImportService}, по той же причине,
  * что и {@link ru.analizer.sync.AccrualWriter}: транзакция должна применяться через
  * прокси Spring, а прямой вызов метода того же класса обходит прокси и
  * {@code @Transactional} молча не срабатывает.
@@ -33,14 +33,14 @@ import java.util.Set;
  * транзакция на всю страницу держала бы себя при обрыве связи целиком.
  */
 @Component
-public class CatalogWriter {
+public class ProductWriter {
 
     private final OzonProductRepository productRepository;
     private final OzonProductAttributeRepository attributeRepository;
     private final ProductAuthorRepository authorRepository;
     private final Clock clock;
 
-    public CatalogWriter(OzonProductRepository productRepository,
+    public ProductWriter(OzonProductRepository productRepository,
                          OzonProductAttributeRepository attributeRepository,
                          ProductAuthorRepository authorRepository,
                          Clock clock) {

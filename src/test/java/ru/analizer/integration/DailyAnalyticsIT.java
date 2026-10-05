@@ -28,9 +28,9 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
     private DailyReport syncAndReport(String fixture, LocalDate date) {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(date, fixture);
-        syncService.syncAccrualTypes();
-        syncService.sync(CLIENT_ID, date, date);
-        return analytics.daily(CLIENT_ID, "OZON", date, date);
+        accrualImportService.refreshAccrualTypes();
+        accrualImportService.importAccruals(accountId(), date, date);
+        return analytics.dailyReport(MARKETPLACE, date, date);
     }
 
     @Test
@@ -95,11 +95,11 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
-        syncService.syncAccrualTypes();
-        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 9), LocalDate.of(2026, 4, 11));
+        accrualImportService.refreshAccrualTypes();
+        accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 9), LocalDate.of(2026, 4, 11));
 
         // Только 10-е число содержит операции, 9-е и 11-е — пустые, но присутствуют.
-        var report = analytics.daily(CLIENT_ID, "OZON",
+        var report = analytics.dailyReport(MARKETPLACE,
                 LocalDate.of(2026, 4, 9), LocalDate.of(2026, 4, 11));
 
         assertThat(report.days()).hasSize(3);
@@ -117,10 +117,10 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 9, 26), DAY_2026_09_26);
-        syncService.syncAccrualTypes();
-        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 9, 26));
+        accrualImportService.refreshAccrualTypes();
+        accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 9, 26));
 
-        var report = analytics.daily(CLIENT_ID, "OZON",
+        var report = analytics.dailyReport(MARKETPLACE,
                 LocalDate.of(2026, 4, 10), LocalDate.of(2026, 9, 26));
 
         // 31 165,00 + 25 280,00 и 11 297,23 + 8 617,97
@@ -132,11 +132,24 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
     }
 
 @Test
-    @DisplayName("Неизвестный аккаунт даёт честный NOT_LOADED, а не ошибку и не нули")
-    void unknownAccountReportsNotLoaded() {
-        // Нули читаются как «денег не было». Отсутствие аккаунта — тоже «данных нет»,
-        // поэтому отвечаем статусом NOT_LOADED с перечнем недостающих дней, а не 409.
-        var report = analytics.daily("unknown-client", "OZON",
+    @DisplayName("Неизвестный маркетплейс — 404, а не пустой отчёт")
+    void unknownMarketplaceIsNotFound() {
+        // Отчёт по несуществующему маркетплейс�� был бы враньём: пустые нули выглядели бы
+        // как «продаж не было». Правильный ответ — 404 с указанием, где узнать доступные.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        analytics.dailyReport("unknown-marketplace",
+                                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10)))
+                .isInstanceOf(ru.analizer.persistence.UnknownMarketplaceException.class)
+                .hasMessageContaining("/api/marketplaces");
+    }
+
+    @Test
+    @DisplayName("Аккаунт есть, но ничего не импортировано — честный NOT_LOADED")
+    void accountWithoutImportsReportsNotLoaded() {
+        // Нули читаются как «денег не было». Отсутствие импорта — тоже «данных нет»,
+        // поэтому отвечаем статусом NOT_LOADED с перечнем недостающих дней.
+        account();
+        var report = analytics.dailyReport(MARKETPLACE,
                 LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
         assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
@@ -152,7 +165,7 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
         syncAndReport(DAY_2026_04_10, LocalDate.of(2026, 4, 10));
 
         // Аккаунт есть, но за выбранный день операций не было.
-        var report = analytics.daily(CLIENT_ID, "OZON",
+        var report = analytics.dailyReport(MARKETPLACE,
                 LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 1));
 
         assertThat(report.days()).hasSize(1);

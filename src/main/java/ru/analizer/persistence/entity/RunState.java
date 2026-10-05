@@ -3,7 +3,7 @@ package ru.analizer.persistence.entity;
 /**
  * Состояние фоновой задачи загрузки.
  */
-public enum JobStatus {
+public enum RunState {
     /** Создана, ждёт запуска. */
     PENDING,
     /** Идёт загрузка. */

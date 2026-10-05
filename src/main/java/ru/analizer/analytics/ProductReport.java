@@ -32,7 +32,7 @@ public record ProductReport(
         java.time.LocalDate dateFrom,
         java.time.LocalDate dateTo,
         ReportStatus status,
-        DataCoverage coverage,
+        ReportCoverage coverage,
         CatalogInfo catalog,
         ProductTotals totals,
         List<ProductRow> rows,

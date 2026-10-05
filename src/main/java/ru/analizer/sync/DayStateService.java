@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.persistence.entity.DayStatus;
 import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.entity.SyncDay;
-import ru.analizer.persistence.repository.SyncDayRepository;
+import ru.analizer.persistence.entity.ImportedDay;
+import ru.analizer.persistence.repository.ImportedDayRepository;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -39,9 +39,9 @@ import java.util.Set;
  * пользователей или период просмотра перестанет быть коротким.
  */
 @Service
-public class SyncDayService {
+public class DayStateService {
 
-    private static final Logger log = LoggerFactory.getLogger(SyncDayService.class);
+    private static final Logger log = LoggerFactory.getLogger(DayStateService.class);
 
     /**
      * Окно зрелости, дней. День считается окончательным, только если он старше этого окна.
@@ -50,11 +50,11 @@ public class SyncDayService {
      */
     public static final int DEFAULT_MATURITY_DAYS = 3;
 
-    private final SyncDayRepository syncDayRepository;
+    private final ImportedDayRepository syncDayRepository;
     private final Clock clock;
     private final int maturityInDays;
 
-    public SyncDayService(SyncDayRepository syncDayRepository, SyncProperties properties, Clock clock) {
+    public DayStateService(ImportedDayRepository syncDayRepository, ImportProperties properties, Clock clock) {
         this.syncDayRepository = syncDayRepository;
         this.clock = clock;
         this.maturityInDays = properties.maturityDays() > 0
@@ -74,7 +74,7 @@ public class SyncDayService {
      * Считает состояние периода. Обращения к OZON не делает: только чтение учёта.
      */
     @Transactional(readOnly = true)
-    public SyncCoverage coverage(Long sellerAccountId, LocalDate from, LocalDate to) {
+    public PeriodCoverage coverage(Long sellerAccountId, LocalDate from, LocalDate to) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
@@ -85,10 +85,10 @@ public class SyncDayService {
         if (sellerAccountId == null) {
             // Аккаунта ещё нет: ни одного дня не загружено. Это не ошибка,
             // а честный ответ на вопрос «что у тебя есть».
-            return SyncCoverage.empty(from, to);
+            return PeriodCoverage.empty(from, to);
         }
 
-        List<SyncDay> days = syncDayRepository.findBySellerAccountIdAndDayBetween(
+        List<ImportedDay> days = syncDayRepository.findBySellerAccountIdAndDayBetween(
                 sellerAccountId, from, to);
 
         Set<LocalDate> loaded = new HashSet<>();
@@ -96,7 +96,7 @@ public class SyncDayService {
         List<LocalDate> failed = new ArrayList<>();
         BigDecimal sum = BigDecimal.ZERO;
 
-        for (SyncDay day : days) {
+        for (ImportedDay day : days) {
             if (day.getStatus() == DayStatus.DONE) {
                 loaded.add(day.getDay());
                 if (!day.isFinalDay()) {
@@ -118,7 +118,7 @@ public class SyncDayService {
         int requested = (int) (to.toEpochDay() - from.toEpochDay() + 1);
         int finalDays = loaded.size() - provisional.size();
 
-        return new SyncCoverage(requested, loaded.size(), finalDays, failed.size(),
+        return new PeriodCoverage(requested, loaded.size(), finalDays, failed.size(),
                 missing, provisional, failed, sum);
     }
 
@@ -138,7 +138,7 @@ public class SyncDayService {
      */
     @Transactional(readOnly = true)
     public List<LocalDate> daysToSync(Long sellerAccountId, LocalDate from, LocalDate to) {
-        SyncCoverage coverage = coverage(sellerAccountId, from, to);
+        PeriodCoverage coverage = coverage(sellerAccountId, from, to);
         List<LocalDate> result = new ArrayList<>(coverage.missingDays());
         result.addAll(coverage.failedDates());
         // Дни внутри окна зрелости перезапрашиваются: их сумма ещё может измениться.
@@ -151,8 +151,8 @@ public class SyncDayService {
      * Отмечает начало загрузки дня.
      */
     @Transactional
-    public SyncDay markInProgress(SellerAccount account, LocalDate day) {
-        SyncDay record = findOrCreate(account, day);
+    public ImportedDay markInProgress(SellerAccount account, LocalDate day) {
+        ImportedDay record = findOrCreate(account, day);
         record.markInProgress();
         return syncDayRepository.save(record);
     }
@@ -165,7 +165,7 @@ public class SyncDayService {
     @Transactional
     public boolean markLoaded(SellerAccount account, LocalDate day, BigDecimal totalAmount, int accrualCount) {
         Instant now = Instant.now(clock);
-        SyncDay record = findOrCreate(account, day);
+        ImportedDay record = findOrCreate(account, day);
         boolean changed = record.recordSyncResult(totalAmount, accrualCount, now);
         record.refreshFinality(today(), maturityInDays,
                 record.dataProvenStable(maturityInDays, today()));
@@ -180,14 +180,14 @@ public class SyncDayService {
 
     @Transactional
     public void markFailed(SellerAccount account, LocalDate day, String error) {
-        SyncDay record = findOrCreate(account, day);
+        ImportedDay record = findOrCreate(account, day);
         record.markFailed(error, Instant.now(clock));
         syncDayRepository.save(record);
         log.warn("Не удалось загрузить данные за {}: {}", day, error);
     }
 
-    private SyncDay findOrCreate(SellerAccount account, LocalDate day) {
-        Optional<SyncDay> existing = syncDayRepository.findBySellerAccountIdAndDay(account.getId(), day);
-        return existing.orElseGet(() -> new SyncDay(account, day));
+    private ImportedDay findOrCreate(SellerAccount account, LocalDate day) {
+        Optional<ImportedDay> existing = syncDayRepository.findBySellerAccountIdAndDay(account.getId(), day);
+        return existing.orElseGet(() -> new ImportedDay(account, day));
     }
 }

@@ -4,11 +4,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
-import ru.analizer.analytics.DataCoverage;
+import ru.analizer.analytics.ReportCoverage;
 import ru.analizer.analytics.ReportStatus;
-import ru.analizer.persistence.entity.JobStatus;
-import ru.analizer.sync.PeriodAlreadySyncingException;
-import ru.analizer.sync.SyncJobStatus;
+import ru.analizer.persistence.entity.RunState;
+import ru.analizer.sync.ImportConflictException;
+import ru.analizer.sync.ImportProgress;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * периода запрещён, а после загрузки отчёт показывает полное покрытие.
  */
 @Import(BulkAdapterConfig.class)
-class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
+class ImportRunLongPeriodIT extends AbstractPostgresIntegrationTest {
 
     /** Полгода: 1 апреля — 30 сентября. */
     private static final LocalDate FROM = LocalDate.of(2026, 4, 1);
@@ -47,25 +47,25 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Задача на полгода возвращается сразу и выполняется в фоне")
     void longPeriodJobRunsInBackground() {
         Instant start = Instant.now();
-        SyncJobStatus accepted = syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, true);
+        ImportProgress accepted = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true);
 
         // Запрос не ждёт завершения: 184 дня грузились бы месяцами, а ответ приходит сразу.
         assertThat(Duration.between(start, Instant.now()))
                 .as("POST-запрос обязан вернуться немедленно")
                 .isLessThan(Duration.ofSeconds(10));
         assertThat(accepted.id()).isNotNull();
-        assertThat(accepted.totalDays()).isEqualTo(DAYS);
+        assertThat(accepted.totalUnits()).isEqualTo(DAYS);
         assertThat(accepted.inProgress()).isTrue();
-        assertThat(accepted.status()).isIn(JobStatus.PENDING, JobStatus.RUNNING);
+        assertThat(accepted.status()).isIn(RunState.PENDING, RunState.RUNNING);
 
         awaitFinished(accepted.id());
 
-        SyncJobStatus finished = status(accepted.id());
-        assertThat(finished.status()).isEqualTo(JobStatus.DONE);
+        ImportProgress finished = status(accepted.id());
+        assertThat(finished.status()).isEqualTo(RunState.DONE);
         assertThat(finished.finished()).isTrue();
         assertThat(finished.error()).isNull();
-        assertThat(finished.doneDays()).isEqualTo(DAYS);
-        assertThat(finished.failedDays()).isZero();
+        assertThat(finished.doneUnits()).isEqualTo(DAYS);
+        assertThat(finished.failedUnits()).isZero();
         assertThat(finished.startedAt()).isNotNull();
         assertThat(finished.finishedAt()).isNotNull();
         assertThat(finished.finishedAt()).isAfterOrEqualTo(finished.startedAt());
@@ -78,19 +78,19 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     void progressIsVisibleWhileRunning() {
         // Искусственная задержка, чтобы успеть поймать промежуточное состояние.
         adapter.setDelayPerDayMillis(15);
-        SyncJobStatus accepted = syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false);
+        ImportProgress accepted = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false);
 
         boolean sawPartialProgress = false;
         Instant deadline = Instant.now().plus(Duration.ofMinutes(5));
         while (Instant.now().isBefore(deadline)) {
-            SyncJobStatus current = status(accepted.id());
-            if (current.doneDays() > 0 && current.doneDays() < DAYS) {
-                assertThat(current.status()).isEqualTo(JobStatus.RUNNING);
-                assertThat(current.currentDay()).isNotNull().isBetween(FROM, TO);
+            ImportProgress current = status(accepted.id());
+            if (current.doneUnits() > 0 && current.doneUnits() < DAYS) {
+                assertThat(current.status()).isEqualTo(RunState.RUNNING);
+                assertThat(LocalDate.parse(current.currentUnit())).isBetween(FROM, TO);
                 assertThat(count("finance_accrual"))
                         .as("данные видны сразу, не дожидаясь конца загрузки")
                         .isGreaterThan(0);
-                assertThat(count("sync_day"))
+                assertThat(count("imported_day"))
                         .as("учёт дней обновляется по ходу")
                         .isGreaterThan(0);
                 sawPartialProgress = true;
@@ -104,24 +104,24 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
         assertThat(sawPartialProgress).as("должен наблюдаться промежуточный прогресс").isTrue();
 
         awaitFinished(accepted.id());
-        assertThat(status(accepted.id()).doneDays()).isEqualTo(DAYS);
+        assertThat(status(accepted.id()).doneUnits()).isEqualTo(DAYS);
     }
 
     @Test
     @DisplayName("Пока идёт загрузка, повторный запуск того же периода запрещён")
     void resubmitWhileRunningIsRejected() {
         adapter.setDelayPerDayMillis(15);
-        SyncJobStatus first = syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false);
+        ImportProgress first = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false);
 
-        assertThatThrownBy(() -> syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false))
-                .isInstanceOf(PeriodAlreadySyncingException.class)
+        assertThatThrownBy(() -> importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false))
+                .isInstanceOf(ImportConflictException.class)
                 .hasMessageContaining("уже выполняется")
                 .hasMessageContaining(String.valueOf(first.id()));
 
         awaitFinished(first.id());
 
         // А после окончания тот же период запустить можно.
-        SyncJobStatus again = syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false);
+        ImportProgress again = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false);
         assertThat(again.id()).isNotNull().isNotEqualTo(first.id());
         awaitFinished(again.id());
     }
@@ -130,20 +130,20 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Запрещено пересечение периодов, а не только точное совпадение")
     void overlappingPeriodIsAlsoRejected() {
         adapter.setDelayPerDayMillis(15);
-        SyncJobStatus first = syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false);
+        ImportProgress first = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false);
 
-        assertThatThrownBy(() -> syncJobService.submit(CLIENT_ID, "OZON",
+        assertThatThrownBy(() -> importService.startFinanceImport(account(), MARKETPLACE,
                 FROM.plusDays(10), FROM.plusDays(20), false))
-                .isInstanceOf(PeriodAlreadySyncingException.class);
+                .isInstanceOf(ImportConflictException.class);
 
-        assertThatThrownBy(() -> syncJobService.submit(CLIENT_ID, "OZON",
+        assertThatThrownBy(() -> importService.startFinanceImport(account(), MARKETPLACE,
                 FROM.plusDays(30), FROM.plusDays(40), false))
-                .isInstanceOf(PeriodAlreadySyncingException.class);
+                .isInstanceOf(ImportConflictException.class);
 
         // Период шире первого — тоже конфликтует.
-        assertThatThrownBy(() -> syncJobService.submit(CLIENT_ID, "OZON",
+        assertThatThrownBy(() -> importService.startFinanceImport(account(), MARKETPLACE,
                 FROM.minusDays(5), TO.plusDays(5), false))
-                .isInstanceOf(PeriodAlreadySyncingException.class);
+                .isInstanceOf(ImportConflictException.class);
 
         awaitFinished(first.id());
     }
@@ -152,24 +152,24 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     @DisplayName("Непересекающийся период запустить можно")
     void nonOverlappingPeriodIsAllowed() {
         adapter.setDelayPerDayMillis(15);
-        SyncJobStatus first = syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false);
+        ImportProgress first = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false);
 
         LocalDate before = FROM.minusMonths(1);
-        SyncJobStatus second = syncJobService.submit(CLIENT_ID, "OZON",
+        ImportProgress second = importService.startFinanceImport(account(), MARKETPLACE,
                 before, before.plusDays(27), false);
 
         assertThat(second.id()).isNotEqualTo(first.id());
         awaitFinished(first.id());
         awaitFinished(second.id());
-        assertThat(count("sync_day")).isEqualTo((long) DAYS + 28);
+        assertThat(count("imported_day")).isEqualTo((long) DAYS + 28);
     }
 
     @Test
     @DisplayName("После загрузки полугода отчёт показывает READY и полное покрытие")
     void reportForLoadedHalfYearIsReady() {
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, true).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
 
-        var report = analytics.daily(CLIENT_ID, "OZON", FROM, TO);
+        var report = analytics.dailyReport(MARKETPLACE, FROM, TO);
 
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.coverage().requestedDays()).isEqualTo(DAYS);
@@ -191,9 +191,9 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
         int expectedLoaded = (int) (half.toEpochDay() - FROM.toEpochDay() + 1);
         int expectedMissing = DAYS - expectedLoaded;
 
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, half, true).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, half, true).id());
 
-        var report = analytics.daily(CLIENT_ID, "OZON", FROM, TO);
+        var report = analytics.dailyReport(MARKETPLACE, FROM, TO);
 
         assertThat(report.status()).isEqualTo(ReportStatus.PARTIAL);
         assertThat(report.coverage().loadedDays()).isEqualTo(expectedLoaded);
@@ -204,27 +204,27 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Повторная загрузка готового периода не создаёт дублей")
     void rerunOfLoadedPeriodIsIdempotent() {
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, true).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
         long afterFirst = count("finance_accrual");
         assertThat(afterFirst).isEqualTo((long) DAYS * ACCRUALS_PER_DAY);
 
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, false).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false).id());
 
         assertThat(count("finance_accrual")).isEqualTo(afterFirst);
-        assertThat(count("sync_day")).isEqualTo(DAYS);
+        assertThat(count("imported_day")).isEqualTo(DAYS);
         assertThat(count("posting")).isEqualTo((long) DAYS * 2);
     }
 
     @Test
     @DisplayName("Каждый день периода попадает в учёт ровно один раз")
     void everyDayTrackedOnce() {
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, true).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
 
-        DataCoverage coverage = DataCoverage.from(
-                syncDayService.coverage(accountId(), FROM, TO));
+        ReportCoverage coverage = ReportCoverage.from(
+                dayStateService.coverage(accountId(), FROM, TO));
 
         assertThat(coverage.loadedDays()).isEqualTo(DAYS);
-        assertThat(count("sync_day")).isEqualTo(DAYS);
+        assertThat(count("imported_day")).isEqualTo(DAYS);
         assertThat(adapter.daysRequested()).as("к адаптеру сходили ровно по одному разу на день")
                 .isEqualTo(DAYS);
     }
@@ -232,10 +232,10 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Все дни периода старше окна зрелости, поэтому окончательные")
     void allDaysAreFinalAfterLoading() {
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, true).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
 
-        DataCoverage coverage = DataCoverage.from(
-                syncDayService.coverage(accountId(), FROM, TO));
+        ReportCoverage coverage = ReportCoverage.from(
+                dayStateService.coverage(accountId(), FROM, TO));
 
         // Период апрель–сентябрь, а «сегодня» в тестах — осень 2026: часть дней
         // окажется внутри окна зрелости, и это должно быть честно отражено.
@@ -247,11 +247,11 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Покрытие полугода считается мгновенно, без обращения к маркетплейсу")
     void coverageForHalfYearIsCheap() {
-        awaitFinished(syncJobService.submit(CLIENT_ID, "OZON", FROM, TO, true).id());
+        awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
         int before = adapter.daysRequested();
 
-        DataCoverage coverage = DataCoverage.from(
-                syncDayService.coverage(accountId(), FROM, TO));
+        ReportCoverage coverage = ReportCoverage.from(
+                dayStateService.coverage(accountId(), FROM, TO));
 
         assertThat(adapter.daysRequested()).as("проверка покрытия не ходит к адаптеру")
                 .isEqualTo(before);
@@ -261,23 +261,19 @@ class SyncJobLongPeriodIT extends AbstractPostgresIntegrationTest {
 
     // ---------------------------------------------------------------- helpers
 
-    private Long accountId() {
-        return jdbc.queryForObject("select id from seller_account limit 1", Long.class);
-    }
-
-    private SyncJobStatus status(Long jobId) {
-        return syncJobService.status(jobId).orElseThrow(
-                () -> new AssertionError("Задача " + jobId + " не найдена"));
+    private ImportProgress status(Long importId) {
+        return importService.progressOf(importId, accountId()).orElseThrow(
+                () -> new AssertionError("Прогон " + importId + " не найден"));
     }
 
     private void awaitFinished(Long jobId) {
         Instant deadline = Instant.now().plus(Duration.ofMinutes(5));
         while (Instant.now().isBefore(deadline)) {
-            SyncJobStatus current = status(jobId);
+            ImportProgress current = status(jobId);
             if (current.finished()) {
                 assertThat(current.status())
                         .as("задача %s завершилась с ошибкой: %s", jobId, current.error())
-                        .isEqualTo(JobStatus.DONE);
+                        .isEqualTo(RunState.DONE);
                 return;
             }
             sleep(100);

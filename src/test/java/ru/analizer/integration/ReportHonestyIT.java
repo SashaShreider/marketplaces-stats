@@ -4,9 +4,9 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.analytics.DataCoverage;
+import ru.analizer.analytics.ReportCoverage;
 import ru.analizer.analytics.ReportStatus;
-import ru.analizer.sync.SyncCoverage;
+import ru.analizer.sync.PeriodCoverage;
 
 import java.time.LocalDate;
 
@@ -24,9 +24,6 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
-    private Long accountId() {
-        return jdbc.queryForObject("select id from seller_account limit 1", Long.class);
-    }
 
     /**
      * Создаёт аккаунт синхронизацией одного дня: без него отчёт для любого периода
@@ -36,7 +33,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         LocalDate anchor = LocalDate.of(2026, 4, 10);
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(anchor, DAY_2026_04_10);
-        syncService.sync(CLIENT_ID, anchor, anchor);
+        accrualImportService.importAccruals(accountId(), anchor, anchor);
     }
 
     @Test
@@ -45,8 +42,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         createAccount();
 
         // Период, в котором действительно ничего не загружали.
-        var report = analytics.daily(CLIENT_ID, "OZON",
-                LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 3));
+        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 3));
 
         assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
         assertThat(report.coverage().loadedDays()).isZero();
@@ -63,8 +59,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     void missingAccountReportsNotLoaded() {
         // Отсутствие аккаунта — это «ничего не загружено», а не сбой. Отчёт должен
         // сказать об этом прямо, иначе фронтенд не предложит загрузку.
-        var report = analytics.daily("never-synced", "OZON",
-                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 12));
+        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 12));
 
         assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
         assertThat(report.coverage().loadedDays()).isZero();
@@ -72,7 +67,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         assertThat(report.coverage().needsSync()).isTrue();
 
         // Покрытие отвечает и без аккаунта — иначе спросить «что есть» невозможно.
-        SyncCoverage coverage = syncDayService.coverage(null,
+        PeriodCoverage coverage = dayStateService.coverage(null,
                 LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 12));
         assertThat(coverage.loadedDays()).isZero();
         assertThat(coverage.isEmpty()).isTrue();
@@ -83,10 +78,9 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     void partialPeriodTellsWhatIsMissing() {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
-        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
+        accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
-        var report = analytics.daily(CLIENT_ID, "OZON",
-                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 13));
+        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 13));
 
         assertThat(report.status()).isEqualTo(ReportStatus.PARTIAL);
         assertThat(report.coverage().loadedDays()).isEqualTo(1);
@@ -105,10 +99,9 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     void fullyLoadedPeriodIsReady() {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
-        syncService.sync(CLIENT_ID, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
+        accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
-        var report = analytics.daily(CLIENT_ID, "OZON",
-                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
+        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.coverage().missingDays()).isEmpty();
@@ -121,9 +114,9 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         LocalDate today = LocalDate.now();
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(today, DAY_2026_04_10);
-        syncService.sync(CLIENT_ID, today, today);
+        accrualImportService.importAccruals(accountId(), today, today);
 
-        var report = analytics.daily(CLIENT_ID, "OZON", today, today);
+        var report = analytics.dailyReport(MARKETPLACE, today, today);
 
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.coverage().provisionalDays()).containsExactly(today);
@@ -139,14 +132,14 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         // Адаптер отдаёт пустой ответ: день загружен, начислений действительно нет.
         FixtureAdapters.FIXTURES.put(oldDay, "fixtures/empty-day.json");
 
-        syncService.sync(CLIENT_ID, oldDay, oldDay);
+        accrualImportService.importAccruals(accountId(), oldDay, oldDay);
 
-        var coverage = syncDayService.coverage(accountId(), oldDay, oldDay);
+        var coverage = dayStateService.coverage(accountId(), oldDay, oldDay);
         assertThat(coverage.loadedDays()).as("день загружен").isEqualTo(1);
         assertThat(coverage.missingDays()).as("но ничего не пропало").isEmpty();
         assertThat(coverage.finalDays()).as("старый день окончателен").isEqualTo(1);
 
-        var report = analytics.daily(CLIENT_ID, "OZON", oldDay, oldDay);
+        var report = analytics.dailyReport(MARKETPLACE, oldDay, oldDay);
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.payout()).isEqualByComparingTo("0");
         assertThat(report.coverage().needsSync()).isFalse();
@@ -158,9 +151,9 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         LocalDate oldDay = LocalDate.of(2026, 4, 10);
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(oldDay, DAY_2026_04_10);
-        syncService.sync(CLIENT_ID, oldDay, oldDay);
+        accrualImportService.importAccruals(accountId(), oldDay, oldDay);
 
-        SyncCoverage coverage = syncDayService.coverage(accountId(),
+        PeriodCoverage coverage = dayStateService.coverage(accountId(),
                 LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 20));
 
         assertThat(coverage.requestedDays()).isEqualTo(11);
@@ -174,7 +167,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     void coverageOfEmptyPeriod() {
         createAccount();
 
-        SyncCoverage coverage = syncDayService.coverage(accountId(),
+        PeriodCoverage coverage = dayStateService.coverage(accountId(),
                 LocalDate.of(2030, 1, 1), LocalDate.of(2030, 1, 31));
 
         assertThat(coverage.requestedDays()).isEqualTo(31);
@@ -183,7 +176,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         assertThat(coverage.isEmpty()).isTrue();
         assertThat(coverage.complete()).isFalse();
 
-        DataCoverage mapped = DataCoverage.from(coverage);
+        ReportCoverage mapped = ReportCoverage.from(coverage);
         assertThat(mapped.percentLoaded()).isZero();
         assertThat(mapped.needsSync()).isTrue();
     }
