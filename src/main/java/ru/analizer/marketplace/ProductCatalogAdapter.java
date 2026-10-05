@@ -1,6 +1,7 @@
 package ru.analizer.marketplace;
 
 import java.util.List;
+import ru.analizer.account.domain.MarketplaceCredentials;
 
 /**
  * Источник характеристик товаров.

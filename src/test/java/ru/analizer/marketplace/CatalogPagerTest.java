@@ -21,8 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CatalogPagerTest {
 
     /** Реквизиты в тестах пагинации не используы: клиент подменён заглушкой. */
-    private static final ru.analizer.marketplace.MarketplaceCredentials CREDENTIALS =
-            new ru.analizer.marketplace.MarketplaceCredentials("1154", "test-api-key");
+    private static final ru.analizer.account.domain.MarketplaceCredentials CREDENTIALS =
+            new ru.analizer.account.domain.MarketplaceCredentials("1154", "test-api-key");
 
     @Test
     @DisplayName("Обход заканчивается по числу собранных товаров, хотя курсор непустой")
@@ -110,7 +110,7 @@ class CatalogPagerTest {
         }
 
         @Override
-        public CatalogPage fetchProducts(ru.analizer.marketplace.MarketplaceCredentials credentials, String lastId, int limit) {
+        public CatalogPage fetchProducts(ru.analizer.account.domain.MarketplaceCredentials credentials, String lastId, int limit) {
             calls++;
             if (from >= all.size()) {
                 return new CatalogPage(List.of(), reportedTotal, "cursor-" + from);
@@ -123,7 +123,7 @@ class CatalogPagerTest {
         }
 
         @Override
-        public CatalogPage fetchProductsBySku(ru.analizer.marketplace.MarketplaceCredentials credentials, List<String> skus) {
+        public CatalogPage fetchProductsBySku(ru.analizer.account.domain.MarketplaceCredentials credentials, List<String> skus) {
             return new CatalogPage(List.of(), 0, "");
         }
     }

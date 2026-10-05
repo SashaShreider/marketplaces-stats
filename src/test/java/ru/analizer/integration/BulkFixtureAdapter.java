@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Адаптер, который выдаёт правдоподобные данные за любую дату.
@@ -48,17 +49,17 @@ class BulkFixtureAdapter implements MarketplaceAdapter {
 
         @Override
     // Реквизиты в тестах не проверяются: адаптер подменён заглушкой.
-    public void verifyCredentials(ru.analizer.marketplace.MarketplaceCredentials credentials) {
+    public void verifyCredentials(ru.analizer.account.domain.MarketplaceCredentials credentials) {
     }
 
     @Override
-    public List<AccrualTypeInfo> fetchAccrualTypes(ru.analizer.marketplace.MarketplaceCredentials credentials) {
+    public List<AccrualTypeInfo> fetchAccrualTypes(ru.analizer.account.domain.MarketplaceCredentials credentials) {
         // Тот же реальный справочник, что и в остальных тестах.
         return FixtureAdapters.types();
     }
 
     @Override
-    public List<AccrualDto> fetchAccrualsByDay(ru.analizer.marketplace.MarketplaceCredentials credentials, LocalDate date) {
+    public List<AccrualDto> fetchAccrualsByDay(ru.analizer.account.domain.MarketplaceCredentials credentials, LocalDate date) {
         daysRequested.incrementAndGet();
         List<AccrualDto> result = data.computeIfAbsent(date, BulkFixtureAdapter::generate);
         if (delayPerDayMillis > 0) {

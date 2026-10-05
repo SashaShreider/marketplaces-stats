@@ -5,8 +5,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import ru.analizer.persistence.repository.AppUserRepository;
-import ru.analizer.persistence.repository.SellerAccountRepository;
+import ru.analizer.account.domain.Marketplace;
+import ru.analizer.auth.repository.AppUserRepository;
+import ru.analizer.account.repository.SellerAccountRepository;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -125,10 +126,10 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
      * здесь незачем, изоляцию проверяет не источник данных, а чтение.
      */
     private void importFor(String login, String password, String clientId, String total) {
-        var user = appUserRepository.save(new ru.analizer.persistence.entity.AppUser(
+        var user = appUserRepository.save(new ru.analizer.auth.domain.AppUser(
                 login, passwordEncoder.encode(password), login));
         var account = sellerAccountRepository.save(
-                new ru.analizer.persistence.entity.SellerAccount(
+                new ru.analizer.account.domain.SellerAccount(
                         user, marketplace(), "OZON " + clientId, clientId, "key-" + clientId));
 
         jdbc.update("""

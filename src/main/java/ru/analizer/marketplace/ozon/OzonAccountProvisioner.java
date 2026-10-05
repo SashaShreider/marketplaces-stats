@@ -1,11 +1,11 @@
 package ru.analizer.marketplace.ozon;
 
 import org.springframework.stereotype.Component;
-import ru.analizer.marketplace.MarketplaceProvisioner;
-import ru.analizer.persistence.entity.AppUser;
-import ru.analizer.persistence.entity.Marketplace;
-import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.repository.SellerAccountRepository;
+import ru.analizer.account.domain.MarketplaceProvisioner;
+import ru.analizer.auth.domain.AppUser;
+import ru.analizer.account.domain.Marketplace;
+import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.account.repository.SellerAccountRepository;
 
 /**
  * Создание аккаунта продавца OZON.
@@ -33,7 +33,7 @@ public class OzonAccountProvisioner implements MarketplaceProvisioner {
 
     @Override
     public SellerAccount provision(Marketplace marketplace, AppUser user,
-                                   ru.analizer.marketplace.MarketplaceCredentials credentials) {
+                                   ru.analizer.account.domain.MarketplaceCredentials credentials) {
         return sellerAccountRepository.save(new SellerAccount(
                 user, marketplace, "OZON " + credentials.clientId(),
                 credentials.clientId(), credentials.apiKey()));

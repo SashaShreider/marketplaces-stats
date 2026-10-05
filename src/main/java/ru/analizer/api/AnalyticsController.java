@@ -6,12 +6,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.analizer.account.domain.Marketplace;
 import ru.analizer.analytics.DailyAnalyticsService;
 import ru.analizer.analytics.DailyReport;
 import ru.analizer.analytics.ProductAnalyticsService;
 import ru.analizer.analytics.ProductReport;
-import ru.analizer.persistence.AccountLookup;
-import ru.analizer.persistence.entity.SellerAccount;
+import ru.analizer.account.domain.AccountLookup;
+import ru.analizer.account.domain.SellerAccount;
 
 import java.time.LocalDate;
 import java.util.Locale;

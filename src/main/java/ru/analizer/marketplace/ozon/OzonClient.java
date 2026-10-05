@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import ru.analizer.marketplace.AccrualDto;
-import ru.analizer.marketplace.MarketplaceCredentials;
+import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.marketplace.AccrualPage;
 import ru.analizer.marketplace.CatalogPage;
 import ru.analizer.marketplace.ProductEntry;

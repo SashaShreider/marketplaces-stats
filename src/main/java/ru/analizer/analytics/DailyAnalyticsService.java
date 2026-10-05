@@ -2,10 +2,10 @@ package ru.analizer.analytics;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.persistence.entity.Marketplace;
+import ru.analizer.account.domain.Marketplace;
 
-import ru.analizer.sync.PeriodCoverage;
-import ru.analizer.sync.DayStateService;
+import ru.analizer.sync.domain.PeriodCoverage;
+import ru.analizer.sync.application.DayStateService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

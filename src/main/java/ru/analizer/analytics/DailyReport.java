@@ -3,6 +3,7 @@ package ru.analizer.analytics;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import ru.analizer.account.domain.Marketplace;
 
 /**
  * Отчёт за период.

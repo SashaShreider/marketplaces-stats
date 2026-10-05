@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import ru.analizer.account.domain.Marketplace;
 import ru.analizer.marketplace.AccrualTypeInfo;
 import ru.analizer.marketplace.AccrualDto;
 
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import ru.analizer.sync.application.AccrualImportService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -2,6 +2,8 @@ package ru.analizer.marketplace;
 
 import java.time.LocalDate;
 import java.util.List;
+import ru.analizer.account.domain.Marketplace;
+import ru.analizer.account.domain.MarketplaceCredentials;
 
 /**
  * Контракт интеграции с маркетплейсом. Аналитика и синхронизация зависят только от него,

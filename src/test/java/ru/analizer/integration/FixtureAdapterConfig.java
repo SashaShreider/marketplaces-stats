@@ -33,7 +33,7 @@ public class FixtureAdapterConfig {
             // Реквизиты в тестах не проверяются по-настоящему: адаптер подменён.
             // Но ключ из FixtureAdapters.REJECTED_KEY всё-таки отвергается — иначе
             // нельзя проверить, что отказ маркетплейса не оставляет после себя аккаунт.
-            public void verifyCredentials(ru.analizer.marketplace.MarketplaceCredentials credentials) {
+            public void verifyCredentials(ru.analizer.account.domain.MarketplaceCredentials credentials) {
                 if (FixtureAdapters.REJECTED_KEY.equals(credentials.apiKey())) {
                     throw new ru.analizer.marketplace.CredentialsRejectedException(
                             ru.analizer.marketplace.ozon.OzonAdapter.MARKETPLACE_CODE, 401);
@@ -41,12 +41,12 @@ public class FixtureAdapterConfig {
             }
 
             @Override
-            public List<AccrualTypeInfo> fetchAccrualTypes(ru.analizer.marketplace.MarketplaceCredentials credentials) {
+            public List<AccrualTypeInfo> fetchAccrualTypes(ru.analizer.account.domain.MarketplaceCredentials credentials) {
                 return FixtureAdapters.types();
             }
 
             @Override
-            public List<AccrualDto> fetchAccrualsByDay(ru.analizer.marketplace.MarketplaceCredentials credentials, LocalDate date) {
+            public List<AccrualDto> fetchAccrualsByDay(ru.analizer.account.domain.MarketplaceCredentials credentials, LocalDate date) {
                 String resource = FixtureAdapters.FIXTURES.get(date);
                 return resource == null ? List.of() : FixtureAdapters.parse(resource);
             }

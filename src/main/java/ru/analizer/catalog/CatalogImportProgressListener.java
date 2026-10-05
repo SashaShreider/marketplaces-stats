@@ -3,7 +3,7 @@ package ru.analizer.catalog;
 /**
  * Получатель прогресса загрузки каталога.
  *
- * <p>Отдельный интерфейс от {@link ru.analizer.sync.ImportProgressListener} намеренно: у
+ * <p>Отдельный интерфейс от {@link ru.analizer.sync.application.ImportProgressListener} намеренно: у
  * каталога нет дат, поэтому «12 из 30 дней» здесь было бы бессмысленным — только число
  * товаров и текущий SKU.
  */

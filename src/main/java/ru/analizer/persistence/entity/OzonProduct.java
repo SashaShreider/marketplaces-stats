@@ -13,6 +13,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import ru.analizer.account.domain.SellerAccount;
 
 /**
  * Товар каталога.

@@ -4,9 +4,12 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import ru.analizer.account.domain.Marketplace;
 import ru.analizer.analytics.ReportCoverage;
 import ru.analizer.analytics.ReportStatus;
-import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.application.AccrualImportService;
+import ru.analizer.sync.application.DayStateService;
+import ru.analizer.sync.domain.PeriodCoverage;
 
 import java.time.LocalDate;
 

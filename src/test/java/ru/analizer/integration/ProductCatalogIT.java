@@ -3,9 +3,12 @@ package ru.analizer.integration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import ru.analizer.account.domain.Marketplace;
 import ru.analizer.catalog.CatalogImportReport;
 import ru.analizer.analytics.ProductReport;
-import ru.analizer.persistence.entity.RunState;
+import ru.analizer.sync.application.AccrualImportService;
+import ru.analizer.sync.application.ImportService;
+import ru.analizer.sync.domain.RunState;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -398,9 +401,9 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         try {
             importService.startCatalogImport(account(), MARKETPLACE);
             org.junit.jupiter.api.Assertions.fail("ожидался отказ на второй запуск");
-        } catch (ru.analizer.sync.ImportConflictException expected) {
+        } catch (ru.analizer.sync.domain.ImportConflictException expected) {
             assertThat(expected.conflict())
-                    .isEqualTo(ru.analizer.sync.ImportConflictException.Conflict.CATALOG_BUSY);
+                    .isEqualTo(ru.analizer.sync.domain.ImportConflictException.Conflict.CATALOG_BUSY);
             assertThat(expected.activeImportId()).isEqualTo(first.id());
             assertThat(expected.getMessage()).contains("уже выполняется");
         }
@@ -417,9 +420,9 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         try {
             importService.startFinanceImport(account(), MARKETPLACE, DAY, DAY, true);
             org.junit.jupiter.api.Assertions.fail("ожидался отказ на пересекающийся период");
-        } catch (ru.analizer.sync.ImportConflictException expected) {
+        } catch (ru.analizer.sync.domain.ImportConflictException expected) {
             assertThat(expected.conflict())
-                    .isEqualTo(ru.analizer.sync.ImportConflictException.Conflict.OVERLAPPING_PERIOD);
+                    .isEqualTo(ru.analizer.sync.domain.ImportConflictException.Conflict.OVERLAPPING_PERIOD);
             assertThat(expected.requestedFrom()).isEqualTo(DAY);
             assertThat(expected.requestedTo()).isEqualTo(DAY);
             assertThat(expected.activeImportId()).isNotNull();

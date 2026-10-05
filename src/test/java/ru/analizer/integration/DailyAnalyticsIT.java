@@ -3,12 +3,14 @@ package ru.analizer.integration;
 import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
+import ru.analizer.account.domain.Marketplace;
 import ru.analizer.analytics.DailyReport;
 import ru.analizer.analytics.ReportStatus;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import ru.analizer.sync.application.AccrualImportService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

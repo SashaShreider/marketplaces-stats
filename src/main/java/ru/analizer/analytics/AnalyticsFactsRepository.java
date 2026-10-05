@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Выборка фактов для аналитики.

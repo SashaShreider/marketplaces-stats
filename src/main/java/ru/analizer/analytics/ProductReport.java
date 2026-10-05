@@ -2,6 +2,7 @@ package ru.analizer.analytics;
 
 import java.math.BigDecimal;
 import java.util.List;
+import ru.analizer.account.domain.Marketplace;
 
 /**
  * Отчёт по товарам за период.

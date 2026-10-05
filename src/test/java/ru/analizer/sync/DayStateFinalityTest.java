@@ -5,12 +5,14 @@ import org.junit.jupiter.api.Test;
 import ru.analizer.analytics.ReportCoverage;
 import ru.analizer.analytics.DailyAnalyticsService;
 import ru.analizer.analytics.ReportStatus;
-import ru.analizer.persistence.entity.DayStatus;
+import ru.analizer.sync.domain.DayStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import ru.analizer.sync.domain.ImportedDay;
+import ru.analizer.sync.domain.PeriodCoverage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,8 +28,8 @@ class DayStateFinalityTest {
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 30);
     private static final int MATURITY_DAYS = 3;
 
-    private ru.analizer.persistence.entity.ImportedDay day(LocalDate date) {
-        ru.analizer.persistence.entity.ImportedDay syncDay = new ru.analizer.persistence.entity.ImportedDay(null, date);
+    private ru.analizer.sync.domain.ImportedDay day(LocalDate date) {
+        ru.analizer.sync.domain.ImportedDay syncDay = new ru.analizer.sync.domain.ImportedDay(null, date);
         syncDay.refreshFinality(TODAY, MATURITY_DAYS, true);
         return syncDay;
     }
@@ -50,9 +52,9 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Окно зрелости в 3 дня: граница ровно на 3-м дне назад")
     void maturityWindowBoundary() {
-        ru.analizer.persistence.entity.ImportedDay boundary = new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(3));
+        ru.analizer.sync.domain.ImportedDay boundary = new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(3));
         boundary.refreshFinality(TODAY, 3, true);
-        ru.analizer.persistence.entity.ImportedDay justInside = new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(2));
+        ru.analizer.sync.domain.ImportedDay justInside = new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(2));
         justInside.refreshFinality(TODAY, 3, true);
 
         assertThat(boundary.isFinalDay()).isTrue();
@@ -62,8 +64,8 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Недозагруженный день не бывает окончательным даже если старый")
     void failedDayIsNeverFinal() {
-        ru.analizer.persistence.entity.ImportedDay record =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(30));
+        ru.analizer.sync.domain.ImportedDay record =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(30));
         record.markFailed("OZON вернул 500", Instant.now());
         record.refreshFinality(TODAY, 3, record.dataProvenStable(3, TODAY));
 
@@ -75,8 +77,8 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Повторная загрузка без изменений не увеличивает счётчик изменений")
     void unchangedResyncDoesNotCountAsChange() {
-        ru.analizer.persistence.entity.ImportedDay record =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
+        ru.analizer.sync.domain.ImportedDay record =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(1));
         Instant now = Instant.now();
 
         assertThat(record.recordSyncResult(new BigDecimal("100"), 5, now)).as("первая загрузка").isFalse();
@@ -88,8 +90,8 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Повторная загрузка с изменившейся суммой фиксирует изменение")
     void changedResyncIsCounted() {
-        ru.analizer.persistence.entity.ImportedDay record =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
+        ru.analizer.sync.domain.ImportedDay record =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(1));
         Instant now = Instant.now();
 
         record.recordSyncResult(new BigDecimal("100"), 5, now);
@@ -103,8 +105,8 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Изменение количества операций тоже считается изменением")
     void changedCountIsDetectedEvenIfAmountIsEqual() {
-        ru.analizer.persistence.entity.ImportedDay record =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
+        ru.analizer.sync.domain.ImportedDay record =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(1));
         Instant now = Instant.now();
 
         record.recordSyncResult(new BigDecimal("100"), 5, now);
@@ -115,8 +117,8 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Данные признаются стабильными только после успешной загрузки")
     void stabilityRequiresSuccess() {
-        ru.analizer.persistence.entity.ImportedDay record =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(1));
+        ru.analizer.sync.domain.ImportedDay record =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(1));
         assertThat(record.dataProvenStable(3, TODAY)).as("до загрузки").isFalse();
 
         record.markFailed("сеть", Instant.now());
@@ -129,8 +131,8 @@ class DayStateFinalityTest {
     @Test
     @DisplayName("Очень старый день считается стабильным без повторных проверок")
     void veryOldDayIsStableByAge() {
-        ru.analizer.persistence.entity.ImportedDay record =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusYears(1));
+        ru.analizer.sync.domain.ImportedDay record =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusYears(1));
         record.recordSyncResult(new BigDecimal("10"), 1, Instant.now());
 
         assertThat(record.dataProvenStable(3, TODAY))
@@ -206,8 +208,8 @@ class DayStateFinalityTest {
     @DisplayName("Дни, которых нет, отделяются от дней без начислений")
     void missingDaysAreDistinctFromEmptyDays() {
         // День без начислений — загружен, сумма ноль. Отличаем от «не загружен».
-        ru.analizer.persistence.entity.ImportedDay emptyButLoaded =
-                new ru.analizer.persistence.entity.ImportedDay(null, TODAY.minusDays(5));
+        ru.analizer.sync.domain.ImportedDay emptyButLoaded =
+                new ru.analizer.sync.domain.ImportedDay(null, TODAY.minusDays(5));
         emptyButLoaded.recordSyncResult(BigDecimal.ZERO, 0, Instant.now());
         emptyButLoaded.refreshFinality(TODAY, 3, emptyButLoaded.dataProvenStable(3, TODAY));
 

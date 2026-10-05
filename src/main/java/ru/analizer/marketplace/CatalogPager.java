@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import ru.analizer.account.domain.MarketplaceCredentials;
 
 /**
  * Обход страниц каталога товаров.

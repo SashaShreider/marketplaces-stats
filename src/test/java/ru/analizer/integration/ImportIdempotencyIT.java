@@ -4,10 +4,13 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.sync.PeriodCoverage;
-import ru.analizer.sync.AccrualImportReport;
+import ru.analizer.sync.application.AccrualImportService;
+import ru.analizer.sync.application.DayStateService;
+import ru.analizer.sync.domain.PeriodCoverage;
+import ru.analizer.sync.domain.AccrualImportReport;
 
 import java.time.LocalDate;
+import ru.analizer.sync.infrastructure.entity.Posting;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -3,7 +3,7 @@ package ru.analizer.marketplace.ozon;
 import org.junit.jupiter.api.Test;
 import ru.analizer.marketplace.AccrualDto;
 import ru.analizer.marketplace.AccrualPage;
-import ru.analizer.marketplace.MarketplaceCredentials;
+import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrualByDayRequest;
 
 import java.time.Duration;

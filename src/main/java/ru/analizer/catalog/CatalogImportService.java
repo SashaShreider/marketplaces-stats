@@ -6,10 +6,10 @@ import org.springframework.stereotype.Service;
 import ru.analizer.marketplace.MarketplaceAdapter;
 import ru.analizer.marketplace.ProductCatalogAdapter;
 import ru.analizer.marketplace.ProductEntry;
-import ru.analizer.persistence.entity.Marketplace;
-import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.repository.MarketplaceRepository;
-import ru.analizer.persistence.repository.SellerAccountRepository;
+import ru.analizer.account.domain.Marketplace;
+import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.account.repository.MarketplaceRepository;
+import ru.analizer.account.repository.SellerAccountRepository;
 
 import java.util.List;
 

@@ -3,6 +3,7 @@ package ru.analizer.integration;
 import ru.analizer.marketplace.AccrualTypeInfo;
 import ru.analizer.marketplace.ozon.OzonMapper;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
+import ru.analizer.sync.infrastructure.entity.Posting;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 

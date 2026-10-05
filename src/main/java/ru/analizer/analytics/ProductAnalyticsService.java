@@ -4,10 +4,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.catalog.AuthorNormalizer;
 import ru.analizer.analytics.CatalogFacts.ProductAuthorView;
-import ru.analizer.persistence.entity.Marketplace;
+import ru.analizer.account.domain.Marketplace;
 
-import ru.analizer.sync.PeriodCoverage;
-import ru.analizer.sync.DayStateService;
+import ru.analizer.sync.domain.PeriodCoverage;
+import ru.analizer.sync.application.DayStateService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

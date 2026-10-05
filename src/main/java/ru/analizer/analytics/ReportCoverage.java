@@ -1,6 +1,6 @@
 package ru.analizer.analytics;
 
-import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.domain.PeriodCoverage;
 
 import java.time.LocalDate;
 import java.util.List;

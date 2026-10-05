@@ -3,6 +3,7 @@ package ru.analizer.marketplace;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import ru.analizer.sync.infrastructure.entity.NonItemFee;
 
 /**
  * Маркетплейс-независимое представление одной финансовой операции.

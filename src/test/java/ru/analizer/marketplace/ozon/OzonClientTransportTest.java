@@ -25,8 +25,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class OzonClientTransportTest {
     /** Подставные реквизиты: тест проверяет заголовки, а не настоящий ключ. */
-    private static final ru.analizer.marketplace.MarketplaceCredentials CREDENTIALS =
-            new ru.analizer.marketplace.MarketplaceCredentials("1154", "test-key");
+    private static final ru.analizer.account.domain.MarketplaceCredentials CREDENTIALS =
+            new ru.analizer.account.domain.MarketplaceCredentials("1154", "test-key");
 
     private HttpServer server;
     private String baseUrl;

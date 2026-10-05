@@ -6,12 +6,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.analizer.account.domain.Marketplace;
 import ru.analizer.analytics.CatalogFacts;
-import ru.analizer.persistence.AccountLookup;
-import ru.analizer.persistence.entity.SellerAccount;
+import ru.analizer.account.domain.AccountLookup;
+import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.persistence.repository.OzonProductRepository;
-import ru.analizer.sync.DayStateService;
-import ru.analizer.sync.PeriodCoverage;
+import ru.analizer.sync.application.DayStateService;
+import ru.analizer.sync.domain.PeriodCoverage;
 
 import java.time.LocalDate;
 import java.util.List;

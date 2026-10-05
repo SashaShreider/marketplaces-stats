@@ -12,7 +12,7 @@ import ru.analizer.persistence.entity.ProductAuthor;
 import ru.analizer.persistence.repository.OzonProductAttributeRepository;
 import ru.analizer.persistence.repository.OzonProductRepository;
 import ru.analizer.persistence.repository.ProductAuthorRepository;
-import ru.analizer.persistence.entity.SellerAccount;
+import ru.analizer.account.domain.SellerAccount;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -25,7 +25,7 @@ import java.util.Set;
  * Запись товаров каталога — по одному товару в своей транзакции.
  *
  * <p>Отдельный компонент, а не метод {@link CatalogImportService}, по той же причине,
- * что и {@link ru.analizer.sync.AccrualWriter}: транзакция должна применяться через
+ * что и {@link ru.analizer.sync.application.AccrualWriter}: транзакция должна применяться через
  * прокси Spring, а прямой вызов метода того же класса обходит прокси и
  * {@code @Transactional} молча не срабатывает.
  *

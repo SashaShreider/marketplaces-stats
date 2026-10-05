@@ -12,6 +12,16 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import ru.analizer.account.domain.AccountLookup;
+import ru.analizer.account.domain.Marketplace;
+import ru.analizer.account.repository.MarketplaceRepository;
+import ru.analizer.account.repository.SellerAccountRepository;
+import ru.analizer.auth.repository.AppUserRepository;
+import ru.analizer.sync.application.AccrualImportService;
+import ru.analizer.sync.application.DayStateService;
+import ru.analizer.sync.application.ImportService;
+import ru.analizer.sync.infrastructure.entity.Posting;
+import ru.analizer.sync.repository.ImportRunRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -61,10 +71,10 @@ abstract class AbstractPostgresIntegrationTest {
     protected org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
 @Autowired
-    protected ru.analizer.sync.AccrualImportService accrualImportService;
+    protected ru.analizer.sync.application.AccrualImportService accrualImportService;
 
     @Autowired
-    protected ru.analizer.sync.ImportService importService;
+    protected ru.analizer.sync.application.ImportService importService;
 
     @Autowired
     protected ru.analizer.analytics.DailyAnalyticsService analytics;
@@ -79,19 +89,19 @@ abstract class AbstractPostgresIntegrationTest {
     protected ru.analizer.analytics.CatalogFacts catalogFacts;
 
     @Autowired
-    protected ru.analizer.sync.DayStateService dayStateService;
+    protected ru.analizer.sync.application.DayStateService dayStateService;
 
     @Autowired
-    protected ru.analizer.persistence.repository.ImportRunRepository importRunRepository;
+    protected ru.analizer.sync.repository.ImportRunRepository importRunRepository;
 
     @Autowired
-    protected ru.analizer.persistence.repository.MarketplaceRepository marketplaceRepository;
+    protected ru.analizer.account.repository.MarketplaceRepository marketplaceRepository;
 
     @Autowired
-    protected ru.analizer.persistence.repository.SellerAccountRepository sellerAccountRepository;
+    protected ru.analizer.account.repository.SellerAccountRepository sellerAccountRepository;
 
     @Autowired
-    protected ru.analizer.persistence.repository.AppUserRepository appUserRepository;
+    protected ru.analizer.auth.repository.AppUserRepository appUserRepository;
 
     protected static final String CLIENT_ID = "1154";
 
@@ -133,11 +143,11 @@ abstract class AbstractPostgresIntegrationTest {
      * <p>У аккаунта обязателен {@code api_key}: фоновые задачи берут из него ключи для
      * запросов к маркетплейсу, и без него импорт падал бы на середине.
      */
-    protected ru.analizer.persistence.entity.SellerAccount account() {
+    protected ru.analizer.account.domain.SellerAccount account() {
         return sellerAccountRepository
                 .findByUserIdAndMarketplaceId(user().getId(), marketplace().getId())
                 .orElseGet(() -> sellerAccountRepository.save(
-                        new ru.analizer.persistence.entity.SellerAccount(
+                        new ru.analizer.account.domain.SellerAccount(
                                 user(), marketplace(), MARKETPLACE + " " + CLIENT_ID,
                                 CLIENT_ID, API_KEY)));
     }
@@ -154,12 +164,12 @@ abstract class AbstractPostgresIntegrationTest {
     }
 
     /** Пользователь, которому принадлежат тестовые данные. */
-    protected ru.analizer.persistence.entity.AppUser user() {
+    protected ru.analizer.auth.domain.AppUser user() {
         return appUserRepository.findByLogin(LOGIN)
                 .orElseThrow(() -> new AssertionError("Тестовый пользователь не найден"));
     }
 
-    protected ru.analizer.persistence.entity.Marketplace marketplace() {
+    protected ru.analizer.account.domain.Marketplace marketplace() {
         return marketplaceRepository.findByCode(MARKETPLACE)
                 .orElseThrow(() -> new AssertionError("Маркетплейс не найден"));
     }
@@ -228,12 +238,12 @@ protected long count(String table) {
      * проверки статуса: так тест упадёт на зависшей задаче, а не пройдёт по счастливой
      * последовательности.
      */
-    protected ru.analizer.sync.ImportProgress awaitJob(Long importId) {
+    protected ru.analizer.sync.domain.ImportProgress awaitJob(Long importId) {
         java.time.Instant deadline = java.time.Instant.now().plus(Duration.ofMinutes(3));
         while (java.time.Instant.now().isBefore(deadline)) {
             var progress = importService.progressOf(importId, accountId()).orElseThrow();
             if (progress.finished()) {
-                if (progress.status() == ru.analizer.persistence.entity.RunState.FAILED) {
+                if (progress.status() == ru.analizer.sync.domain.RunState.FAILED) {
                     throw new AssertionError("Прогон " + importId + " провалился: " + progress.error());
                 }
                 return progress;
