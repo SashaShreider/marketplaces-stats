@@ -16,7 +16,9 @@ import ru.analizer.account.domain.AccountLookup;
 import ru.analizer.account.domain.Marketplace;
 import ru.analizer.account.repository.MarketplaceRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
+import ru.analizer.analytics.infrastructure.CatalogFacts;
 import ru.analizer.auth.repository.AppUserRepository;
+import ru.analizer.catalog.application.CatalogImportService;
 import ru.analizer.sync.application.AccrualImportService;
 import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.application.ImportService;
@@ -77,16 +79,16 @@ abstract class AbstractPostgresIntegrationTest {
     protected ru.analizer.sync.application.ImportService importService;
 
     @Autowired
-    protected ru.analizer.analytics.DailyAnalyticsService analytics;
+    protected ru.analizer.analytics.application.DailyAnalyticsService analytics;
 
     @Autowired
-    protected ru.analizer.analytics.ProductAnalyticsService productAnalytics;
+    protected ru.analizer.analytics.application.ProductAnalyticsService productAnalytics;
 
     @Autowired
-    protected ru.analizer.catalog.CatalogImportService catalogImportService;
+    protected ru.analizer.catalog.application.CatalogImportService catalogImportService;
 
     @Autowired
-    protected ru.analizer.analytics.CatalogFacts catalogFacts;
+    protected ru.analizer.analytics.infrastructure.CatalogFacts catalogFacts;
 
     @Autowired
     protected ru.analizer.sync.application.DayStateService dayStateService;

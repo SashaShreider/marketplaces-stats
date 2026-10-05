@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import ru.analizer.analytics.domain.DailyReport;
 import ru.analizer.sync.application.AccrualImportService;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;

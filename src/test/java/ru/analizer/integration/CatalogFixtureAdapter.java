@@ -165,7 +165,7 @@ final class CatalogFixtureAdapter implements ProductCatalogAdapter {
         Map<Long, Integer> counts = new java.util.HashMap<>();
         for (ProductEntry product : products()) {
             String author = product.attributeValue(4182L);
-            counts.merge(product.sku(), author == null ? 0 : ru.analizer.catalog.AuthorExtractor
+            counts.merge(product.sku(), author == null ? 0 : ru.analizer.catalog.domain.AuthorExtractor
                     .extract(author, true).size(), Integer::sum);
         }
         return counts;

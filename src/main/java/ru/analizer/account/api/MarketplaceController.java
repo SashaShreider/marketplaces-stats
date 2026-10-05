@@ -8,7 +8,7 @@ import ru.analizer.account.domain.Marketplace;
 import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.sync.repository.ImportRunRepository;
 import ru.analizer.account.repository.MarketplaceRepository;
-import ru.analizer.persistence.repository.OzonProductRepository;
+import ru.analizer.catalog.repository.OzonProductRepository;
 
 import java.util.List;
 import java.util.Optional;

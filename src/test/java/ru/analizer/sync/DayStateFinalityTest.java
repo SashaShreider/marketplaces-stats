@@ -2,9 +2,9 @@ package ru.analizer.sync;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.analytics.ReportCoverage;
-import ru.analizer.analytics.DailyAnalyticsService;
-import ru.analizer.analytics.ReportStatus;
+import ru.analizer.analytics.domain.ReportCoverage;
+import ru.analizer.analytics.application.DailyAnalyticsService;
+import ru.analizer.analytics.domain.ReportStatus;
 import ru.analizer.sync.domain.DayStatus;
 
 import java.math.BigDecimal;

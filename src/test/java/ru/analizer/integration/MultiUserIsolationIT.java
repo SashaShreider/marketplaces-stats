@@ -6,6 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import ru.analizer.account.domain.Marketplace;
+import ru.analizer.analytics.domain.ReportCoverage;
 import ru.analizer.auth.repository.AppUserRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
 

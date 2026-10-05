@@ -2,6 +2,10 @@ package ru.analizer.analytics;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import ru.analizer.analytics.domain.FeeFact;
+import ru.analizer.analytics.domain.FinancialModel;
+import ru.analizer.analytics.domain.FinancialSummary;
+import ru.analizer.analytics.domain.ProductFact;
 import ru.analizer.marketplace.ozon.OzonTestFixturesAccess;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
 

@@ -4,8 +4,8 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import ru.analizer.account.domain.Marketplace;
-import ru.analizer.analytics.DailyReport;
-import ru.analizer.analytics.ReportStatus;
+import ru.analizer.analytics.domain.DailyReport;
+import ru.analizer.analytics.domain.ReportStatus;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -86,7 +86,7 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
         assertThat(byType.getFirst().amount()).isEqualByComparingTo("-2267.09");
 
         BigDecimal sum = byType.stream()
-                .map(ru.analizer.analytics.FinancialSummary.TypeAmount::amount)
+                .map(ru.analizer.analytics.domain.FinancialSummary.TypeAmount::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         assertThat(sum).isEqualByComparingTo("-3987.73");
     }
