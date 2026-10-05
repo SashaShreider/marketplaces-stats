@@ -1,0 +1,1784 @@
+{
+  "info": {
+    "_postman_id": "b7f4e2a1-9c30-4d18-8a6e-5f21c7d40e11",
+    "name": "OZON Analizer — каталог товаров и отчёт по товарам",
+    "description": "Проверка новой функциональности с нуля: каталог товаров через /v4/product/info/attributes, фильтр по автору и отчёт по товарам.\n\n## ПОРЯДОК ЗАПУСКА\n\nПапки идут строго по порядку. Каждая следующая опирается на результат предыдущей.\n\n1. Подготовка (запустить приложение и БД ДО Postman)\n2. Пустое состояние — обязательно ДО загрузки каталога\n3. Загрузка каталога\n4. Блокировка повторного запуска\n5. Финансовые данные\n6. Отчёт по товарам\n7. Фильтры по автору\n8. Честность отчёта\n9. Сортировка и страницы\n10. Ошибки\n\n## ПОДГОТОВКА\n\nОкно 1 — база (не закрывать):\n    docker compose up -d\n\nОкно 2 — приложение (не закрывать):\n    .\\gradlew.bat bootRun\n\nДождаться строки: Started AnalizerApplication\n\nКлючи OZON подхватываются из .env автоматически, в коллекции вводить не нужно.\n\n## БЮДЖЕТ ЗАПРОСОВ К OZON\n\n    Загрузка каталога        1 запрос   (108 товаров одним ответом)\n    Один день начислений     1–2 запроса\n    syncTypes=true           +1 запрос\n    Месяц начислений         30+ запросов  (НЕ делать при первом прогоне)\n\nПапки 2, 6, 7, 8, 9, 10 не тратят запросы вообще.\n\n## ПРОВЕРКИ В БАЗЕ (SQL)\n\nЭти проверки Postman выполнить не может. После папки 3 откройте\nhttp://localhost:5050\n    логин:    analizer@example.com\n    пароль:   analizer\n    хост:     postgres\n    база:     analizer\n\n    -- эталонные значения, полученные реальной загрузкой 2026-10-05\n    select count(*) as товаров from ozon_product;                        -- 108\n    select count(*) as характеристик from ozon_product_attribute;        -- 1944\n    select count(distinct attribute_id) from ozon_product_attribute;     -- 89\n    select count(*) from product_author;                                 -- 114\n    select count(*) from ozon_product where isbn is not null;            -- 101\n\n    -- товаров без автора (бумага, календари, папки)\n    select count(*) from ozon_product\n      where array_length(author_keys,1) is null or array_length(author_keys,1)=0;  -- 9\n\n    -- ГЛАВНАЯ ПРОВЕРКА: оба написания одного автора должны слиться в один ключ.\n    -- Ожидается ОДНА строка: surcukov-style key и 4 товара.\n    -- Если строк две — фильтр по автору будет бесполезен.\n    select k, count(*) as товаров\n    from ozon_product, unnest(author_keys) k\n    where k like 'сурцуков%'\n    group by k;",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "day", "value": "2026-09-26" },
+    { "key": "periodStart", "value": "2026-09-01" },
+    { "key": "periodEnd", "value": "2026-09-30" },
+    { "key": "catalogJobId", "value": "" },
+    { "key": "financeJobId", "value": "" },
+    { "key": "catalogProducts", "value": "" },
+    { "key": "surtukovRows", "value": "" },
+    { "key": "fullPeriodIncome", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('baseUrl')) {",
+          "  pm.collectionVariables.set('baseUrl', 'http://localhost:8080');",
+          "}",
+          "if (!pm.collectionVariables.get('day')) {",
+          "  pm.collectionVariables.set('day', '2026-09-26');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "00 — Подготовка",
+      "description": "Проверяет, что приложение живо и база на месте. Запускать ПЕРВЫМ.\n\nЕсли здесь нет ответа — приложение не запущено или порт 8080 занят чем-то другим.",
+      "item": [
+        {
+          "name": "Приложение отвечает",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog"]
+            },
+            "description": "Самый дешёвый запрос без обращения к OZON. Отвечает 200 только когда приложение поднято."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Приложение отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('products — число', function () {",
+                  "  pm.expect(typeof b.products).to.eql('number');",
+                  "});",
+                  "pm.test('loaded — булево', function () {",
+                  "  pm.expect(typeof b.loaded).to.eql('boolean');",
+                  "});",
+                  "",
+                  "console.log('Товаров в каталоге: ' + b.products + ', загружен: ' + b.loaded);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 — Пустое состояние (ДО загрузки каталога)",
+      "description": "Запускать ДО папки 02. Если каталог уже загружен — эти проверки упадут, и это правильно: они фиксируют поведение на пустой базе.\n\nГлавное здесь: отсутствие данных — это НЕ ошибка, а честный ответ. Если эти запросы вернут 500, фронтенд не сможет предложить загрузку.",
+      "item": [
+        {
+          "name": "Каталог ещё не загружен",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog"]
+            },
+            "description": "До первой загрузки: products = 0, loaded = false. Это 200, а не ошибка."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200, а не 404/500', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('loaded = false', function () {",
+                  "  pm.expect(b.loaded).to.eql(false);",
+                  "});",
+                  "console.log('products=' + b.products + ' lastSyncedAt=' + b.lastSyncedAt);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Подсказки авторов пусты",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog/authors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog", "authors"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Пустой массив, а не ошибка', function () {",
+                  "  pm.expect(b).to.be.an('array');",
+                  "  pm.expect(b.length).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Отчёт: период не загружен",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{periodStart}}&dateTo={{periodEnd}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{periodStart}}" },
+                { "key": "dateTo", "value": "{{periodEnd}}" }
+              ]
+            },
+            "description": "ГЛАВНАЯ ПРОВЕРКА ЧЕСТНОСТИ.\n\nНа пустой базе отчёт обязан сказать NOT_LOADED и перечислить недостающие дни. Молчаливые нули означали бы «продаж не было» — и это была бы ложь.\n\nПоля status, coverage.missingDays, coverage.needsSync обязаны присутствовать."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('status = NOT_LOADED', function () {",
+                  "  pm.expect(b.status).to.eql('NOT_LOADED');",
+                  "});",
+                  "",
+                  "pm.test('Перечислены все недостающие дни', function () {",
+                  "  pm.expect(b.coverage.missingDays.length).to.eql(30);",
+                  "});",
+                  "",
+                  "pm.test('needsSync = true — есть смысл предлагать загрузку', function () {",
+                  "  pm.expect(b.coverage.needsSync).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Каталог пуст, но об этом сказано прямо', function () {",
+                  "  pm.expect(b.catalog.loaded).to.eql(false);",
+                  "  pm.expect(b.catalog.products).to.eql(0);",
+                  "});",
+                  "",
+                  "pm.test('Нет ни одной строки — а не 108 нулевых', function () {",
+                  "  pm.expect(b.rows.length).to.eql(0);",
+                  "  pm.expect(b.totalRows).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Неизвестный clientId тоже даёт данные, а не ошибку",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom=2026-09-01&dateTo=2026-09-02&clientId=9999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-09-01" },
+                { "key": "dateTo", "value": "2026-09-02" },
+                { "key": "clientId", "value": "9999" }
+              ]
+            },
+            "description": "Аккаунта с таким clientId не существует. Ожидается 200 + NOT_LOADED, а не 500: «данных нет» — это ответ, а не сбой."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200, а не 404 или 500', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('status = NOT_LOADED', function () {",
+                  "  pm.expect(b.status).to.eql('NOT_LOADED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Загрузка каталога",
+      "description": "Стоит 1 запрос к OZON: 108 товаров приходят одним ответом.\n\nЗАПУСКАЙТЕ ПОСЛЕ ПАПКИ 01 — папка 01 проверяет поведение на пустой базе.",
+      "item": [
+        {
+          "name": "Запустить загрузку каталога",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog"]
+            },
+            "description": "Даты не нужны: каталог один на аккаунт.\n\nЗАСЕКИТЕ ВРЕМЯ ОТВЕТА. Должно быть меньше секунды. Если POST «зависнет» — значит загрузка выполняется синхронно, и это баг.\n\nВ ответе jobType = CATALOG, dateFrom и dateTo = null, потому что у каталога нет периода."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Возвращает 202 Accepted, а не ждёт окончания', function () {",
+                  "  pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('jobType = CATALOG', function () {",
+                  "  pm.expect(b.jobType).to.eql('CATALOG');",
+                  "});",
+                  "",
+                  "pm.test('У задачи нет периода', function () {",
+                  "  pm.expect(b.dateFrom).to.eql(null);",
+                  "  pm.expect(b.dateTo).to.eql(null);",
+                  "});",
+                  "",
+                  "pm.test('Есть номер задачи', function () {",
+                  "  pm.expect(b.id).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('catalogJobId', b.id);",
+                  "console.log('jobId=' + b.id + ' -> сохранён в переменную catalogJobId');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Прогресс загрузки каталога",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/status?jobId={{catalogJobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "status"],
+              "query": [{ "key": "jobId", "value": "{{catalogJobId}}" }]
+            },
+            "description": "Повторяйте этот запрос, пока не завершится. Postman Collection Runner можно настроить на повтор, либо отправляйте вручную раз в 2 секунды.\n\nЗАВИСАНИЕ ЗДЕСЬ — ПРИЗНАК БАГА. У этого метода OZON курсор last_id приходит непустым даже на последней странице, поэтому наивный цикл «пока курсор не пуст» не завершился бы никогда. В коде остановка на четырёх условиях сразу.\n\nПрогресс идёт по товарам: doneDays растёт от 0 до 108."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "console.log('status=' + b.status + ' ' + b.doneDays + '/' + b.totalDays + ' ошибок=' + b.failedDays);",
+                  "",
+                  "pm.test('Задача не упала', function () {",
+                  "  if (b.status === 'FAILED') {",
+                  "    console.error('ОШИБКА ЗАДАЧИ: ' + b.error);",
+                  "  }",
+                  "  pm.expect(b.status).to.not.eql('FAILED');",
+                  "});",
+                  "",
+                  "pm.test('inProgress совпадает со статусом', function () {",
+                  "  pm.expect(b.inProgress).to.eql(b.status === 'RUNNING' || b.status === 'PENDING');",
+                  "});",
+                  "",
+                  "pm.test('Если завершилась — товаров обработано больше нуля', function () {",
+                  "  if (!b.inProgress) {",
+                  "    pm.expect(b.doneDays).to.be.above(0);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Каталог загружен",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog"]
+            },
+            "description": "После завершения: products = 108, loaded = true, появился lastSyncedAt.\n\nЭталонное значение для этого аккаунта — 108."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('loaded = true', function () {",
+                  "  pm.expect(b.loaded).to.eql(true);",
+                  "});",
+                  "",
+                  "pm.test('Товаров больше нуля', function () {",
+                  "  pm.expect(b.products).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Появилась дата синхронизации', function () {",
+                  "  pm.expect(b.lastSyncedAt).to.be.a('string');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('catalogProducts', b.products);",
+                  "console.log('Товаров: ' + b.products);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Подсказки авторов для фильтра",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog/authors",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog", "authors"]
+            },
+            "description": "Варианты для подсказок фильтра строятся из данных ПРОДАВЦА, а не из предположений. Эталон — 86 вариантов.\n\nВ списке будут странные значения вроде «анхель г. (. г.» или «а. в. с.» — это реальные ошибки продавца в карточках. Для нормальных подсказок понадобится таблица ручных склеек."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Список не пуст', function () {",
+                  "  pm.expect(b).to.be.an('array');",
+                  "  pm.expect(b.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Все варианты — строки в нижнем регистре', function () {",
+                  "  b.forEach(function (a) {",
+                  "    pm.expect(a).to.be.a('string');",
+                  "    pm.expect(a).to.eql(a.toLowerCase());",
+                  "  });",
+                  "});",
+                  "",
+                  "pm.test('Нет повторов', function () {",
+                  "  pm.expect(new Set(b).size).to.eql(b.length);",
+                  "});",
+                  "",
+                  "console.log('Вариантов авторов: ' + b.length);",
+                  "console.log('Первые 10: ' + b.slice(0, 10).join(' | '));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "История задач",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/jobs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "jobs"]
+            },
+            "description": "Показывает последние задачи с их типом. Финансовая и загрузка каталога — это разные задачи с разными правилами блокировки."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Есть хотя бы одна задача', function () {",
+                  "  pm.expect(b.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "b.forEach(function (j) {",
+                  "  console.log('#' + j.id + ' ' + j.jobType + ' ' + j.status + ' ' + j.doneDays + '/' + j.totalDays);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Блокировка повторного запуска",
+      "description": "ВАЖНО: эта папка чувствительна к скорости. Если каталог загрузится быстрее, чем вы успеете отправить второй запрос, получите 202 вместо 409 — и это НЕ поломка.\n\nКак проверить правильно: откройте оба запроса в соседних вкладках и отправьте почти одновременно. Или отправьте оба из одной коллекции подряд.\n\nСтоит 1 запрос к OZON (первый из двух).",
+      "item": [
+        {
+          "name": "Запуск №1",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Первый запуск принят', function () {",
+                  "  pm.response.to.have.status(202);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Запуск №2 — должен быть отклонён",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "catalog"]
+            },
+            "description": "Должен вернуть 409: два процесса переписывали бы одни и те же товары.\n\nЕсли получили 202 — первая задача уже успела завершиться. Просто отправьте ещё раз, когда первая точно в работе."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const code = pm.response.code;",
+                  "if (code === 409) {",
+                  "  pm.test('Повторный запуск отклонён — 409', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "  });",
+                  "  const b = pm.response.json();",
+                  "  pm.test('В ответе сказано, что уже выполняется', function () {",
+                  "    pm.expect(b.detail).to.include('уже выполняется');",
+                  "  });",
+                  "} else if (code === 202) {",
+                  "  console.warn('202 вместо 409: первая задача успела завершиться. Это не поломка. Проверьте вручную.');",
+                  "} else {",
+                  "  pm.test('Неожиданный код ответа', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Финансовые данные",
+      "description": "Каталог сам по себе даёт только справочник. Чтобы в отчёте появились суммы, нужен хотя бы один день начислений.\n\nСтоит 1–2 запроса к OZON. НЕ загружайте месяц при первом прогоне — это 30+ запросов.",
+      "item": [
+        {
+          "name": "Загрузить один день начислений",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/ozon?dateFrom={{day}}&dateTo={{day}}&syncTypes=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "ozon"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "syncTypes", "value": "false" }
+              ]
+            },
+            "description": "syncTypes=false — не тратим лишний запрос на справочник типов начислений. Поставьте true, если хотите его обновить (+1 запрос)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Возвращает 202 Accepted', function () {",
+                  "  pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('jobType = FINANCE', function () {",
+                  "  pm.expect(b.jobType).to.eql('FINANCE');",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('financeJobId', b.id);",
+                  "console.log('finance jobId=' + b.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Прогресс загрузки начислений",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/status?jobId={{financeJobId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "status"],
+              "query": [{ "key": "jobId", "value": "{{financeJobId}}" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "console.log('status=' + b.status + ' ' + b.doneDays + '/' + b.totalDays);",
+                  "pm.test('Задача не упала', function () {",
+                  "  pm.expect(b.status).to.not.eql('FAILED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Покрытие дня",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/coverage?dateFrom={{day}}&dateTo={{day}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "coverage"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" }
+              ]
+            },
+            "description": "После загрузки loadedDays должен стать 1."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('День загружен', function () {",
+                  "  pm.expect(b.loadedDays).to.eql(1);",
+                  "});",
+                  "pm.test('Покрытие полное', function () {",
+                  "  pm.expect(b.complete).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 — Отчёт по товарам",
+      "description": "Требует папки 02 (каталог) и 04 (финансовые данные). Свои запросы к OZON не тратит.",
+      "item": [
+        {
+          "name": "Главный отчёт",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "INCOME" },
+                { "key": "size", "value": "5" }
+              ]
+            },
+            "description": "ГЛАВНАЯ ПРОВЕРКА ОТЧЁТА.\n\nСравните productsInCatalog с productsWithSales и с totalRows:\n  * totalRows = productsInCatalog = 108 — показаны ВСЕ товары каталога;\n  * productsWithSales = 12 — продаж было только у части.\n\nСтроки с нулём — честный ответ «продаж не было», а не «нет данных». Если бы отчёт показывал только проданные товары, молчали бы товары, которые перестали продаваться."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('Период загружен — status = READY', function () {",
+                  "  pm.expect(b.status).to.eql('READY');",
+                  "});",
+                  "",
+                  "pm.test('Строк в отчёте ровно столько же, сколько товаров в каталоге', function () {",
+                  "  pm.expect(b.totalRows).to.eql(b.catalog.products);",
+                  "  pm.expect(b.totalRows).to.eql(b.totals.productsInCatalog);",
+                  "});",
+                  "",
+                  "pm.test('Продаж было меньше, чем товаров', function () {",
+                  "  pm.expect(b.totals.productsWithSales).to.be.above(0);",
+                  "  pm.expect(b.totals.productsWithSales).to.be.below(b.totals.productsInCatalog);",
+                  "});",
+                  "",
+                  "pm.test('Есть товары с честным нулём', function () {",
+                  "  pm.expect(b.totals.productsInCatalog - b.totals.productsWithSales).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('Размер страницы соблюдён', function () {",
+                  "  pm.expect(b.rows.length).to.eql(5);",
+                  "});",
+                  "",
+                  "pm.test('Общее число страниц посчитано верно', function () {",
+                  "  pm.expect(b.totalPages).to.eql(Math.ceil(b.totalRows / 5));",
+                  "});",
+                  "",
+                  "console.log('Товаров в каталоге: ' + b.catalog.products);",
+                  "console.log('С продажами: ' + b.totals.productsWithSales);",
+                  "console.log('Нераспределённые расходы: ' + b.unallocatedExpenses);",
+                  "console.log('Доход: ' + b.totals.income + ' Расходы: ' + b.totals.expenses + ' К выплате: ' + b.totals.payout);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Строка товара: структура и знаки",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "INCOME" },
+                { "key": "size", "value": "1" }
+              ]
+            },
+            "description": "Проверка полей товара.\n\nОБРАТИТЕ ВНИМАНИЕ на знаки: в financial расходы отрицательные — так их отдаёт OZON. Наружу income и expenses отдаются положительными числами. Это разные поля намеренно, чтобы отчёт совпадал с кабинетом OZON и при этом не путал пользователя.\n\nГЛАВНОЕ ПРО ТОЖДЕСТВО. Тождество income − expenses = payout в этом отчёте НЕ выполняется, и это не ошибка. В totals.expenses не входят расходы без привязки к товару (NON_ITEM и CONTAINER): распределить их между товарами можно было бы только выдумав правило, поэтому они показаны отдельным полем unallocatedExpenses.\n\nПравильная сверка:  income − expenses − payout = unallocatedExpenses\n\nПроверка ниже сравнивает итог с ручным подсчётом по выгрузке: 13 308.45 + 3 353.58 = 16 662.03."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "const r = b.rows[0];",
+                  "",
+                  "pm.test('Товар найден', function () {",
+                  "  pm.expect(r).to.be.an('object');",
+                  "});",
+                  "",
+                  "pm.test('Есть название, обложка и SKU', function () {",
+                  "  pm.expect(r.sku).to.be.a('number');",
+                  "  pm.expect(r.name).to.be.a('string');",
+                  "  pm.expect(r.primaryImage).to.be.a('string');",
+                  "});",
+                  "",
+                  "pm.test('Авторы присутствуют и указано, откуда имя', function () {",
+                  "  pm.expect(r.authors.length).to.be.above(0);",
+                  "  r.authors.forEach(function (a) {",
+                  "    pm.expect(a.raw).to.be.a('string');",
+                  "    pm.expect(['DECLARED', 'COVER']).to.include(a.source);",
+                  "  });",
+                  "});",
+                  "",
+                  "pm.test('Внутри financial знаки как в OZON: расходы отрицательные', function () {",
+                  "  // Проверяем только если сумма ненулевая: строка может оказаться товаром",
+                  "  // без продаж за период (см. папку 08 про выбор страницы).",
+                  "  if (r.financial.commission != 0) {",
+                  "    pm.expect(r.financial.commission).to.be.below(0);",
+                  "  }",
+                  "  if (r.financial.logistics != 0) {",
+                  "    pm.expect(r.financial.logistics).to.be.below(0);",
+                  "  }",
+                  "  if (r.financial.sales != 0) {",
+                  "    pm.expect(r.financial.sales).to.be.above(0);",
+                  "  }",
+                  "});",
+                  "",
+                  "pm.test('income совпадает с financial', function () {",
+                  "  pm.expect(r.income).to.eql(r.financial.sales + r.financial.returns + r.financial.partnerProgramme);",
+                  "});",
+                  "",
+                  "pm.test('СВЕРКА ПЕРИОДА: доходы − расходы − к выплате = нераспределённые расходы', function () {",
+                  "  // НЕ income - expenses == payout!",
+                  "  // В отчёте по товарам totals.expenses НЕ включает расходы без SKU",
+                  "  // (NON_ITEM и CONTAINER): распределить их по товарам значило бы",
+                  "  // выдумать правило. Поэтому разница равна unallocatedExpenses.",
+                  "  const diff = b.totals.income - b.totals.expenses - b.totals.payout;",
+                  "  const unalloc = Math.abs(b.unallocatedExpenses);",
+                  "  console.log('income=' + b.totals.income);",
+                  "  console.log('expenses(товары)=' + b.totals.expenses);",
+                  "  console.log('unallocated=' + b.unallocatedExpenses);",
+                  "  console.log('payout=' + b.totals.payout);",
+                  "  console.log('diff=' + diff + ' -> должно равняться unallocated=' + unalloc);",
+                  "  pm.expect(Math.abs(diff - unalloc)).to.be.below(0.02);",
+                  "});",
+                  "",
+                  "pm.test('Сумма сходится с расчётом OZON вручную', function () {",
+                  "  // Контрольное число из ручного подсчёта по выгрузке 2026-09-26.",
+                  "  // Если оно сойдётся — суммирование по товарам не потеряло начисления.",
+                  "  const expected = 16662.03;",
+                  "  const actual = b.totals.expenses + Math.abs(b.unallocatedExpenses);",
+                  "  console.log('расходы товаров + нераспределённые = ' + actual);",
+                  "  pm.expect(Math.abs(actual - expected)).to.be.below(0.02);",
+                  "});",
+                  "",
+                  "console.log('--- первая строка ---');",
+                  "console.log('sku=' + r.sku + ' | ' + r.name);",
+                  "console.log('авторы: ' + r.authors.map(function (a) { return a.raw + ' [' + a.source + ']'; }).join(', '));",
+                  "console.log('isbn=' + r.isbn + ' количество=' + r.quantity + ' операций=' + r.accrualCount);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Нераспределённые расходы видны, а не размазаны",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&size=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "size", "value": "1" }
+              ]
+            },
+            "description": "Проверка честности расходов.\n\nРасходы типов NON_ITEM и CONTAINER приходят от OZON БЕЗ привязки к товару. Распределить их между товарами можно только выдумав правило, поэтому в коде этого не происходит, а сумма показана отдельным полем unallocatedExpenses.\n\nСЛЕДСТВИЕ: сумма расходов по товарам намеренно меньше дневного отчёта. Если бы расходы тихо размазали по товарам, отчёт показывал бы правдоподобные, но выдуманные цифры.\n\nСравните с totals.expenses дневного отчёта: разница равна unallocatedExpenses."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('Поле unallocatedExpenses присутствует', function () {",
+                  "  pm.expect(b).to.have.property('unallocatedExpenses');",
+                  "  pm.expect(b.unallocatedExpenses).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.test('Список SKU без товара тоже показан', function () {",
+                  "  pm.expect(b.skusMissingFromCatalog).to.be.an('array');",
+                  "});",
+                  "",
+                  "console.log('Нераспределённые: ' + b.unallocatedExpenses);",
+                  "console.log('SKU без товара: ' + b.skusMissingFromCatalog.length);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 — Фильтр по автору",
+      "description": "Смысл всей работы: имена у OZON приходят в разных форматах. «Сурцуков А.», «Сурцуков Анатолий» и «Сурцуков» — это один человек.\n\nЗАПУСКАЙТЕ ПАПКИ 06 ЧЕРЕЗ ПАПКУ 02. Свои запросы к OZON не тратит.",
+      "item": [
+        {
+          "name": "Фамилия: Сурцуков",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Сурцуков&size=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "author", "value": "Сурцуков" },
+                { "key": "size", "value": "100" }
+              ]
+            },
+            "description": "ПОЛНЫМ ИМЕНЕМ: пользователь ввёл только фамилию. Ожидается 4 товара — и те, где автор записан как «Сурцуков А.», и те, где «Сурцуков Анатолий».\n\nРезультат сохраняется, чтобы следующие два запроса могли с ним сравниться."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Найдены товары', function () {",
+                  "  pm.expect(b.totalRows).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('У каждого товара есть автор', function () {",
+                  "  b.rows.forEach(function (r) {",
+                  "    pm.expect(r.authors.length).to.be.above(0);",
+                  "  });",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('surtukovRows', b.totalRows);",
+                  "",
+                  "console.log('Найдено: ' + b.totalRows + ' -> сохранено для сравнения');",
+                  "b.rows.forEach(function (r) {",
+                  "  console.log('  sku=' + r.sku + ' автор=' + r.authors[0].raw);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "То же полным именем: Сурцуков Анатолий",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Сурцуков Анатолий&size=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "author", "value": "Сурцуков Анатолий" },
+                { "key": "size", "value": "100" }
+              ]
+            },
+            "description": "Второе написание того же человека. Число товаров ДОЛЖНО совпасть с предыдущим запросом.\n\nЕсли здесь 2 товара, а в предыдущем было 4 — фильтр работает только на буквальное совпадение и бесполезен."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "const expected = Number(pm.collectionVariables.get('surtukovRows'));",
+                  "",
+                  "pm.test('Совпало с фильтром по одной фамилии', function () {",
+                  "  pm.expect(b.totalRows).to.eql(expected);",
+                  "});",
+                  "",
+                  "console.log('Фамилия дала ' + expected + ', полное имя дало ' + b.totalRows);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "То же с инициалами: Сурцуков А.",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Сурцуков А.&size=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "author", "value": "Сурцуков А." },
+                { "key": "size", "value": "100" }
+              ]
+            },
+            "description": "Третье написание. Число товаров обязано совпасть с первыми двумя.\n\nВсе три запроса возвращают один и тот же список — значит пользователь не обязан угадывать, как именно продавец записал автора."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "const expected = Number(pm.collectionVariables.get('surtukovRows'));",
+                  "",
+                  "pm.test('Совпало с остальными написаниями', function () {",
+                  "  pm.expect(b.totalRows).to.eql(expected);",
+                  "});",
+                  "",
+                  "console.log('Оба варианта дают: ' + expected + ' товаров');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Двойная фамилия: Умнова-Конюхова",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=Умнова-Конюхова&size=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "author", "value": "Умнова-Конюхова" },
+                { "key": "size", "value": "100" }
+              ]
+            },
+            "description": "Сложный случай: у этого товара поле «автор на обложке» перечисляет три ФОРМЫ ОДНОГО человека — «Умнова Ирина Анатольевна; Конюхова Ирина Анатольевна; Умнова-Конюхова Ирина Анатольевна».\n\nПосле сведения к «фамилия + инициалы» это даст три РАЗНЫХ ключа, потому что один человек записан через три фамилии. Автоматика этого не лечит — понадобится таблица ручных склеек. Так и должно быть: выдумывать правило склейки значит рисковать склеить разных людей."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Найдены товары', function () {",
+                  "  pm.expect(b.totalRows).to.be.above(0);",
+                  "});",
+                  "",
+                  "console.log('Найдено: ' + b.totalRows);",
+                  "b.rows.forEach(function (r) {",
+                  "  console.log('  sku=' + r.sku + ' автор=' + r.authors.map(function (a) { return a.raw; }).join('; '));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Неизвестный автор — пусто, а не ошибка",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&author=ТакогоАвтораНет&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "author", "value": "ТакогоАвтораНет" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Несуществующий автор — это нормальный результат фильтра, а не ошибка. Должно быть 200 и ноль строк."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200, а не 404', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Пустой результат', function () {",
+                  "  pm.expect(b.totalRows).to.eql(0);",
+                  "  pm.expect(b.rows.length).to.eql(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Поиск по ISBN",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&query=9785907081338&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "query", "value": "9785907081338" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Тот же параметр query ищет по названию, своему артикулу и ISBN. Ожидается ровно один товар."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Отвечает 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Найден ровно один товар', function () {",
+                  "  pm.expect(b.totalRows).to.eql(1);",
+                  "});",
+                  "pm.test('ISBN совпадает', function () {",
+                  "  pm.expect(b.rows[0].isbn).to.eql('9785907081338');",
+                  "});",
+                  "",
+                  "console.log(b.rows[0].name);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Поиск по своему артикулу",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&query=itsbook025&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "query", "value": "itsbook025" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "offer_id продавца. Удобно, когда известен свой артикул, а не ISBN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Найден ровно один товар', function () {",
+                  "  pm.expect(b.totalRows).to.eql(1);",
+                  "  pm.expect(b.rows[0].offerId).to.eql('itsbook025');",
+                  "});",
+                  "console.log(b.rows[0].name);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Поиск по подстроке названия",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&query=Памятка&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "query", "value": "Памятка" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "Регистр не должен иметь значения: поиск идёт без учёта регистра."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Найдены товары', function () {",
+                  "  pm.expect(b.totalRows).to.be.above(0);",
+                  "});",
+                  "b.rows.forEach(function (r) {",
+                  "  console.log('  ' + r.name);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 — Честность отчёта",
+      "description": "Эти проверки важнее красных цифр: они защищают от тихой лжи в отчёте. Свои запросы к OZON не тратит.",
+      "item": [
+        {
+          "name": "Период, который не загружали",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom=2026-07-01&dateTo=2026-07-10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-07-01" },
+                { "key": "dateTo", "value": "2026-07-10" }
+              ]
+            },
+            "description": "Каталог загружен, но финансовых данных за июль нет. Отчёт обязан сказать NOT_LOADED и перечислить 10 недостающих дней."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('status = NOT_LOADED', function () {",
+                  "  pm.expect(b.status).to.eql('NOT_LOADED');",
+                  "});",
+                  "",
+                  "pm.test('Перечислены все 10 недостающих дней', function () {",
+                  "  pm.expect(b.coverage.missingDays.length).to.eql(10);",
+                  "});",
+                  "",
+                  "pm.test('Строки каталога всё равно показаны', function () {",
+                  "  pm.expect(b.totalRows).to.eql(b.catalog.products);",
+                  "});",
+                  "",
+                  "pm.test('Итоги по периоду нулевые — их неоткуда взять', function () {",
+                  "  pm.expect(b.totals.income).to.eql(0);",
+                  "});",
+                  "",
+                  "console.log('Важно: totalRows=' + b.totalRows + ', но status=NOT_LOADED.');",
+                  "console.log('Нули в строках здесь НЕ означают «продаж не было» — это видно по status.');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Частично загруженный период",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo=2026-09-28",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "2026-09-28" }
+              ]
+            },
+            "description": "Загружен только 2026-09-26, запрошено три дня. Ожидается PARTIAL с двумя недостающими днями.\n\nВАЖНО: если загрузить 27 и 28 тоже, здесь будет READY — и это правильно. Проверка имеет смысл, пока дни действительно не загружены."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('Неполный период помечен PARTIAL', function () {",
+                  "  if (b.coverage.missingDays.length === 0) {",
+                  "    console.warn('Все дни загружены — проверка неприменима, нужен PARTIAL.');",
+                  "    return;",
+                  "  }",
+                  "  pm.expect(b.status).to.eql('PARTIAL');",
+                  "});",
+                  "",
+                  "pm.test('Часть дней загружена', function () {",
+                  "  pm.expect(b.coverage.loadedDays).to.eql(1);",
+                  "  pm.expect(b.coverage.missingDays.length).to.eql(2);",
+                  "});",
+                  "",
+                  "console.log('status=' + b.status + ' загружено=' + b.coverage.loadedDays + ' нет=' + b.coverage.missingDays.join(','));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Граница: полностью загруженный период",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" }
+              ]
+            },
+            "description": "Тот же день, что загружали. Должен быть READY — это доказывает, что PARTIAL в прошлом запросе появился из-за реально недостающих дней, а не всегда."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Полностью загруженный период даёт READY', function () {",
+                  "  pm.expect(b.status).to.eql('READY');",
+                  "});",
+                  "pm.test('Покрытие полное', function () {",
+                  "  pm.expect(b.coverage.loadedDays).to.eql(b.coverage.requestedDays);",
+                  "  pm.expect(b.coverage.missingDays.length).to.eql(0);",
+                  "  pm.expect(b.coverage.needsSync).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Сверка: расходы по товарам плюс нераспределённые",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&size=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "size", "value": "1" }
+              ]
+            },
+            "description": "Здесь вручную сверяются два отчёта за один период.\n\n  1) Запросите дневной отчёт:\n     GET {{baseUrl}}/api/analytics/daily?dateFrom=...&dateTo=...\n     и посмотрите totals.expenses\n\n  2) Возьмите отсюда totals.expenses и unallocatedExpenses.\n\nОжидание: разница между дневным totals.expenses и этим totals.expenses равна unallocatedExpenses по модулю.\n\nЕсли бы нераспределённые расходы молча размазали по товарам, разница была бы нулевой, а цифры — выдуманными."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Есть оба числа для сверки', function () {",
+                  "  pm.expect(b.totals.expenses).to.be.a('number');",
+                  "  pm.expect(b.unallocatedExpenses).to.be.a('number');",
+                  "});",
+                  "",
+                  "console.log('=== СВЕРКА С ДНЕВНЫМ ОТЧЁТОМ ===');",
+                  "console.log('totals.expenses (по товарам):   ' + b.totals.expenses);",
+                  "console.log('unallocatedExpenses:            ' + b.unallocatedExpenses);",
+                  "console.log('Сумма:                          ' + (b.totals.expenses + Math.abs(b.unallocatedExpenses)));",
+                  "console.log('Теперь откройте /api/analytics/daily за тот же период');",
+                  "console.log('и сравните с последним числом.');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 — Сортировка и постраничность",
+      "description": "Проверка, что постраничная выборка не портит итоги. Свои запросы к OZON не тратит.\n\n!!! ВНИМАНИЕ !!!\nВ этой папке есть запрос «ИЗВЕСТНАЯ ПРОБЛЕМА: sort=INCOME не влияет на выбор страницы». Он документирует дефект: сортировка по доходу применяется только ВНУТРИ выбранной страницы, а сама страница выбирается по названию. Прочитайте его описание, прежде чем строить отчёт на sort=INCOME.\n\nЧто работает правильно: totals по периоду не зависят от размера страницы.",
+      "item": [
+        {
+          "name": "Страница по 20 товаров",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "INCOME" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "При 108 товарах и size=20 должно быть 6 страниц.\n\nИтоги сохраняются, чтобы следующий запрос их сравнил.\n\n!!! ВАЖНО, ИЗВЕСТНАЯ ПРОБЛЕМА !!!\nsort=INCOME СЕЙЧАС НЕ РАБОТАЕТ ПРАВИЛЬНО. Страница выбирается в SQL по названию, а сортировка по доходу применяется только ВНУТРИ уже выбранной страницы. Поэтому на маленькой странице вы увидите не лучшие продажи, а товары, чьи названия начинаются на «А».\n\nПроверка ниже поэтому НЕ проверяет убывание дохода: пять нулей считаются «отсортированными» и проверка прошла бы вхолостую. Отдельная проверка проблемы — запрос «Известная проблема: сортировка по доходу»."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "",
+                  "pm.test('Возвращает страницу из 20 строк', function () {",
+                  "  pm.expect(b.rows.length).to.eql(20);",
+                  "});",
+                  "",
+                  "pm.test('Номер страницы и размер вернулись', function () {",
+                  "  pm.expect(b.page).to.eql(0);",
+                  "  pm.expect(b.size).to.eql(20);",
+                  "});",
+                  "",
+                  "pm.test('Число страниц посчитано верно', function () {",
+                  "  pm.expect(b.totalPages).to.eql(Math.ceil(b.totalRows / 20));",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('fullPeriodIncome', b.totals.income);",
+                  "const withIncome = b.rows.filter(function (r) { return r.income > 0; }).length;",
+                  "console.log('Доход за период: ' + b.totals.income + ' -> сохранён для сравнение');",
+                  "console.log('ПРЕДУПРЕЖДЕНИЕ: товаров с доходом > 0 на этой странице: ' + withIncome + ' из ' + b.rows.length);",
+                  "console.log('Это следствие известной проблемы выборки страницы при sort=INCOME.');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Все товары одним запросом — итоги те же",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=500",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "INCOME" },
+                { "key": "size", "value": "500" }
+              ]
+            },
+            "description": "ГЛАВНАЯ ПРОВЕРКА ПОСТРАНИЧНОСТИ: totals.income должен совпасть с предыдущим запросом, где было показано только 20 товаров из 108.\n\nИтоги считаются по ВСЕМ товарам периода, а не по текущей странице. Иначе итог зависел бы от того, какую страницу смотрит пользователь."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "const expected = Number(pm.collectionVariables.get('fullPeriodIncome'));",
+                  "",
+                  "pm.test('Все товары вернулись', function () {",
+                  "  pm.expect(b.rows.length).to.eql(b.totalRows);",
+                  "});",
+                  "",
+                  "pm.test('Итоги не зависят от размера страницы', function () {",
+                  "  console.log('20 на странице:  ' + expected);",
+                  "  console.log('500 на странице: ' + b.totals.income);",
+                  "  pm.expect(b.totals.income).to.eql(expected);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ИЗВЕСТНАЯ ПРОБЛЕМА: sort=INCOME не влияет на выбор страницы",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=INCOME&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "INCOME" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Этот запрос документирует ДЕФЕКТ, а не проверяет работу.\n\nЧТО ПРОИСХОДИТ. Страница каталога выбирается в SQL с ORDER BY name и LIMIT/OFFSET. Сортировка sort=INCOME применяется потом, в Java, только к уже выбранным строкам. Поэтому sort=INCOME не влияет на то, КАКИЕ товары попадут на страницу.\n\nПОСЛЕДСТВИЕ. Пользователь просит «покажи лучшие продажи», получает 10 товаров с названиями на «А», почти все с нулевым доходом, при том что товары с реальными продажами остались на следующих страницах.\n\nПОЧЕМУ ТАК. Итоги считаются в памяти через общий FinancialModel — так правила гарантированно совпадают с дневным отчётом. Но в SQL дохода по товару нет, и отсортировать по нему там нечем.\n\nЧТО НУЖНО ДЛЯ ПОЧИНИТКИ. Считать агрегаты по всем SKU в SQL и сортировать по ним. Тогда отчёт по товарам перестанет переиспользовать FinancialModel, и правила могут разойтись с дневным отчётом — либо придётся сначала агрегировать в SQL, а потом пересчитывать в памяти для сверки."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "const withIncome = b.rows.filter(function (r) { return r.income > 0; }).length;",
+                  "",
+                  "console.log('=========================================================');",
+                  "console.log('ИЗВЕСТНАЯ ПРОБЛЕМА: выбор страницы не учитывает sort');",
+                  "console.log('=========================================================');",
+                  "console.log('Запрошено: sort=INCOME, size=' + b.size);",
+                  "console.log('Товаров с доходом > 0 на странице: ' + withIncome + ' из ' + b.rows.length);",
+                  "console.log('Всего товаров с продажами за период: ' + b.totals.productsWithSales);",
+                  "console.log('');",
+                  "console.log('Первая строка: ' + b.rows[0].name);",
+                  "console.log('  доход = ' + b.rows[0].income);",
+                  "",
+                  "if (b.totals.productsWithSales > 0 && withIncome === 0) {",
+                  "  console.log('ПОДТВЕРЖДЕНО: sort=INCOME вернул страницу без единого');",
+                  "  console.log('товара с продажами, хотя такие товары есть (' + b.totals.productsWithSales + ' шт).');",
+                  "  console.log('Сортировка по доходу не влияет на выбор страницы.');",
+                  "} else if (withIncome > 0) {",
+                  "  console.log('На этой странице есть товары с доходом — возможно, выборка');",
+                  "  console.log('попала на них случайно (они с названиями на «А»).');",
+                  "  console.log('Сравните список SKU с sort=NAME — он должен совпасть.');",
+                  "} else {",
+                  "  console.log('Товаров с продажами за период нет, проверка неприменима.');",
+                  "}",
+                  "",
+                  "pm.test('Страница сформирована, ошибок нет', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(b.rows.length).to.eql(b.size);",
+                  "});",
+                  "pm.test('Итоги по периоду от страницы не зависят', function () {",
+                  "  pm.expect(b.totals.productsWithSales).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Сортировка по названию",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=NAME&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "NAME" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Отсортировано по названию', function () {",
+                  "  const names = b.rows.map(function (r) { return r.name; });",
+                  "  const sorted = names.slice().sort();",
+                  "  pm.expect(names).to.eql(sorted);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Сортировка по SKU",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=SKU&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "SKU" },
+                { "key": "size", "value": "20" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Отсортировано по SKU по возрастанию', function () {",
+                  "  const skus = b.rows.map(function (r) { return r.sku; });",
+                  "  for (let i = 1; i < skus.length; i++) {",
+                  "    pm.expect(skus[i]).to.be.at.least(skus[i - 1]);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Неизвестная сортировка не ломает запрос",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&sort=МУСОР&size=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "sort", "value": "МУСОР" },
+                { "key": "size", "value": "5" }
+              ]
+            },
+            "description": "Неизвестный sort молча сортирует по доходу — по умолчанию. Это 200, а не ошибка."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Отвечает 200 и сортирует по умолчанию', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(b.rows.length).to.be.above(0);",
+                  "  const incomes = b.rows.map(function (r) { return r.income; });",
+                  "  for (let i = 1; i < incomes.length; i++) {",
+                  "    pm.expect(incomes[i]).to.be.at.most(incomes[i - 1]);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Номер страницы за пределами — зажимается на последнюю",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom={{day}}&dateTo={{day}}&page=999&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "{{day}}" },
+                { "key": "dateTo", "value": "{{day}}" },
+                { "key": "page", "value": "999" },
+                { "key": "size", "value": "20" }
+              ]
+            },
+            "description": "Проверка, что приложение не падает и не показывает чужую страницу.\n\nПоведение: номер страницы ЗАЖИМАЕТСЯ на последнюю. Запрошено page=999, а вернулся page=5 — последняя страница при 108 товарах и size=20. Это удачнее, чем ошибка: клиенту не нужно самому считать границы, а пустая страница не показывается."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('Отвечает 200, а не падает', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Номер страницы зажат на последнюю', function () {",
+                  "  pm.expect(b.page).to.eql(b.totalPages - 1);",
+                  "});",
+                  "pm.test('Страница не пустая — это последняя, а не выдуманная', function () {",
+                  "  pm.expect(b.rows.length).to.be.above(0);",
+                  "});",
+                  "pm.test('Метаданные остались корректными', function () {",
+                  "  pm.expect(b.totalRows).to.be.above(0);",
+                  "  pm.expect(b.totalPages).to.eql(Math.ceil(b.totalRows / b.size));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 — Ошибки",
+      "description": "Проверка контракта ошибок. Свои запросы к OZON не тратит.",
+      "item": [
+        {
+          "name": "dateTo раньше dateFrom — 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateFrom=2026-09-30&dateTo=2026-09-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-09-30" },
+                { "key": "dateTo", "value": "2026-09-01" }
+              ]
+            },
+            "description": "Обратный период — ошибка пользователя, а не состояние данных. Должен быть 400 с понятным текстом, а не 500."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Возвращает 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test('Текст объясняет, что не так', function () {",
+                  "  pm.expect(b.detail).to.be.a('string');",
+                  "  pm.expect(b.detail).to.include('dateTo');",
+                  "});",
+                  "pm.test('Есть заголовок для UI', function () {",
+                  "  pm.expect(b.title).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Нет обязательного параметра — 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/products?dateTo=2026-09-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "products"],
+              "query": [{ "key": "dateTo", "value": "2026-09-01" }]
+            },
+            "description": "Без dateFrom отчёт не собрать. 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Возвращает 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Несуществующий jobId — 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/sync/status?jobId=777777",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "sync", "status"],
+              "query": [{ "key": "jobId", "value": "777777" }]
+            },
+            "description": "Задачи с таким номером нет. 404 — корректный ответ."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Возвращает 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Обратный период в дневном отчёте — 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/daily?dateFrom=2026-09-30&dateTo=2026-09-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "daily"],
+              "query": [
+                { "key": "dateFrom", "value": "2026-09-30" },
+                { "key": "dateTo", "value": "2026-09-01" }
+              ]
+            },
+            "description": "Проверка согласованности: дневной отчёт ведёт себя так же, как отчёт по товарам."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Возвращает 400', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
