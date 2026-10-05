@@ -3,16 +3,12 @@ package ru.analizer.catalog.integration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.catalog.application.CatalogImportService;
-import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.analytics.domain.ProductReport;
+import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.CatalogAdapterConfig;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
-import ru.analizer.sync.application.AccrualImportService;
-import ru.analizer.sync.application.ImportService;
 import ru.analizer.sync.domain.RunState;
 
 import java.time.LocalDate;

@@ -6,12 +6,9 @@ import ru.analizer.integration.model.AccrualDto;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static ru.analizer.integration.ozon.OzonTestFixtures.byExternalId;
-import static ru.analizer.integration.ozon.OzonTestFixtures.load;
-import static ru.analizer.integration.ozon.OzonTestFixtures.num;
+import static ru.analizer.integration.ozon.OzonTestFixtures.*;
 
 /**
  * Проверка финансовой целостности на реальных ответах OZON.

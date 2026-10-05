@@ -2,16 +2,16 @@ package ru.analizer.sync.application;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.analytics.domain.ReportCoverage;
 import ru.analizer.analytics.application.DailyAnalyticsService;
+import ru.analizer.analytics.domain.ReportCoverage;
 import ru.analizer.analytics.domain.ReportStatus;
 import ru.analizer.sync.domain.DayStatus;
+import ru.analizer.sync.domain.PeriodCoverage;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import ru.analizer.sync.domain.PeriodCoverage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

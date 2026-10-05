@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
+import ru.analizer.analytics.domain.FeeFact;
+import ru.analizer.analytics.domain.FinancialModel;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,8 +14,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import ru.analizer.analytics.domain.FeeFact;
-import ru.analizer.analytics.domain.FinancialModel;
 
 /**
  * Выборки каталога товаров для отчёта и подсказок фильтра.

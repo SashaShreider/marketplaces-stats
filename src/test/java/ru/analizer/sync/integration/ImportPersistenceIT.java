@@ -1,13 +1,11 @@
 package ru.analizer.sync.integration;
 
-import org.springframework.context.annotation.Import;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
-import ru.analizer.sync.application.AccrualImportService;
 import ru.analizer.sync.domain.AccrualImportReport;
 
 import static org.assertj.core.api.Assertions.assertThat;

@@ -1,17 +1,13 @@
 package ru.analizer.analytics.integration;
 
-import org.springframework.context.annotation.Import;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.account.domain.Marketplace;
+import org.springframework.context.annotation.Import;
 import ru.analizer.analytics.domain.ReportCoverage;
 import ru.analizer.analytics.domain.ReportStatus;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
-import ru.analizer.sync.application.AccrualImportService;
-import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.domain.PeriodCoverage;
 
 import java.time.LocalDate;

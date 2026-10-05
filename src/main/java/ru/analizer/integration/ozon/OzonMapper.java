@@ -1,16 +1,7 @@
 package ru.analizer.integration.ozon;
 
 import ru.analizer.integration.model.AccrualDto;
-import ru.analizer.integration.ozon.dto.finance.ContainerFees;
-import ru.analizer.integration.ozon.dto.finance.Delivery;
-import ru.analizer.integration.ozon.dto.finance.DeliveryService;
-import ru.analizer.integration.ozon.dto.finance.FinanceAccrual;
-import ru.analizer.integration.ozon.dto.finance.ItemFee;
-import ru.analizer.integration.ozon.dto.finance.ItemFees;
-import ru.analizer.integration.ozon.dto.finance.Money;
-import ru.analizer.integration.ozon.dto.finance.NonItemFee;
-import ru.analizer.integration.ozon.dto.finance.Posting;
-import ru.analizer.integration.ozon.dto.finance.PostingProduct;
+import ru.analizer.integration.ozon.dto.finance.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;

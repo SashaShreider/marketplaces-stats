@@ -1,9 +1,10 @@
 package ru.analizer.integration;
 
-import java.util.List;
 import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.model.CatalogPage;
 import ru.analizer.integration.model.ProductEntry;
+
+import java.util.List;
 
 /**
  * Источник характеристик товаров.

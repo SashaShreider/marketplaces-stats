@@ -2,19 +2,15 @@ package ru.analizer.catalog.application;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.catalog.domain.AuthorExtractor;
+import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.catalog.domain.*;
 import ru.analizer.catalog.domain.AuthorExtractor.Author;
-import ru.analizer.catalog.domain.AuthorNormalizer;
-import ru.analizer.integration.model.ProductAttributeEntry;
-import ru.analizer.integration.model.ProductEntry;
-import ru.analizer.integration.ozon.OzonProductAttributes;
-import ru.analizer.catalog.domain.OzonProduct;
-import ru.analizer.catalog.domain.OzonProductAttribute;
-import ru.analizer.catalog.domain.ProductAuthor;
 import ru.analizer.catalog.repository.OzonProductAttributeRepository;
 import ru.analizer.catalog.repository.OzonProductRepository;
 import ru.analizer.catalog.repository.ProductAuthorRepository;
-import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.integration.model.ProductAttributeEntry;
+import ru.analizer.integration.model.ProductEntry;
+import ru.analizer.integration.ozon.OzonProductAttributes;
 
 import java.time.Clock;
 import java.time.Instant;

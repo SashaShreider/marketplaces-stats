@@ -1,23 +1,14 @@
 package ru.analizer.sync.infrastructure.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.sync.domain.AccrualType;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import ru.analizer.account.domain.SellerAccount;
-import ru.analizer.integration.ozon.dto.finance.AccruedCategory;
-import ru.analizer.sync.domain.AccrualType;
 
 /**
  * Одна финансовая операция OZON.

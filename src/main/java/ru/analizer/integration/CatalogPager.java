@@ -2,14 +2,14 @@ package ru.analizer.integration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ru.analizer.account.domain.MarketplaceCredentials;
+import ru.analizer.integration.model.CatalogPage;
+import ru.analizer.integration.model.ProductEntry;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import ru.analizer.account.domain.MarketplaceCredentials;
-import ru.analizer.integration.model.CatalogPage;
-import ru.analizer.integration.model.ProductEntry;
 
 /**
  * Обход страниц каталога товаров.

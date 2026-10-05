@@ -1,10 +1,11 @@
 package ru.analizer.integration;
 
-import java.time.LocalDate;
-import java.util.List;
 import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.model.AccrualTypeInfo;
+
+import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Контракт интеграции с маркетплейсом. Аналитика и синхронизация зависят только от него,

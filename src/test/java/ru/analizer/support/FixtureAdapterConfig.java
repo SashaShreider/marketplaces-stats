@@ -3,9 +3,9 @@ package ru.analizer.support;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import ru.analizer.integration.model.AccrualTypeInfo;
-import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.MarketplaceAdapter;
+import ru.analizer.integration.model.AccrualDto;
+import ru.analizer.integration.model.AccrualTypeInfo;
 
 import java.time.LocalDate;
 import java.util.List;

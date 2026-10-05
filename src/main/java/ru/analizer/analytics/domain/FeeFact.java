@@ -2,7 +2,6 @@ package ru.analizer.analytics.domain;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import ru.analizer.integration.ozon.dto.finance.Delivery;
 
 /**
  * Строка расхода, у которой OZON указал тип начисления: услуга доставки,

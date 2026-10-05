@@ -3,13 +3,13 @@ package ru.analizer.catalog.application;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.account.repository.MarketplaceRepository;
+import ru.analizer.account.repository.SellerAccountRepository;
 import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.integration.ProductCatalogAdapter;
 import ru.analizer.integration.model.ProductEntry;
-import ru.analizer.account.domain.SellerAccount;
-import ru.analizer.account.repository.MarketplaceRepository;
-import ru.analizer.account.repository.SellerAccountRepository;
 
 import java.util.List;
 

@@ -1,7 +1,8 @@
 package ru.analizer.integration.model;
 
-import java.util.List;
 import ru.analizer.integration.CatalogPager;
+
+import java.util.List;
 
 /**
  * Страница каталога товаров.

@@ -1,9 +1,5 @@
 package ru.analizer.sync.domain;
 
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.sync.domain.ImportType;
-import ru.analizer.sync.domain.RunState;
-
 import java.time.Instant;
 import java.time.LocalDate;
 

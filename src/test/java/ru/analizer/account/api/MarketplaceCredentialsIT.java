@@ -2,11 +2,10 @@ package ru.analizer.account.api;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.net.http.HttpResponse;
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.support.AbstractHttpIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
+
+import java.net.http.HttpResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

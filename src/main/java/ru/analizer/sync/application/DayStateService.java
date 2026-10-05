@@ -4,8 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.sync.domain.DayStatus;
 import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.sync.domain.DayStatus;
 import ru.analizer.sync.domain.ImportedDay;
 import ru.analizer.sync.domain.PeriodCoverage;
 import ru.analizer.sync.repository.ImportedDayRepository;
@@ -14,11 +14,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Учёт того, какие дни загружены и насколько им можно доверять.

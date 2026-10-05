@@ -1,18 +1,13 @@
 package ru.analizer.analytics.api;
 
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.analytics.application.DailyAnalyticsService;
-import ru.analizer.analytics.domain.DailyReport;
-import ru.analizer.analytics.application.ProductAnalyticsService;
-import ru.analizer.analytics.domain.ProductReport;
+import org.springframework.web.bind.annotation.*;
 import ru.analizer.account.domain.AccountLookup;
 import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.analytics.application.DailyAnalyticsService;
+import ru.analizer.analytics.application.ProductAnalyticsService;
+import ru.analizer.analytics.domain.DailyReport;
+import ru.analizer.analytics.domain.ProductReport;
 
 import java.time.LocalDate;
 import java.util.Locale;

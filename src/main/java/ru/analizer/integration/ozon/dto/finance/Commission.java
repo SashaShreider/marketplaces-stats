@@ -2,8 +2,8 @@ package ru.analizer.integration.ozon.dto.finance;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import tools.jackson.databind.annotation.JsonDeserialize;
 import ru.analizer.integration.ozon.json.CommissionRatioDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * Итоговая комиссия с учётом скидок и наценки.

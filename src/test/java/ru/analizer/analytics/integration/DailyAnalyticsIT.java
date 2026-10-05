@@ -1,19 +1,16 @@
 package ru.analizer.analytics.integration;
 
-import org.springframework.context.annotation.Import;
-
 import org.junit.jupiter.api.DisplayName;
-import ru.analizer.account.domain.Marketplace;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
 import ru.analizer.analytics.domain.DailyReport;
 import ru.analizer.analytics.domain.ReportStatus;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
-import ru.analizer.sync.application.AccrualImportService;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

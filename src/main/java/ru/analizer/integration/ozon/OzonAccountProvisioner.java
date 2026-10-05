@@ -1,11 +1,11 @@
 package ru.analizer.integration.ozon;
 
 import org.springframework.stereotype.Component;
-import ru.analizer.account.domain.MarketplaceProvisioner;
-import ru.analizer.auth.domain.AppUser;
 import ru.analizer.account.domain.Marketplace;
+import ru.analizer.account.domain.MarketplaceProvisioner;
 import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.account.repository.SellerAccountRepository;
+import ru.analizer.auth.domain.AppUser;
 
 /**
  * Создание аккаунта продавца OZON.

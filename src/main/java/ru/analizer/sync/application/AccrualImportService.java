@@ -2,18 +2,18 @@ package ru.analizer.sync.application;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.integration.model.AccrualDto;
-import ru.analizer.integration.model.AccrualTypeInfo;
-import ru.analizer.integration.MarketplaceAdapter;
-import ru.analizer.account.domain.MarketplaceCredentials;
-import ru.analizer.sync.domain.AccrualImportReport;
-import ru.analizer.sync.domain.AccrualType;
 import ru.analizer.account.domain.Marketplace;
+import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.account.domain.SellerAccount;
-import ru.analizer.sync.domain.PeriodCoverage;
-import ru.analizer.sync.repository.AccrualTypeRepository;
 import ru.analizer.account.repository.MarketplaceRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
+import ru.analizer.integration.MarketplaceAdapter;
+import ru.analizer.integration.model.AccrualDto;
+import ru.analizer.integration.model.AccrualTypeInfo;
+import ru.analizer.sync.domain.AccrualImportReport;
+import ru.analizer.sync.domain.AccrualType;
+import ru.analizer.sync.domain.PeriodCoverage;
+import ru.analizer.sync.repository.AccrualTypeRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

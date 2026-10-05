@@ -1,18 +1,15 @@
 package ru.analizer.integration.ozon;
 
 import org.junit.jupiter.api.Test;
+import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.model.AccrualPage;
-import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.ozon.dto.finance.FinanceAccrualByDayRequest;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import ru.analizer.integration.ozon.OzonAdapter;
-import ru.analizer.integration.ozon.OzonClient;
-import ru.analizer.integration.ozon.OzonProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

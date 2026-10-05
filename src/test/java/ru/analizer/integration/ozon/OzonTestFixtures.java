@@ -1,7 +1,6 @@
 package ru.analizer.integration.ozon;
 
 import ru.analizer.integration.model.AccrualDto;
-import ru.analizer.integration.ozon.OzonMapper;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 

@@ -1,8 +1,6 @@
 package ru.analizer.account.domain;
 
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.auth.domain.AppUser;
-import ru.analizer.account.domain.SellerAccount;
 
 /**
  * Создание аккаунта продавца для маркетплейса, у которого ещё нет ни одного.

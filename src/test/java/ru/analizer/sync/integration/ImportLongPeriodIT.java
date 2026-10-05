@@ -4,17 +4,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.analytics.domain.ReportCoverage;
 import ru.analizer.analytics.domain.ReportStatus;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.BulkAdapterConfig;
 import ru.analizer.support.BulkFixtureAdapter;
-import ru.analizer.sync.application.DayStateService;
-import ru.analizer.sync.application.ImportService;
-import ru.analizer.sync.domain.RunState;
 import ru.analizer.sync.domain.ImportConflictException;
 import ru.analizer.sync.domain.ImportProgress;
+import ru.analizer.sync.domain.RunState;
 
 import java.time.Duration;
 import java.time.Instant;

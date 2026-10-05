@@ -4,12 +4,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import ru.analizer.support.AbstractPostgresIntegrationTest;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import ru.analizer.support.AbstractPostgresIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

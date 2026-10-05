@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import ru.analizer.integration.ozon.dto.finance.Commission;
-import ru.analizer.integration.ozon.dto.finance.Delivery;
 
 /**
  * Финансовая модель: превращает сохранённые операции в показатели отчёта.

@@ -2,7 +2,6 @@ package ru.analizer.support;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
-
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -12,16 +11,6 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.account.repository.MarketplaceRepository;
-import ru.analizer.account.repository.SellerAccountRepository;
-import ru.analizer.analytics.infrastructure.CatalogFacts;
-import ru.analizer.auth.repository.AppUserRepository;
-import ru.analizer.catalog.application.CatalogImportService;
-import ru.analizer.sync.application.AccrualImportService;
-import ru.analizer.sync.application.DayStateService;
-import ru.analizer.sync.application.ImportService;
-import ru.analizer.sync.repository.ImportRunRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -3,11 +3,11 @@ package ru.analizer.integration.ozon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import ru.analizer.account.domain.MarketplaceCredentials;
+import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.model.AccrualPage;
 import ru.analizer.integration.model.AccrualTypeInfo;
-import ru.analizer.integration.MarketplaceAdapter;
-import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.ozon.dto.finance.AccrualType;
 
 import java.time.LocalDate;

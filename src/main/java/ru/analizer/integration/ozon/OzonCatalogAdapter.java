@@ -1,9 +1,9 @@
 package ru.analizer.integration.ozon;
 
 import org.springframework.stereotype.Component;
-import ru.analizer.integration.model.CatalogPage;
 import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.ProductCatalogAdapter;
+import ru.analizer.integration.model.CatalogPage;
 import ru.analizer.integration.ozon.dto.catalog.ProductAttributesFilter;
 import ru.analizer.integration.ozon.dto.catalog.ProductAttributesRequest;
 

@@ -4,8 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import ru.analizer.catalog.domain.AuthorExtractor;
-import ru.analizer.catalog.domain.AuthorNormalizer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

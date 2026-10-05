@@ -1,15 +1,10 @@
 package ru.analizer.account.api;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.integration.MarketplaceAdapter;
-import ru.analizer.account.domain.MarketplaceCredentials;
+import org.springframework.web.bind.annotation.*;
 import ru.analizer.account.domain.AccountLookup;
+import ru.analizer.account.domain.MarketplaceCredentials;
+import ru.analizer.integration.MarketplaceAdapter;
 
 /**
  * Подключение маркетплейса.

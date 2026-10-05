@@ -1,7 +1,7 @@
 package ru.analizer.support;
 
-import ru.analizer.integration.model.CatalogPage;
 import ru.analizer.integration.ProductCatalogAdapter;
+import ru.analizer.integration.model.CatalogPage;
 import ru.analizer.integration.model.ProductEntry;
 
 import java.io.IOException;

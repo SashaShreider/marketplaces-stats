@@ -1,15 +1,11 @@
 package ru.analizer.sync.integration;
 
-import org.springframework.context.annotation.Import;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.integration.ozon.dto.finance.ItemFees;
+import org.springframework.context.annotation.Import;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
-import ru.analizer.sync.application.AccrualImportService;
-import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.domain.AccrualImportReport;
 
 import java.time.LocalDate;

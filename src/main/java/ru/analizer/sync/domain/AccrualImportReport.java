@@ -1,7 +1,6 @@
 package ru.analizer.sync.domain;
 
 import java.time.LocalDate;
-import ru.analizer.account.domain.Marketplace;
 
 /**
  * Итог одной синхронизации.

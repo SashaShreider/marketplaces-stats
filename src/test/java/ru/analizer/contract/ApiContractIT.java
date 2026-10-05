@@ -4,11 +4,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import ru.analizer.support.AbstractHttpIntegrationTest;
+import ru.analizer.support.CatalogAdapterConfig;
 
 import java.net.URI;
 import java.net.http.HttpResponse;
-import ru.analizer.support.AbstractHttpIntegrationTest;
-import ru.analizer.support.CatalogAdapterConfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -2,12 +2,10 @@ package ru.analizer.integration.model;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import ru.analizer.integration.CatalogPager;
+import ru.analizer.integration.ProductCatalogAdapter;
 
 import java.util.List;
-import ru.analizer.integration.CatalogPager;
-import ru.analizer.integration.model.CatalogPage;
-import ru.analizer.integration.model.ProductEntry;
-import ru.analizer.integration.ProductCatalogAdapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

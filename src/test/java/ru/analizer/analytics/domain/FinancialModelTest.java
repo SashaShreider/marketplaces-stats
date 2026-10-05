@@ -2,11 +2,6 @@ package ru.analizer.analytics.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.analytics.domain.FeeFact;
-import ru.analizer.analytics.domain.FinancialModel;
-import ru.analizer.analytics.domain.FinancialSummary;
-import ru.analizer.analytics.domain.ProductFact;
-import ru.analizer.integration.ozon.dto.finance.Commission;
 import ru.analizer.integration.ozon.OzonTestFixturesAccess;
 
 import java.math.BigDecimal;
@@ -14,7 +9,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import ru.analizer.sync.infrastructure.entity.ItemFee;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

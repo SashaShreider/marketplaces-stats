@@ -2,26 +2,14 @@ package ru.analizer.analytics.application;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import ru.analizer.analytics.domain.DailyReport;
-import ru.analizer.analytics.domain.DailyRow;
-import ru.analizer.analytics.domain.FeeFact;
-import ru.analizer.analytics.domain.FinancialModel;
-import ru.analizer.analytics.domain.FinancialSummary;
-import ru.analizer.analytics.domain.ProductFact;
-import ru.analizer.analytics.domain.ReportCoverage;
-import ru.analizer.analytics.domain.ReportStatus;
+import ru.analizer.analytics.domain.*;
 import ru.analizer.analytics.infrastructure.AnalyticsFactsRepository;
-import ru.analizer.sync.domain.PeriodCoverage;
 import ru.analizer.sync.application.DayStateService;
+import ru.analizer.sync.domain.PeriodCoverage;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * Ежедневная аналитика за произвольный период.

@@ -3,7 +3,6 @@ package ru.analizer.analytics.domain;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import ru.analizer.integration.ozon.dto.finance.Commission;
 
 /**
  * Строка отчёта за один день.

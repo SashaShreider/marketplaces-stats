@@ -1,10 +1,9 @@
 package ru.analizer.analytics.domain;
 
+import ru.analizer.analytics.infrastructure.CatalogFacts;
+
 import java.math.BigDecimal;
 import java.util.List;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.analytics.infrastructure.CatalogFacts;
-import ru.analizer.integration.ozon.dto.finance.Commission;
 
 /**
  * Отчёт по товарам за период.

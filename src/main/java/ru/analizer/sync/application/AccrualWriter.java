@@ -2,24 +2,12 @@ package ru.analizer.sync.application;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.sync.domain.AccrualType;
-import ru.analizer.sync.infrastructure.entity.ContainerFee;
-import ru.analizer.sync.infrastructure.entity.DeliveryService;
-import ru.analizer.sync.infrastructure.entity.FinanceAccrual;
-import ru.analizer.sync.infrastructure.entity.ItemFee;
-import ru.analizer.sync.infrastructure.entity.ItemFeeDetail;
-import ru.analizer.sync.infrastructure.entity.NonItemFee;
-import ru.analizer.sync.infrastructure.entity.Posting;
-import ru.analizer.sync.infrastructure.entity.PostingProduct;
-import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.sync.infrastructure.entity.*;
+import ru.analizer.sync.infrastructure.repository.*;
 import ru.analizer.sync.repository.AccrualTypeRepository;
-import ru.analizer.sync.infrastructure.repository.ContainerFeeRepository;
-import ru.analizer.sync.infrastructure.repository.FinanceAccrualRepository;
-import ru.analizer.sync.infrastructure.repository.ItemFeeRepository;
-import ru.analizer.sync.infrastructure.repository.NonItemFeeRepository;
-import ru.analizer.sync.infrastructure.repository.PostingProductRepository;
-import ru.analizer.sync.infrastructure.repository.PostingRepository;
 
 import java.util.Map;
 import java.util.Optional;

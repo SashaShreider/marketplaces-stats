@@ -2,6 +2,9 @@ package ru.analizer.analytics.infrastructure;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import ru.analizer.analytics.domain.FeeFact;
+import ru.analizer.analytics.domain.FinancialModel;
+import ru.analizer.analytics.domain.ProductFact;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -9,12 +12,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import ru.analizer.analytics.domain.FeeFact;
-import ru.analizer.analytics.domain.FinancialModel;
-import ru.analizer.analytics.domain.ProductFact;
-import ru.analizer.integration.ozon.dto.finance.Commission;
-import ru.analizer.integration.ozon.dto.finance.ContainerFees;
-import ru.analizer.integration.ozon.dto.finance.ItemFees;
 
 /**
  * Выборка фактов для аналитики.

@@ -2,8 +2,8 @@ package ru.analizer.integration.ozon.dto.finance;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import tools.jackson.databind.annotation.JsonDeserialize;
 import ru.analizer.integration.ozon.json.LenientLongDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
 
 /**
  * finance.v1.GetFinanceAccrualByDayResponse.Accrual.Posting.Product

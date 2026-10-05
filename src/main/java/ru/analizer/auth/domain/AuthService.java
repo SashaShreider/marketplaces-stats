@@ -1,11 +1,10 @@
 package ru.analizer.auth.domain;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.auth.domain.AppUser;
 import ru.analizer.auth.repository.AppUserRepository;
 
 /**

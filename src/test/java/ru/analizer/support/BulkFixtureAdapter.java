@@ -1,8 +1,8 @@
 package ru.analizer.support;
 
+import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.model.AccrualTypeInfo;
-import ru.analizer.integration.MarketplaceAdapter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import ru.analizer.integration.ozon.dto.finance.Commission;
 
 /**
  * Адаптер, который выдаёт правдоподобные данные за любую дату.

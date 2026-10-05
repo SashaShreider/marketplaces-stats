@@ -3,9 +3,6 @@ package ru.analizer.integration.model;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import ru.analizer.integration.ozon.dto.finance.ContainerFees;
-import ru.analizer.integration.ozon.dto.finance.ItemFees;
-import ru.analizer.sync.infrastructure.entity.NonItemFee;
 
 /**
  * Маркетплейс-независимое представление одной финансовой операции.

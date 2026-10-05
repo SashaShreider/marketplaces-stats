@@ -2,19 +2,15 @@ package ru.analizer.account.domain;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.account.domain.MarketplaceCredentials;
-import ru.analizer.account.domain.MarketplaceProvisioner;
-import ru.analizer.auth.domain.AppUser;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.account.domain.SellerAccount;
-import ru.analizer.auth.repository.AppUserRepository;
 import ru.analizer.account.repository.MarketplaceRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
+import ru.analizer.auth.domain.AppUser;
+import ru.analizer.auth.repository.AppUserRepository;
+import ru.analizer.web.UnknownMarketplaceException;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import ru.analizer.web.UnknownMarketplaceException;
 
 /**
  * Поиск маркетплейса и аккаунта текущего пользователя.

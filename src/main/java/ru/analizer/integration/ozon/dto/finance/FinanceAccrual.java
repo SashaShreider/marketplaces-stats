@@ -2,6 +2,7 @@ package ru.analizer.integration.ozon.dto.finance;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDate;
 
 /**
