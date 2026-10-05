@@ -1,0 +1,30 @@
+# Исходники в образ не нужны: приложение запускается из jar.
+.git
+.gitignore
+.idea
+.vscode
+.qodo
+opencode.jsonc
+
+# Сборочные артефакты и логи
+build
+bin
+out
+.gradle
+*.log
+logs
+
+# Секреты. Сюда попал бы .env со значениями по умолчанию — и при сборке образа он
+# оказался бы в слое, откуда его уже не убрать.
+.env
+.env.*
+!.env.example
+
+# Документация: она нужна человеку, а не рантайму.
+docs
+postman
+scripts
+README.md
+ARCHITECTURE.md
+Dockerfile
+docker-compose.yml

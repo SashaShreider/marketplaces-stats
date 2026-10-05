@@ -16,8 +16,34 @@ services:
       timeout: 5s
       retries: 10
 
+  # Приложение: http://localhost:8080
+  #
+  # Собирается из исходников при первом запуске и дальше переиспользует кэш Gradle
+  # в томе. Без этого тома каждая пересборка заново скачивает зависимости.
+  app:
+    build: .
+    container_name: analizer-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Внутри сети compose имя сервиса, а не localhost: порт 5433 на машине хоста
+      # внутри контейнера другой.
+      DB_URL: jdbc:postgresql://postgres:5432/analizer
+      DB_USERNAME: analizer
+      DB_PASSWORD: analizer
+      # Разрешённые источники задаёт пользователь. Значение по умолчанию пустое:
+      # без него приложение отвечает только своему источнику.
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    ports:
+      - "8080:8080"
+    volumes:
+      - analizer-gradle-cache:/root/.gradle
+
   # Веб-интерфейс для просмотра базы: http://localhost:5050
-  # Логин: analizer@example.com, пароль: analizer (см. .env.example и README)
+  # Логин: analizer@example.com, пароль: analizer (см. .env.example и README.md)
   pgadmin:
     image: dpage/pgadmin4:9
     container_name: analizer-pgadmin
@@ -37,3 +63,6 @@ services:
 volumes:
   analizer-pgdata:
   analizer-pgadmin-data:
+  # Кэш Gradle для сборки образа. Без него каждая пересборка заново скачивает
+  # зависимости, и сборка занимает минуты вместо секунд.
+  analizer-gradle-cache:
