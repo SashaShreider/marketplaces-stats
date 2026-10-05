@@ -46,7 +46,7 @@ public class SellerAccount {
      *
      * <p>Не возвращается ни в одном ответе API и не пишется в логи.
      */
-    @Column(name = "api_key", length = 255)
+    @Column(name = "api_key")
     private String apiKey;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)

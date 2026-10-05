@@ -32,11 +32,12 @@ spring:
     default-property-inclusion: always
     deserialization:
       fail-on-unknown-properties: false
+  web:
+    error:
+      include-message: always
 
 server:
   port: ${SERVER_PORT:8080}
-  error:
-    include-message: always
 
 management:
   endpoints:

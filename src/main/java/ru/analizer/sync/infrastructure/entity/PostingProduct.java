@@ -59,7 +59,7 @@ public class PostingProduct {
     private String currency = "RUB";
 
     @OneToMany(mappedBy = "postingProduct", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<DeliveryService> deliveryServices = new ArrayList<>();
+    private final List<DeliveryService> deliveryServices = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;

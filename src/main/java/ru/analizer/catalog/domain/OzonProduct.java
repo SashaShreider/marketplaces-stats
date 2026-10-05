@@ -37,7 +37,7 @@ public class OzonProduct {
     @Column(name = "ozon_product_id")
     private Long ozonProductId;
 
-    @Column(name = "offer_id", length = 255)
+    @Column(name = "offer_id")
     private String offerId;
 
     @Column(name = "name", columnDefinition = "text")

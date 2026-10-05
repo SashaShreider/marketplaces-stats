@@ -27,7 +27,7 @@ public class AppUser {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
-    @Column(name = "display_name", length = 255)
+    @Column(name = "display_name")
     private String displayName;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)

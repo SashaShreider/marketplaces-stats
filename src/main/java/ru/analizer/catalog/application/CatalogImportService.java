@@ -30,7 +30,6 @@ public class CatalogImportService {
     private static final Logger log = LoggerFactory.getLogger(CatalogImportService.class);
 
     private final ProductCatalogAdapter catalogAdapter;
-    private final MarketplaceAdapter financeAdapter;
     private final ProductWriter writer;
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
@@ -41,7 +40,6 @@ public class CatalogImportService {
                               MarketplaceRepository marketplaceRepository,
                               SellerAccountRepository sellerAccountRepository) {
         this.catalogAdapter = catalogAdapter;
-        this.financeAdapter = financeAdapter;
         this.writer = writer;
         this.marketplaceRepository = marketplaceRepository;
         this.sellerAccountRepository = sellerAccountRepository;

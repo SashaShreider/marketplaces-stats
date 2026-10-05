@@ -29,7 +29,7 @@ public class ItemFee {
     private Integer quantity = 1;
 
     @OneToMany(mappedBy = "itemFee", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ItemFeeDetail> details = new ArrayList<>();
+    private final List<ItemFeeDetail> details = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;

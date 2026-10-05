@@ -35,7 +35,6 @@ public abstract class AbstractPostgresIntegrationTest {
      * после каждого класса, тогда как Spring-контекст кэшируется и следующий класс получал
      * бы уже остановленную базу. Ручной запуск в статическом блоке это исключает.
      */
-    @SuppressWarnings("resource")
     static final PostgreSQLContainer POSTGRES;
 
     static {
@@ -75,13 +74,7 @@ public abstract class AbstractPostgresIntegrationTest {
     protected ru.analizer.catalog.application.CatalogImportService catalogImportService;
 
     @Autowired
-    protected ru.analizer.analytics.infrastructure.CatalogFacts catalogFacts;
-
-    @Autowired
     protected ru.analizer.sync.application.DayStateService dayStateService;
-
-    @Autowired
-    protected ru.analizer.sync.repository.ImportRunRepository importRunRepository;
 
     @Autowired
     protected ru.analizer.account.repository.MarketplaceRepository marketplaceRepository;

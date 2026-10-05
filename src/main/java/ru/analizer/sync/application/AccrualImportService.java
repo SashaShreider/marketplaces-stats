@@ -199,7 +199,7 @@ public class AccrualImportService {
     }
 
     private LocalDate normalizeFrom(LocalDate dateFrom) {
-        if (dateFrom == null || dateToIsNull(dateFrom)) {
+        if (dateFrom == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
         return dateFrom.isBefore(EARLIEST_ACCRUAL_DATE) ? EARLIEST_ACCRUAL_DATE : dateFrom;
