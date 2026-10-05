@@ -5,8 +5,8 @@ import org.springframework.context.annotation.Import;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.account.domain.Marketplace;
-import ru.analizer.marketplace.AccrualTypeInfo;
-import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.integration.model.AccrualTypeInfo;
+import ru.analizer.integration.model.AccrualDto;
 
 import java.util.List;
 import java.util.Map;

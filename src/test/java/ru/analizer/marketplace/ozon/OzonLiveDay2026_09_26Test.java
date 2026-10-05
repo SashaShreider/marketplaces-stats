@@ -2,7 +2,7 @@ package ru.analizer.marketplace.ozon;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.integration.model.AccrualDto;
 
 import java.io.IOException;
 import java.math.BigDecimal;

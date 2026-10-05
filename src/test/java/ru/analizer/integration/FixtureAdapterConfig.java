@@ -3,9 +3,9 @@ package ru.analizer.integration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import ru.analizer.marketplace.AccrualTypeInfo;
-import ru.analizer.marketplace.AccrualDto;
-import ru.analizer.marketplace.MarketplaceAdapter;
+import ru.analizer.integration.model.AccrualTypeInfo;
+import ru.analizer.integration.model.AccrualDto;
+import ru.analizer.integration.MarketplaceAdapter;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,8 +35,8 @@ public class FixtureAdapterConfig {
             // нельзя проверить, что отказ маркетплейса не оставляет после себя аккаунт.
             public void verifyCredentials(ru.analizer.account.domain.MarketplaceCredentials credentials) {
                 if (FixtureAdapters.REJECTED_KEY.equals(credentials.apiKey())) {
-                    throw new ru.analizer.marketplace.CredentialsRejectedException(
-                            ru.analizer.marketplace.ozon.OzonAdapter.MARKETPLACE_CODE, 401);
+                    throw new ru.analizer.integration.CredentialsRejectedException(
+                            ru.analizer.integration.ozon.OzonAdapter.MARKETPLACE_CODE, 401);
                 }
             }
 

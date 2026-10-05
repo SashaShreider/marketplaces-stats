@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.analizer.account.domain.Marketplace;
-import ru.analizer.marketplace.MarketplaceAdapter;
+import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.account.domain.AccountLookup;
 

@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import ru.analizer.integration.ozon.dto.finance.ItemFees;
 import ru.analizer.sync.application.AccrualImportService;
 import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.domain.PeriodCoverage;

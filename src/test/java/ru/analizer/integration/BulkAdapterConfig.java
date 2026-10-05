@@ -3,7 +3,7 @@ package ru.analizer.integration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import ru.analizer.marketplace.MarketplaceAdapter;
+import ru.analizer.integration.MarketplaceAdapter;
 
 /**
  * Адаптер, синтезирующий данные за любую дату — для проверки длинных периодов.

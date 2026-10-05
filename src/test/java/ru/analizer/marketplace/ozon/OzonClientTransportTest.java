@@ -15,6 +15,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import ru.analizer.integration.ozon.OzonApiException;
+import ru.analizer.integration.ozon.OzonClient;
+import ru.analizer.integration.ozon.OzonProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

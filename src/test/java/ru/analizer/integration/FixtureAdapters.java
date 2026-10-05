@@ -1,8 +1,8 @@
 package ru.analizer.integration;
 
-import ru.analizer.marketplace.AccrualTypeInfo;
-import ru.analizer.marketplace.ozon.OzonMapper;
-import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
+import ru.analizer.integration.model.AccrualTypeInfo;
+import ru.analizer.integration.ozon.OzonMapper;
+import ru.analizer.integration.ozon.dto.finance.FinanceAccrual;
 import ru.analizer.sync.infrastructure.entity.Posting;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -81,7 +81,7 @@ final class FixtureAdapters {
             List<AccrualTypeInfo> types = new ArrayList<>();
             for (var node : root.get("accrual_types")) {
                 var type = MAPPER.treeToValue(node,
-                        ru.analizer.marketplace.ozon.dto.AccrualType.class);
+                        ru.analizer.integration.ozon.dto.finance.AccrualType.class);
                 types.add(new AccrualTypeInfo(type.id(), type.name(), type.description()));
             }
             return types;
@@ -90,10 +90,10 @@ final class FixtureAdapters {
         }
     }
 
-    static List<ru.analizer.marketplace.AccrualDto> parse(String resource) {
+    static List<ru.analizer.integration.model.AccrualDto> parse(String resource) {
         try (InputStream in = open(resource)) {
             var root = MAPPER.readTree(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-            List<ru.analizer.marketplace.AccrualDto> result = new ArrayList<>();
+            List<ru.analizer.integration.model.AccrualDto> result = new ArrayList<>();
             for (var node : root.get("accruals")) {
                 result.add(OzonMapper.toAccrualDto(
                         MAPPER.treeToValue(node, FinanceAccrual.class), node.toString()));
@@ -121,7 +121,7 @@ final class FixtureAdapters {
      */
     static List<Long> soldSkus(String resource) {
         List<Long> skus = new ArrayList<>();
-        for (ru.analizer.marketplace.AccrualDto accrual : parse(resource)) {
+        for (ru.analizer.integration.model.AccrualDto accrual : parse(resource)) {
             if (accrual.posting() != null) {
                 accrual.posting().products().forEach(p -> skus.add(p.sku()));
             }

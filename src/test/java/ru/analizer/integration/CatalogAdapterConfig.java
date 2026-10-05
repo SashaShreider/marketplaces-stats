@@ -3,7 +3,7 @@ package ru.analizer.integration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import ru.analizer.marketplace.ProductCatalogAdapter;
+import ru.analizer.integration.ProductCatalogAdapter;
 
 /**
  * Каталог товаров из сохранённого ответа OZON — вместо реального HTTP.

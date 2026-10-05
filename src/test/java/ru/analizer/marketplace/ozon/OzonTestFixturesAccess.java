@@ -1,6 +1,6 @@
 package ru.analizer.marketplace.ozon;
 
-import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.integration.model.AccrualDto;
 
 import java.io.IOException;
 import java.util.List;

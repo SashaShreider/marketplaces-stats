@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import ru.analizer.integration.ozon.dto.finance.Commission;
 
 /**
  * Товар внутри отправления. Один POSTING может содержать несколько товаров.

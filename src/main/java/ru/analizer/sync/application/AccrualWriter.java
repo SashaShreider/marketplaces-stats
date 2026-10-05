@@ -2,7 +2,7 @@ package ru.analizer.sync.application;
 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.sync.domain.AccrualType;
 import ru.analizer.sync.infrastructure.entity.ContainerFee;
 import ru.analizer.sync.infrastructure.entity.DeliveryService;

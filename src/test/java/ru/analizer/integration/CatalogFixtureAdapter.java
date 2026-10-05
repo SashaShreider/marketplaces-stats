@@ -1,9 +1,9 @@
 package ru.analizer.integration;
 
-import ru.analizer.marketplace.CatalogPage;
-import ru.analizer.marketplace.ProductAttributeEntry;
-import ru.analizer.marketplace.ProductCatalogAdapter;
-import ru.analizer.marketplace.ProductEntry;
+import ru.analizer.integration.model.CatalogPage;
+import ru.analizer.integration.model.ProductAttributeEntry;
+import ru.analizer.integration.ProductCatalogAdapter;
+import ru.analizer.integration.model.ProductEntry;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -122,13 +122,13 @@ final class CatalogFixtureAdapter implements ProductCatalogAdapter {
             List<ProductEntry> result = new ArrayList<>();
             for (var node : root.get("result")) {
                 var product = mapper.treeToValue(node,
-                        ru.analizer.marketplace.ozon.dto.ProductInfoV4.class);
+                        ru.analizer.integration.ozon.dto.catalog.ProductInfoV4.class);
                 if (product.sku() == null) {
                     continue;
                 }
                 // Разбор тот же, что в бою: тест обязан проверять рабочий код, а не его
                 // копию. Иначе исправление в проде останется непроверенным.
-                result.add(ru.analizer.marketplace.ozon.OzonProductMapper
+                result.add(ru.analizer.integration.ozon.OzonProductMapper
                         .toProductEntry(product, node.toString()));
             }
             cached = List.copyOf(result);

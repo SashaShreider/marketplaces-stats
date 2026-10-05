@@ -9,8 +9,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.analizer.account.domain.Marketplace;
 import ru.analizer.auth.domain.AuthService;
-import ru.analizer.marketplace.CredentialsRejectedException;
-import ru.analizer.marketplace.ozon.OzonApiException;
+import ru.analizer.integration.CredentialsRejectedException;
+import ru.analizer.integration.ozon.OzonApiException;
 import ru.analizer.sync.domain.ImportConflictException;
 
 import java.net.URI;

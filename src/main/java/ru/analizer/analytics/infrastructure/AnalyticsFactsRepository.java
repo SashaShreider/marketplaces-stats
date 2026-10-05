@@ -15,6 +15,9 @@ import java.util.Map;
 import ru.analizer.analytics.domain.FeeFact;
 import ru.analizer.analytics.domain.FinancialModel;
 import ru.analizer.analytics.domain.ProductFact;
+import ru.analizer.integration.ozon.dto.finance.Commission;
+import ru.analizer.integration.ozon.dto.finance.ContainerFees;
+import ru.analizer.integration.ozon.dto.finance.ItemFees;
 import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**

@@ -6,8 +6,9 @@ import ru.analizer.analytics.domain.FeeFact;
 import ru.analizer.analytics.domain.FinancialModel;
 import ru.analizer.analytics.domain.FinancialSummary;
 import ru.analizer.analytics.domain.ProductFact;
+import ru.analizer.integration.ozon.dto.finance.Commission;
 import ru.analizer.marketplace.ozon.OzonTestFixturesAccess;
-import ru.analizer.marketplace.ozon.dto.FinanceAccrual;
+import ru.analizer.integration.ozon.dto.finance.FinanceAccrual;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

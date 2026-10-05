@@ -1,6 +1,7 @@
 package ru.analizer.marketplace.ozon;
 
-import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.integration.model.AccrualDto;
+import ru.analizer.integration.ozon.OzonMapper;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -37,7 +38,7 @@ final class OzonTestFixtures {
         List<AccrualDto> result = new ArrayList<>();
         for (var node : root.get("accruals")) {
             result.add(OzonMapper.toAccrualDto(
-                    MAPPER.treeToValue(node, ru.analizer.marketplace.ozon.dto.FinanceAccrual.class),
+                    MAPPER.treeToValue(node, ru.analizer.integration.ozon.dto.finance.FinanceAccrual.class),
                     node.toString()));
         }
         return result;

@@ -2,9 +2,9 @@ package ru.analizer.sync.application;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.marketplace.AccrualDto;
-import ru.analizer.marketplace.AccrualTypeInfo;
-import ru.analizer.marketplace.MarketplaceAdapter;
+import ru.analizer.integration.model.AccrualDto;
+import ru.analizer.integration.model.AccrualTypeInfo;
+import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.sync.domain.AccrualImportReport;
 import ru.analizer.sync.domain.AccrualType;

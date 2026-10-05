@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import ru.analizer.account.domain.SellerAccount;
+import ru.analizer.integration.ozon.dto.finance.AccruedCategory;
 import ru.analizer.sync.domain.AccrualType;
 
 /**
