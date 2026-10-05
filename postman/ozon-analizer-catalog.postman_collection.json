@@ -48,32 +48,45 @@
     },
     {
       "key": "login",
-      "value": "postman"
+      "value": "test",
+      "type": "string"
     },
     {
       "key": "password",
-      "value": "postman-password-1"
+      "value": "test-test-1",
+      "type": "string"
     },
     {
       "key": "ozonClientId",
-      "value": "1154"
+      "value": "",
+      "type": "string"
     },
     {
       "key": "ozonApiKey",
-      "value": ""
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
     {
       "name": "00 — Вход",
-      "description": "Вход обязателен: без сессии любой метод отвечает 401, и Postman сам объявит все\nостальные папки проваленными.\n\nКуки и CSRF Postman подставляет сам: после первого запроса вкладка Cookies\nпокажет JSESSIONID и XSRF-TOKEN, а заголовок X-XSRF-TOKEN подставляется\nавтоматически. Вручную ничего вписывать не нужно.\n\nЗапускать ПЕРВОЙ.",
+      "description": "Вход обязателен: без сессии любой метод отвечает 401, и Postman сам объявит все остальные папки проваленными.\n\nКуки и CSRF Postman подставляет сам: после первого запроса вкладка Cookies покажет JSESSIONID и XSRF-TOKEN, а заголовок X-XSRF-TOKEN подставляется автоматически. Вручную ничего вписывать не нужно.\n\nПеред запуском впишите в переменные коллекции свои login, password, ozonClientId и ozonApiKey.\n\nЗапускать ПЕРВОЙ.",
       "item": [
         {
           "name": "Гость получает 401, а не редирект",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/marketplaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces"
+              ]
+            },
             "description": "Без сессии сервер отвечает кодом, а не отправляет на страницу входа: какую страницу показать, решает фронтенд."
           },
           "event": [
@@ -103,12 +116,22 @@
                 "value": "application/json"
               }
             ],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\"login\":\"{{login}}\",\"password\":\"{{password}}\",\"displayName\":\"Продавец из Postman\"}"
+              "raw": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\",\n  \"displayName\": \"Продавец из Postman\"\n}"
             },
-            "description": "Сессия не создаётся: сначала вход отдельным шагом."
+            "description": "Сессия не создаётся: вход отдельным шагом. 409 означает, что логин уже занят — коллекцию можно перезапускать."
           },
           "event": [
             {
@@ -117,12 +140,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "const status = pm.response.code;",
-                  "pm.test('Регистрация прошла', function () {",
+                  "pm.test('Регистрация прошла или логин уже занят', function () {",
                   "  pm.expect(status).to.be.oneOf([201, 409]);",
                   "});",
-                  "pm.test('409 означает, что логин уже занят', function () {",
-                  "  if (status === 409) console.log('Пользователь уже заведён — это нормально, коллекция перезапускается');",
-                  "});"
+                  "if (status === 400) console.log('Проверьте пароль: ' + pm.response.text());"
                 ]
               }
             }
@@ -138,10 +159,20 @@
                 "value": "application/json"
               }
             ],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\"login\":\"{{login}}\",\"password\":\"{{password}}\"}"
+              "raw": "{\n  \"login\": \"{{login}}\",\n  \"password\": \"{{password}}\"\n}"
             },
             "description": "Ответ несёт Set-Cookie с JSESSIONID. Дальше коллекция идёт от этого пользователя."
           },
@@ -154,14 +185,13 @@
                   "pm.test('Вход вернул 200', function () {",
                   "  pm.response.to.have.status(200);",
                   "});",
-                  "const cookie = (pm.response.headers.get('Set-Cookie') || '');",
+                  "const cookie = pm.response.headers.get('Set-Cookie') || '';",
                   "pm.test('Выдана кука сессии', function () {",
                   "  pm.expect(cookie).to.include('JSESSIONID=');",
                   "});",
                   "const b = pm.response.json();",
-                  "pm.test('Пароль и хэш в ответе нет', function () {",
-                  "  pm.expect(JSON.stringify(b)).to.not.include('{{password}}');",
-                  "  pm.expect(JSON.stringify(b)).to.not.include('passwordHash');",
+                  "pm.test('Пароль в ответе нет', function () {",
+                  "  pm.expect(JSON.stringify(b)).to.not.include('password');",
                   "});"
                 ]
               }
@@ -173,7 +203,17 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
             "description": "Фронтенд вызывает это при старте: 200 — показать приложение, 401 — форму входа."
           },
           "event": [
@@ -186,7 +226,7 @@
                   "  pm.response.to.have.status(200);",
                   "});",
                   "const b = pm.response.json();",
-                  "pm.test('Ответ содержит логин', function () {",
+                  "pm.test('В ответе есть логин', function () {",
                   "  pm.expect(b.login).to.be.a('string');",
                   "});"
                 ]
@@ -204,10 +244,21 @@
                 "value": "application/json"
               }
             ],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/marketplaces/{{mp}}/credentials",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces",
+                "{{mp}}",
+                "credentials"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\"clientId\":\"{{ozonClientId}}\",\"apiKey\":\"{{ozonApiKey}}\"}"
+              "raw": "{\n  \"clientId\": \"{{ozonClientId}}\",\n  \"apiKey\": \"{{ozonApiKey}}\"\n}"
             },
             "description": "Обязательный шаг перед первым импортом. Ключи проверяются настоящим запросом к OZON и только потом сохраняются."
           },
@@ -218,10 +269,10 @@
                 "type": "text/javascript",
                 "exec": [
                   "const status = pm.response.code;",
-                  "pm.test('Реквизиты приняты или уже были заданы', function () {",
-                  "  pm.expect(status).to.be.oneOf([200, 400]);",
+                  "pm.test('Реквизиты приняты', function () {",
+                  "  pm.expect(status).to.be.equal(200);",
                   "});",
-                  "if (status === 400) console.log('OZON отверг ключи: ' + pm.response.text());",
+                  "if (status !== 200) console.log('Ответ: ' + pm.response.text());",
                   "pm.test('Секретный ключ в ответе не возвращается', function () {",
                   "  pm.expect(pm.response.text()).to.not.include('{{ozonApiKey}}');",
                   "});"
@@ -235,7 +286,16 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/marketplaces",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "marketplaces"
+              ]
+            },
             "description": "Показывает маркетплейсы системы и отмечает подключённые. Секретный ключ здесь не бывает."
           },
           "event": [
@@ -248,15 +308,13 @@
                   "  pm.response.to.have.status(200);",
                   "});",
                   "const list = pm.response.json();",
-                  "const ozon = list.find(m => m.code === 'OZON');",
-                  "pm.test('OZON найден', function () {",
-                  "  pm.expect(ozon).to.exist;",
+                  "const mp = list.find(m => m.code === 'OZON');",
+                  "pm.test('OZON помечен как подключённый', function () {",
+                  "  pm.expect(mp).to.exist;",
+                  "  pm.expect(mp.connected).to.be.equal(true);",
                   "});",
                   "pm.test('API-ключ не утекает', function () {",
                   "  pm.expect(JSON.stringify(list)).to.not.include('{{ozonApiKey}}');",
-                  "});",
-                  "pm.test('connected отвечает на подключение', function () {",
-                  "  pm.expect(ozon.connected).to.be.a('boolean');",
                   "});"
                 ]
               }
@@ -268,7 +326,17 @@
           "request": {
             "method": "POST",
             "header": [],
-            "url": "System.Collections.Specialized.OrderedDictionary",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
             "description": "Сессия уничтожается. После него защищённые методы снова отвечают 401. Последний запрос в коллекции."
           },
           "event": [

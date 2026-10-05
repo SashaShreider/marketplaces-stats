@@ -1,6 +1,7 @@
 package ru.analizer.persistence;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.marketplace.MarketplaceProvisioner;
 import ru.analizer.persistence.entity.AppUser;
@@ -122,26 +123,46 @@ public class AccountLookup {
     }
 
     /**
-     * Аккаунт, при необходимости созданный.
+     * Аккаунт, созданный или обновлённый, с уже прочитанными полями.
      *
-     * <p>Используется только запуском импорта и подключением маркетплейса: на чистой
-     * установке аккаунта ещё нет, и именно эти действия должны его завести.
+     * <p>Отдельная запись вместо самой сущности: контроллеру нужен код маркетплейса, а
+     * читать его на ленивом прокси вне транзакции нельзя — запрос упал бы с 500. Здесь
+     * сессия ещё открыта, и всё, что нужно наружу, извлекается один раз.
+     *
+     * @param marketplaceCode код маркетплейса в верхнем регистре
+     * @param clientId        подключённый идентификатор клиента
+     */
+    public record ConnectedAccount(String marketplaceCode, String clientId) {
+    }
+
+    /**
+     * Аккаунт, при необходимости созданный, с проверенными реквизитами.
+     *
+     * <p>Используется только подключением маркетплейса: на чистой установке аккаунта
+     * ещё нет, и именно это действие должно его завести. Импорт аккаунт только читает.
      *
      * @param credentials реквизиты от пользователя; если аккаунт уже есть, обновляются
      */
-    public SellerAccount ensureAccount(String marketplaceCode, MarketplaceCredentials credentials) {
+    @Transactional
+    public ConnectedAccount ensureAccount(String marketplaceCode,
+                                           MarketplaceCredentials credentials) {
         AppUser user = requireUser();
         Marketplace marketplace = requireMarketplace(marketplaceCode);
 
         Optional<SellerAccount> existing = sellerAccountRepository
                 .findByUserIdAndMarketplaceId(user.getId(), marketplace.getId());
+        SellerAccount account;
         if (existing.isPresent()) {
             existing.get().updateCredentials(credentials.clientId(), credentials.apiKey());
-            return sellerAccountRepository.save(existing.get());
+            account = sellerAccountRepository.save(existing.get());
+        } else {
+            account = provisionerFor(marketplace.getCode())
+                    .provision(marketplace, user, credentials);
         }
 
-        return provisionerFor(marketplace.getCode())
-                .provision(marketplace, user, credentials);
+        // Код читается здесь, пока сессия открыта: возврат сущности наружу приводил бы к
+        // 500 при попытке открыть ленивый прокси за пределами транзакции.
+        return new ConnectedAccount(marketplace.getCode(), account.getClientId());
     }
 
     private MarketplaceProvisioner provisionerFor(String code) {

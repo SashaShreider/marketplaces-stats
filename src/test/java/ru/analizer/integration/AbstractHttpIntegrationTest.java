@@ -126,6 +126,17 @@ abstract class AbstractHttpIntegrationTest extends AbstractPostgresIntegrationTe
                 HttpResponse.BodyHandlers.ofString());
     }
 
+    /** PUT c JSON-телом и заголовком CSRF: подключение реквизитов. */
+    protected HttpResponse<String> putJson(String path, String body)
+            throws IOException, InterruptedException {
+        return client.send(
+                HttpRequest.newBuilder().uri(URI.create(url(path)))
+                        .header("Content-Type", "application/json")
+                        .header(CSRF_HEADER, csrfToken)
+                        .PUT(HttpRequest.BodyPublishers.ofString(body)).build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
     /**
      * Запрос вообще без кук — для проверки, что защищённый метод отвечает 401.
      *

@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.analizer.marketplace.MarketplaceAdapter;
 import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.persistence.AccountLookup;
-import ru.analizer.persistence.entity.SellerAccount;
 
 /**
  * Подключение маркетплейса.
@@ -53,9 +52,8 @@ public class MarketplaceConnectionController {
         // а не через три импорта, где пользователь уже разобрался, что делает.
         marketplaceAdapter.verifyCredentials(credentials);
 
-        SellerAccount account = accountLookup.ensureAccount(marketplace, credentials);
-        return ResponseEntity.ok(new ConnectedInfo(
-                account.getMarketplace().getCode(), account.getClientId()));
+        AccountLookup.ConnectedAccount account = accountLookup.ensureAccount(marketplace, credentials);
+        return ResponseEntity.ok(new ConnectedInfo(account.marketplaceCode(), account.clientId()));
     }
 
     /** @param clientId идентификатор клиента маркетплейса

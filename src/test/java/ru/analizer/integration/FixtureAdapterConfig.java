@@ -30,8 +30,14 @@ public class FixtureAdapterConfig {
             }
 
                         @Override
-            // Реквизиты в тестах не проверяются: адаптер подменён заглушкой.
+            // Реквизиты в тестах не проверяются по-настоящему: адаптер подменён.
+            // Но ключ из FixtureAdapters.REJECTED_KEY всё-таки отвергается — иначе
+            // нельзя проверить, что отказ маркетплейса не оставляет после себя аккаунт.
             public void verifyCredentials(ru.analizer.marketplace.MarketplaceCredentials credentials) {
+                if (FixtureAdapters.REJECTED_KEY.equals(credentials.apiKey())) {
+                    throw new ru.analizer.marketplace.CredentialsRejectedException(
+                            ru.analizer.marketplace.ozon.OzonAdapter.MARKETPLACE_CODE, 401);
+                }
             }
 
             @Override

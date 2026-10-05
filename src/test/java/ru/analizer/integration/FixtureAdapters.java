@@ -38,6 +38,14 @@ final class FixtureAdapters {
     /** День → файл с ответом API. Заполняется конкретным тестом. */
     static final Map<LocalDate, String> FIXTURES = new java.util.LinkedHashMap<>();
 
+    /**
+     * Ключ, который подставной адаптер считает неверным.
+     *
+     * <p>Нужен, чтобы проверить путь отказа: приложение обязано вернуть 400 и не
+     * оставить после себя аккаунт. Настоящий OZON такие ключи отвергает сам.
+     */
+    static final String REJECTED_KEY = "reject-me";
+
     private static BulkFixtureAdapter bulk;
 
     private FixtureAdapters() {
