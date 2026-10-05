@@ -3,15 +3,10 @@ package ru.analizer.contract;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.support.AbstractHttpIntegrationTest;
 import ru.analizer.support.CatalogAdapterConfig;
 

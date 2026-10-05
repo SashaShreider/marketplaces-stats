@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import ru.analizer.integration.ozon.dto.finance.Commission;
 import ru.analizer.integration.ozon.dto.finance.Delivery;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Финансовая модель: превращает сохранённые операции в показатели отчёта.

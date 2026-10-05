@@ -1,12 +1,9 @@
 package ru.analizer.analytics.infrastructure;
 
-import jakarta.persistence.Query;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,7 +15,6 @@ import ru.analizer.analytics.domain.ProductFact;
 import ru.analizer.integration.ozon.dto.finance.Commission;
 import ru.analizer.integration.ozon.dto.finance.ContainerFees;
 import ru.analizer.integration.ozon.dto.finance.ItemFees;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Выборка фактов для аналитики.

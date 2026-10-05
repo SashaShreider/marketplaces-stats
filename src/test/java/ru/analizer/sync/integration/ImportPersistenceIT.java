@@ -4,14 +4,11 @@ import org.springframework.context.annotation.Import;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.analizer.account.domain.Marketplace;
-import ru.analizer.integration.ozon.dto.finance.Commission;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
 import ru.analizer.sync.application.AccrualImportService;
 import ru.analizer.sync.domain.AccrualImportReport;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -1,7 +1,6 @@
 package ru.analizer.support;
 
 import ru.analizer.integration.model.CatalogPage;
-import ru.analizer.integration.model.ProductAttributeEntry;
 import ru.analizer.integration.ProductCatalogAdapter;
 import ru.analizer.integration.model.ProductEntry;
 

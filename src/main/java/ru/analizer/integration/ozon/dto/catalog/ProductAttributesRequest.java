@@ -3,7 +3,6 @@ package ru.analizer.integration.ozon.dto.catalog;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
 
 /**
  * Тело запроса {@code POST /v4/product/info/attributes}

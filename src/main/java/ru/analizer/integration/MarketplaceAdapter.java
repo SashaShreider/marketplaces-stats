@@ -2,7 +2,6 @@ package ru.analizer.integration;
 
 import java.time.LocalDate;
 import java.util.List;
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.account.domain.MarketplaceCredentials;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.model.AccrualTypeInfo;

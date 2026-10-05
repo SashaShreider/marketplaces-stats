@@ -12,7 +12,6 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import ru.analizer.account.domain.AccountLookup;
 import ru.analizer.account.domain.Marketplace;
 import ru.analizer.account.repository.MarketplaceRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
@@ -22,7 +21,6 @@ import ru.analizer.catalog.application.CatalogImportService;
 import ru.analizer.sync.application.AccrualImportService;
 import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.application.ImportService;
-import ru.analizer.sync.infrastructure.entity.Posting;
 import ru.analizer.sync.repository.ImportRunRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;

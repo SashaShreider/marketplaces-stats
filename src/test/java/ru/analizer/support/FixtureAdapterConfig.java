@@ -9,7 +9,6 @@ import ru.analizer.integration.MarketplaceAdapter;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Адаптер, отдающий сохранённые ответы OZON за конкретные даты.

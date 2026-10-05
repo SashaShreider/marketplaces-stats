@@ -12,7 +12,6 @@ import ru.analizer.analytics.infrastructure.AnalyticsFactsRepository;
 import ru.analizer.analytics.infrastructure.CatalogFacts;
 import ru.analizer.catalog.domain.AuthorNormalizer;
 import ru.analizer.analytics.infrastructure.CatalogFacts.ProductAuthorView;
-import ru.analizer.account.domain.Marketplace;
 
 import ru.analizer.sync.domain.PeriodCoverage;
 import ru.analizer.sync.application.DayStateService;

@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import ru.analizer.analytics.domain.FeeFact;
 import ru.analizer.analytics.domain.FinancialModel;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Выборки каталога товаров для отчёта и подсказок фильтра.

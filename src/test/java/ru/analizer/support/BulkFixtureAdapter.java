@@ -12,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import ru.analizer.integration.ozon.dto.finance.Commission;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Адаптер, который выдаёт правдоподобные данные за любую дату.

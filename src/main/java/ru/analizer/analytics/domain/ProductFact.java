@@ -1,7 +1,6 @@
 package ru.analizer.analytics.domain;
 
 import java.math.BigDecimal;
-import ru.analizer.sync.infrastructure.entity.Posting;
 
 /**
  * Строка товара внутри операции POSTING, выгруженная из базы для аналитики.

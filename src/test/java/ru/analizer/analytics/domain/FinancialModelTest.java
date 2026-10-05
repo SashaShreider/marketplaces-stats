@@ -8,12 +8,10 @@ import ru.analizer.analytics.domain.FinancialSummary;
 import ru.analizer.analytics.domain.ProductFact;
 import ru.analizer.integration.ozon.dto.finance.Commission;
 import ru.analizer.integration.ozon.OzonTestFixturesAccess;
-import ru.analizer.integration.ozon.dto.finance.FinanceAccrual;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import ru.analizer.sync.infrastructure.entity.ItemFee;

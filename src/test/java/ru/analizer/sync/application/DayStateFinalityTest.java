@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
-import ru.analizer.sync.domain.ImportedDay;
 import ru.analizer.sync.domain.PeriodCoverage;
 
 import static org.assertj.core.api.Assertions.assertThat;

@@ -15,7 +15,6 @@ import ru.analizer.integration.ozon.OzonClient;
 import ru.analizer.integration.ozon.OzonProperties;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Пагинация {@code /v1/finance/accrual/by-day}.

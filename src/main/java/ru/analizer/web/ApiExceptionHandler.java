@@ -7,7 +7,6 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.auth.domain.AuthService;
 import ru.analizer.integration.CredentialsRejectedException;
 import ru.analizer.integration.ozon.OzonApiException;

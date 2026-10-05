@@ -10,7 +10,6 @@ import ru.analizer.analytics.domain.ReportCoverage;
 import ru.analizer.auth.repository.AppUserRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.CookieManager;
 import java.net.CookiePolicy;

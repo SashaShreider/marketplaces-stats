@@ -2,7 +2,6 @@ package ru.analizer.analytics.application;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.analizer.account.domain.Marketplace;
 
 import ru.analizer.analytics.domain.DailyReport;
 import ru.analizer.analytics.domain.DailyRow;

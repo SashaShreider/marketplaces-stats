@@ -6,7 +6,6 @@ import ru.analizer.integration.model.AccrualDto;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
-import ru.analizer.integration.ozon.dto.finance.Delivery;
 import ru.analizer.sync.infrastructure.entity.Posting;
 
 import static org.assertj.core.api.Assertions.assertThat;

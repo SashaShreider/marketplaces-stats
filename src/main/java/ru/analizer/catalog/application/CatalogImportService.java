@@ -7,7 +7,6 @@ import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.integration.ProductCatalogAdapter;
 import ru.analizer.integration.model.ProductEntry;
-import ru.analizer.account.domain.Marketplace;
 import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.account.repository.MarketplaceRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
