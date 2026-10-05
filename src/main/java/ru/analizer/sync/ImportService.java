@@ -203,7 +203,7 @@ public class ImportService {
         try {
             touch(importId, run -> run.start(Instant.now(clock)));
             if (refreshAccrualTypes) {
-                accrualImportService.refreshAccrualTypes();
+                accrualImportService.refreshAccrualTypes(accountId);
             }
             accrualImportService.importAccruals(
                     accountId, from, to, new FinanceImportProgress(importId));

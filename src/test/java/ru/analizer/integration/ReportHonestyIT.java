@@ -42,7 +42,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         createAccount();
 
         // Период, в котором действительно ничего не загружали.
-        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 3));
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), LocalDate.of(2026, 5, 1), LocalDate.of(2026, 5, 3));
 
         assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
         assertThat(report.coverage().loadedDays()).isZero();
@@ -59,7 +59,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
     void missingAccountReportsNotLoaded() {
         // Отсутствие аккаунта — это «ничего не загружено», а не сбой. Отчёт должен
         // сказать об этом прямо, иначе фронтенд не предложит загрузку.
-        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 12));
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 12));
 
         assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
         assertThat(report.coverage().loadedDays()).isZero();
@@ -80,7 +80,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
-        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 13));
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 13));
 
         assertThat(report.status()).isEqualTo(ReportStatus.PARTIAL);
         assertThat(report.coverage().loadedDays()).isEqualTo(1);
@@ -101,7 +101,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
         accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
-        var report = analytics.dailyReport(MARKETPLACE, LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
 
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.coverage().missingDays()).isEmpty();
@@ -116,7 +116,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.put(today, DAY_2026_04_10);
         accrualImportService.importAccruals(accountId(), today, today);
 
-        var report = analytics.dailyReport(MARKETPLACE, today, today);
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), today, today);
 
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.coverage().provisionalDays()).containsExactly(today);
@@ -139,7 +139,7 @@ class ReportHonestyIT extends AbstractPostgresIntegrationTest {
         assertThat(coverage.missingDays()).as("но ничего не пропало").isEmpty();
         assertThat(coverage.finalDays()).as("старый день окончателен").isEqualTo(1);
 
-        var report = analytics.dailyReport(MARKETPLACE, oldDay, oldDay);
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), oldDay, oldDay);
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.payout()).isEqualByComparingTo("0");
         assertThat(report.coverage().needsSync()).isFalse();

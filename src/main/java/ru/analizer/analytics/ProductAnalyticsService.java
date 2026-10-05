@@ -5,8 +5,6 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.catalog.AuthorNormalizer;
 import ru.analizer.analytics.CatalogFacts.ProductAuthorView;
 import ru.analizer.persistence.entity.Marketplace;
-import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.AccountLookup;
 
 import ru.analizer.sync.PeriodCoverage;
 import ru.analizer.sync.DayStateService;
@@ -43,16 +41,13 @@ public class ProductAnalyticsService {
     private final CatalogFacts catalogFacts;
     private final AnalyticsFactsRepository financeFacts;
     private final DayStateService dayStateService;
-    private final AccountLookup accountLookup;
 
     public ProductAnalyticsService(CatalogFacts catalogFacts,
                                    AnalyticsFactsRepository financeFacts,
-                                   DayStateService dayStateService,
-                                   AccountLookup accountLookup) {
+                                   DayStateService dayStateService) {
         this.catalogFacts = catalogFacts;
         this.financeFacts = financeFacts;
         this.dayStateService = dayStateService;
-        this.accountLookup = accountLookup;
     }
 
     /**
@@ -64,6 +59,7 @@ public class ProductAnalyticsService {
      */
     @Transactional(readOnly = true)
     public ProductReport productReport(String marketplaceCode,
+                                  Optional<Long> accountId,
                                   LocalDate from, LocalDate to,
                                   String author, String query,
                                   String sort, int page, int size) {
@@ -78,37 +74,35 @@ public class ProductAnalyticsService {
 
         // Аккаунта может ещё не быть — это «данных нет», а не ошибка. Отчёт обязан
         // сказать об этом прямо, иначе клиент не предложил бы загрузку.
-        Optional<Long> account = accountLookup.findAccount(marketplaceCode)
-                .map(SellerAccount::getId);
-        if (account.isEmpty()) {
+        if (accountId.isEmpty()) {
             return emptyReport(marketplaceCode, from, to, pageIndex, pageSize);
         }
-        Long accountId = account.get();
+        Long account = accountId.get();
 
-        PeriodCoverage periodCoverage = dayStateService.coverage(accountId, from, to);
+        PeriodCoverage periodCoverage = dayStateService.coverage(account, from, to);
         ReportCoverage coverage = ReportCoverage.from(periodCoverage);
 
         String authorKey = AuthorNormalizer.toKey(author);
         String authorSurname = AuthorNormalizer.toSurname(author);
 
-        long totalRows = catalogFacts.productsCount(accountId, authorKey, authorSurname, query);
+        long totalRows = catalogFacts.productsCount(account, authorKey, authorSurname, query);
         int totalPages = (int) Math.max(1, Math.ceil(totalRows / (double) pageSize));
         if (pageIndex >= totalPages) {
             pageIndex = Math.max(0, totalPages - 1);
         }
 
         List<CatalogFacts.ProductCatalogRow> pageRows = catalogFacts.productsPage(
-                accountId, authorKey, authorSurname, query, pageIndex * pageSize, pageSize);
+                account, authorKey, authorSurname, query, pageIndex * pageSize, pageSize);
         List<Long> skus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
 
-        Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(accountId, skus);
-        Map<Long, Integer> quantities = catalogFacts.quantities(accountId, from, to);
-        Map<Long, Integer> accrualCounts = catalogFacts.accrualCounts(accountId, from, to);
+        Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(account, skus);
+        Map<Long, Integer> quantities = catalogFacts.quantities(account, from, to);
+        Map<Long, Integer> accrualCounts = catalogFacts.accrualCounts(account, from, to);
 
         // Финансы считаем по всем товарам периода, а не по текущей странице: иначе
         // итоги зависели бы от того, какую страницу смотрит пользователь.
-        Map<Long, FinancialSummary> bySku = summarizeBySku(accountId, from, to);
-        List<FeeFact> unallocated = catalogFacts.unallocatedFees(accountId, from, to);
+        Map<Long, FinancialSummary> bySku = summarizeBySku(account, from, to);
+        List<FeeFact> unallocated = catalogFacts.unallocatedFees(account, from, to);
         BigDecimal unallocatedExpenses = unallocated.stream()
                 .map(FeeFact::amount)
                 .map(v -> v == null ? BigDecimal.ZERO : v)
@@ -132,7 +126,7 @@ public class ProductAnalyticsService {
         }
         sortRows(rows, sort);
 
-        BigDecimal payout = financeFacts.payoutsByDate(accountId, from, to).values().stream()
+        BigDecimal payout = financeFacts.payoutsByDate(account, from, to).values().stream()
                 .map(v -> v == null ? BigDecimal.ZERO : v)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -144,7 +138,7 @@ public class ProductAnalyticsService {
                 withSales++;
             }
         }
-        long catalogProducts = catalogFacts.productsCount(accountId, "", "", "");
+        long catalogProducts = catalogFacts.productsCount(account, "", "", "");
 
         ProductReport.ProductTotals totals = new ProductReport.ProductTotals(
                 all.income(), all.expenses(), payout,
@@ -155,10 +149,10 @@ public class ProductAnalyticsService {
         return new ProductReport(marketplaceCode, from, to,
                 DailyAnalyticsService.statusOf(periodCoverage), coverage,
                 new ProductReport.CatalogInfo(catalogProducts,
-                        catalogFacts.lastCatalogSync(accountId), catalogProducts > 0),
+                        catalogFacts.lastCatalogSync(account), catalogProducts > 0),
                 totals, rows, pageIndex, pageSize, totalRows, totalPages,
                 unallocatedExpenses,
-                catalogFacts.skusMissingFromCatalog(accountId, from, to));
+                catalogFacts.skusMissingFromCatalog(account, from, to));
     }
 
     /**

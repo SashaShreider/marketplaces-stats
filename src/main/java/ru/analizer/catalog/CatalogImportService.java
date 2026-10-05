@@ -57,7 +57,7 @@ public class CatalogImportService {
      */
     public CatalogImportReport importProducts(Long accountId, CatalogImportProgressListener progress) {
         SellerAccount account = requireAccount(accountId);
-        List<ProductEntry> products = catalogAdapter.fetchAllProducts(PAGE_LIMIT);
+        List<ProductEntry> products = catalogAdapter.fetchAllProducts(account.credentials(), PAGE_LIMIT);
 
         int total = products.size();
         if (progress != null) {

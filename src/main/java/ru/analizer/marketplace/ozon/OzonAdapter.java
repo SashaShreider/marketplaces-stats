@@ -7,6 +7,7 @@ import ru.analizer.marketplace.AccrualDto;
 import ru.analizer.marketplace.AccrualPage;
 import ru.analizer.marketplace.AccrualTypeInfo;
 import ru.analizer.marketplace.MarketplaceAdapter;
+import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.marketplace.ozon.dto.AccrualType;
 
 import java.time.LocalDate;
@@ -35,9 +36,15 @@ public class OzonAdapter implements MarketplaceAdapter {
     }
 
     @Override
-    public List<AccrualTypeInfo> fetchAccrualTypes() {
+    public void verifyCredentials(MarketplaceCredentials credentials) {
+        // Один запрос справочника типов: ответ небольшой и доказывает, что ключи рабочие.
+        client.getAccrualTypes(credentials);
+    }
+
+    @Override
+    public List<AccrualTypeInfo> fetchAccrualTypes(MarketplaceCredentials credentials) {
         List<AccrualTypeInfo> types = new ArrayList<>();
-        for (AccrualType remote : client.getAccrualTypes().safeAccrualTypes()) {
+        for (AccrualType remote : client.getAccrualTypes(credentials).safeAccrualTypes()) {
             if (remote.id() == null) {
                 continue;
             }
@@ -52,12 +59,12 @@ public class OzonAdapter implements MarketplaceAdapter {
      * Дата между страницами обязана оставаться прежней, иначе OZON отвечает 400.
      */
     @Override
-    public List<AccrualDto> fetchAccrualsByDay(LocalDate date) {
+    public List<AccrualDto> fetchAccrualsByDay(MarketplaceCredentials credentials, LocalDate date) {
         List<AccrualDto> result = new ArrayList<>();
         String lastId = null;
         int pages = 0;
         do {
-            AccrualPage page = client.getAccrualsByDay(date, lastId);
+            AccrualPage page = client.getAccrualsByDay(credentials, date, lastId);
             pages++;
             result.addAll(page.accruals());
             lastId = page.hasNextPage() ? page.lastId() : null;

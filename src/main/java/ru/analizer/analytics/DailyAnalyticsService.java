@@ -3,8 +3,6 @@ package ru.analizer.analytics;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.persistence.entity.Marketplace;
-import ru.analizer.persistence.entity.SellerAccount;
-import ru.analizer.persistence.AccountLookup;
 
 import ru.analizer.sync.PeriodCoverage;
 import ru.analizer.sync.DayStateService;
@@ -32,18 +30,24 @@ public class DailyAnalyticsService {
 
     private final AnalyticsFactsRepository facts;
     private final DayStateService dayStateService;
-    private final AccountLookup accountLookup;
 
-public DailyAnalyticsService(AnalyticsFactsRepository facts,
-                                 DayStateService dayStateService,
-                                 AccountLookup accountLookup) {
+    public DailyAnalyticsService(AnalyticsFactsRepository facts,
+                                 DayStateService dayStateService) {
         this.facts = facts;
         this.dayStateService = dayStateService;
-        this.accountLookup = accountLookup;
     }
 
+    /**
+     * Отчёт за период.
+     *
+     * @param accountId аккаунт, по которому считаем; пусто — маркетплейс не подключён.
+     *                  Аккаунт передаётся явно, а не ищется здесь: поиск идёт через
+     *                  сессию, а значит работает только в потоке запроса. Из фоновой
+     *                  задачи или теста сессии нет, и метод упал бы с отказом доступа.
+     */
     @Transactional(readOnly = true)
-    public DailyReport dailyReport(String marketplaceCode, LocalDate from, LocalDate to) {
+    public DailyReport dailyReport(String marketplaceCode, Optional<Long> accountId,
+                                    LocalDate from, LocalDate to) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
@@ -52,16 +56,13 @@ public DailyAnalyticsService(AnalyticsFactsRepository facts,
         }
         // Аккаунта может ещё не быть — это не сбой, а «данных нет». Отчёт обязан сказать
         // об этом прямо (NOT_LOADED), иначе фронтенд не сможет предложить загрузку.
-        Optional<Long> account = accountLookup.findAccount(marketplaceCode)
-                .map(SellerAccount::getId);
-
-        if (account.isEmpty()) {
+        if (accountId.isEmpty()) {
             PeriodCoverage nothing = PeriodCoverage.empty(from, to);
             return emptyReport(marketplaceCode, from, to, ReportCoverage.from(nothing), nothing);
         }
-        Long accountId = account.get();
+        Long account = accountId.get();
 
-        PeriodCoverage periodCoverage = dayStateService.coverage(accountId, from, to);
+        PeriodCoverage periodCoverage = dayStateService.coverage(account, from, to);
         ReportCoverage coverage = ReportCoverage.from(periodCoverage);
 
         if (periodCoverage.isEmpty()) {
@@ -70,13 +71,13 @@ public DailyAnalyticsService(AnalyticsFactsRepository facts,
 
         Map<Integer, String> typeNames = facts.accrualTypeNames();
 
-        List<ProductFact> products = facts.products(accountId, from, to);
+        List<ProductFact> products = facts.products(account, from, to);
         List<FeeFact> fees = new ArrayList<>();
-        fees.addAll(facts.deliveryFees(accountId, from, to));
-        fees.addAll(facts.itemFees(accountId, from, to));
-        fees.addAll(facts.nonItemFees(accountId, from, to));
-        fees.addAll(facts.containerFees(accountId, from, to));
-        Map<LocalDate, BigDecimal> payouts = facts.payoutsByDate(accountId, from, to);
+        fees.addAll(facts.deliveryFees(account, from, to));
+        fees.addAll(facts.itemFees(account, from, to));
+        fees.addAll(facts.nonItemFees(account, from, to));
+        fees.addAll(facts.containerFees(account, from, to));
+        Map<LocalDate, BigDecimal> payouts = facts.payoutsByDate(account, from, to);
 
         Map<LocalDate, FinancialSummary> byDate = new LinkedHashMap<>();
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {

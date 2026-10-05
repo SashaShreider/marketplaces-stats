@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.marketplace.AccrualDto;
 import ru.analizer.marketplace.AccrualTypeInfo;
 import ru.analizer.marketplace.MarketplaceAdapter;
+import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.persistence.entity.AccrualType;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
@@ -62,17 +63,24 @@ public class AccrualImportService {
     /**
      * Загружает справочник типов начислений. Список открыт, поэтому обновляем его целиком,
      * а не зашиваем значения в код.
+     *
+     * <p>Справочник общий для маркетплейса, а не для пользователя: типы начислений у всех
+     * продавцов OZON одинаковы. Реквизиты же берутся из аккаунта, потому что запрос идёт
+     * от имени конкретного магазина.
+     *
+     * @param accountId аккаунт, чьими ключами выполняется запрос
      */
     @Transactional
-    public int refreshAccrualTypes() {
+    public int refreshAccrualTypes(Long accountId) {
         Marketplace marketplace = marketplace();
+        MarketplaceCredentials credentials = requireAccount(accountId).credentials();
         Map<Integer, AccrualType> existing = new HashMap<>();
         for (AccrualType type : accrualTypeRepository.findByMarketplaceId(marketplace.getId())) {
             existing.put(type.getExternalTypeId(), type);
         }
 
         int saved = 0;
-        for (AccrualTypeInfo remote : adapter.fetchAccrualTypes()) {
+        for (AccrualTypeInfo remote : adapter.fetchAccrualTypes(credentials)) {
             if (remote.externalId() == null) {
                 continue;
             }
@@ -108,7 +116,8 @@ public class AccrualImportService {
             throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
         }
 
-SellerAccount account = requireAccount(accountId);
+        SellerAccount account = requireAccount(accountId);
+        MarketplaceCredentials credentials = account.credentials();
         Map<Integer, AccrualType> types = loadTypes();
 
         int requestedDays = (int) (to.toEpochDay() - from.toEpochDay() + 1);
@@ -137,7 +146,7 @@ SellerAccount account = requireAccount(accountId);
                 dayStateService.markInProgress(account, date);
                 totals.syncedDays++;
 
-                List<AccrualDto> accruals = adapter.fetchAccrualsByDay(date);
+                List<AccrualDto> accruals = adapter.fetchAccrualsByDay(credentials, date);
                 AccrualWriter.DayCounts counts = accruals.isEmpty()
                         ? new AccrualWriter.DayCounts(0, 0, 0)
                         : accrualWriter.persistDay(account, types, accruals);

@@ -9,13 +9,13 @@ import java.util.Optional;
 public interface SellerAccountRepository extends JpaRepository<SellerAccount, Long> {
 
     /**
-     * Аккаунты маркетплейса.
+     * Аккаунт пользователя на маркетплейсе.
      *
-     * <p>Метод возвращает список, а не один аккаунт, хотя схема предполагает единственный:
-     * если аккаунтов окажется больше, вызывающий обязан это заметить и сообщить, а не
-     * молча взять первый.
+     * <p>Метод один на пользователя и маркетплейс — это гарантирует уникальное
+     * ограничение в базе, иначе Spring Data не смогла бы выбрать единственный.
      */
-    List<SellerAccount> findByMarketplaceId(Long marketplaceId);
+    Optional<SellerAccount> findByUserIdAndMarketplaceId(Long userId, Long marketplaceId);
 
-    Optional<SellerAccount> findByMarketplaceIdAndClientId(Long marketplaceId, String clientId);
+    /** Аккаунты пользователя — чтобы собрать его список маркетплейсов. */
+    List<SellerAccount> findByUserId(Long userId);
 }

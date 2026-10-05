@@ -40,14 +40,16 @@ public final class CatalogPager {
     private CatalogPager() {
     }
 
-    public static List<ProductEntry> fetchAll(ProductCatalogAdapter adapter, int limit) {
+    public static List<ProductEntry> fetchAll(ProductCatalogAdapter adapter,
+                                        MarketplaceCredentials credentials,
+                                        int limit) {
         List<ProductEntry> result = new ArrayList<>();
         Set<Long> seenSkus = new LinkedHashSet<>();
         String cursor = "";
         int pages = 0;
 
         while (pages < MAX_PAGES) {
-            CatalogPage page = adapter.fetchProducts(cursor, limit);
+            CatalogPage page = adapter.fetchProducts(credentials, cursor, limit);
             pages++;
 
             if (page.products().isEmpty()) {

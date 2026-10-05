@@ -20,12 +20,16 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CatalogPagerTest {
 
+    /** Реквизиты в тестах пагинации не используы: клиент подменён заглушкой. */
+    private static final ru.analizer.marketplace.MarketplaceCredentials CREDENTIALS =
+            new ru.analizer.marketplace.MarketplaceCredentials("1154", "test-api-key");
+
     @Test
     @DisplayName("Обход заканчивается по числу собранных товаров, хотя курсор непустой")
     void terminatesWhenTotalReached() {
         Stub adapter = new Stub(products(7), 7, false);
 
-        List<ProductEntry> collected = CatalogPager.fetchAll(adapter, 3);
+        List<ProductEntry> collected = CatalogPager.fetchAll(adapter, CREDENTIALS, 3);
 
         assertThat(collected).hasSize(7);
         // 3 + 3 + 1: на четвёртую страницу не пошли, потому что собрано всё.
@@ -38,7 +42,7 @@ class CatalogPagerTest {
         // total заведомо больше, чем отдаёт заглушка: работать может только пустая страница.
         Stub adapter = new Stub(products(7), 100, false);
 
-        List<ProductEntry> collected = CatalogPager.fetchAll(adapter, 3);
+        List<ProductEntry> collected = CatalogPager.fetchAll(adapter, CREDENTIALS, 3);
 
         assertThat(collected).hasSize(7);
         // 3 + 3 + 1 и одна пустая страница, на которой обход и останавливается.
@@ -50,7 +54,7 @@ class CatalogPagerTest {
     void stopsWhenCursorDoesNotMove() {
         Stub adapter = new Stub(products(5), 100, true);
 
-        List<ProductEntry> collected = CatalogPager.fetchAll(adapter, 10);
+        List<ProductEntry> collected = CatalogPager.fetchAll(adapter, CREDENTIALS, 10);
 
         // Первый ответ принёс товары, но вернул прежний курсор — идти некуда,
         // сколько бы страниц мы ни запросили.
@@ -63,7 +67,7 @@ class CatalogPagerTest {
     void stopsOnEmptyPage() {
         Stub adapter = new Stub(List.of(), 0, false);
 
-        assertThat(CatalogPager.fetchAll(adapter, 10)).isEmpty();
+        assertThat(CatalogPager.fetchAll(adapter, CREDENTIALS, 10)).isEmpty();
         assertThat(adapter.calls).isEqualTo(1);
     }
 
@@ -73,7 +77,7 @@ class CatalogPagerTest {
         ProductEntry once = products(1).getFirst();
         Stub adapter = new Stub(List.of(once, once, once), 100, false);
 
-        assertThat(CatalogPager.fetchAll(adapter, 10)).hasSize(1);
+        assertThat(CatalogPager.fetchAll(adapter, CREDENTIALS, 10)).hasSize(1);
     }
 
     private static List<ProductEntry> products(int count) {
@@ -106,7 +110,7 @@ class CatalogPagerTest {
         }
 
         @Override
-        public CatalogPage fetchProducts(String lastId, int limit) {
+        public CatalogPage fetchProducts(ru.analizer.marketplace.MarketplaceCredentials credentials, String lastId, int limit) {
             calls++;
             if (from >= all.size()) {
                 return new CatalogPage(List.of(), reportedTotal, "cursor-" + from);
@@ -119,7 +123,7 @@ class CatalogPagerTest {
         }
 
         @Override
-        public CatalogPage fetchProductsBySku(List<String> skus) {
+        public CatalogPage fetchProductsBySku(ru.analizer.marketplace.MarketplaceCredentials credentials, List<String> skus) {
             return new CatalogPage(List.of(), 0, "");
         }
     }

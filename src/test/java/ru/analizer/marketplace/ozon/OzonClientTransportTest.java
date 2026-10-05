@@ -24,6 +24,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Никаких внешних зависимостей и ни одного обращения к api-seller.ozon.ru.
  */
 class OzonClientTransportTest {
+    /** Подставные реквизиты: тест проверяет заголовки, а не настоящий ключ. */
+    private static final ru.analizer.marketplace.MarketplaceCredentials CREDENTIALS =
+            new ru.analizer.marketplace.MarketplaceCredentials("1154", "test-key");
 
     private HttpServer server;
     private String baseUrl;
@@ -72,7 +75,7 @@ class OzonClientTransportTest {
     }
 
     private OzonClient client(int maxRetries) {
-        OzonProperties properties = new OzonProperties(baseUrl, "1154", "test-key",
+        OzonProperties properties = new OzonProperties(baseUrl,
                 Duration.ofSeconds(2), Duration.ofSeconds(2), maxRetries, Duration.ofMillis(10));
         return new OzonClient(RestClient.builder(), properties);
     }
@@ -86,7 +89,7 @@ class OzonClientTransportTest {
                 "last_id":""}
                 """;
 
-        var page = client(0).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), null);
+        var page = client(0).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), null);
 
         assertThat(recorded).hasSize(1);
         RecordedRequest request = recorded.getFirst();
@@ -106,7 +109,7 @@ class OzonClientTransportTest {
     void passesCursorOnSubsequentPage() {
         responseBody = "{\"accruals\":[],\"last_id\":\"next-cursor\"}";
 
-        var page = client(0).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), "next-cursor");
+        var page = client(0).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), "next-cursor");
 
         assertThat(recorded.getFirst().body()).contains("\"last_id\":\"next-cursor\"");
         assertThat(page.hasNextPage()).isTrue();
@@ -122,7 +125,7 @@ class OzonClientTransportTest {
                 "last_id":""}
                 """;
 
-        var page = client(0).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), null);
+        var page = client(0).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), null);
 
         String raw = page.accruals().getFirst().rawJson();
         assertThat(raw).contains("\"accrual_id\":777");
@@ -136,7 +139,7 @@ class OzonClientTransportTest {
                 {"id":74,"name":"StarsMembership","description":"Звёздный товар"}]}
                 """;
 
-        var types = client(0).getAccrualTypes();
+        var types = client(0).getAccrualTypes(CREDENTIALS);
 
         assertThat(recorded.getFirst().path()).isEqualTo("/v1/finance/accrual/types");
         assertThat(types.safeAccrualTypes()).hasSize(2);
@@ -149,7 +152,7 @@ class OzonClientTransportTest {
         responseBody = "{\"accruals\":[],\"last_id\":\"\"}";
         failuresLeft.set(2);
 
-        var page = client(3).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), null);
+        var page = client(3).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), null);
 
         assertThat(recorded).as("два 429, затем успех").hasSize(3);
         assertThat(page.accruals()).isEmpty();
@@ -161,7 +164,7 @@ class OzonClientTransportTest {
         responseBody = "{\"code\":8,\"message\":\"bad request\",\"details\":[]}";
         failuresLeft.set(0);
 
-        assertThatThrownBy(() -> client(1).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), null))
+        assertThatThrownBy(() -> client(1).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), null))
                 .isInstanceOf(OzonApiException.class)
                 .hasMessageContaining("400")
                 .satisfies(e -> {
@@ -180,7 +183,7 @@ class OzonClientTransportTest {
         responseBody = "{\"code\":1,\"message\":\"internal\",\"details\":[]}";
         failuresLeft.set(0);
 
-        assertThatThrownBy(() -> client(2).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), null))
+        assertThatThrownBy(() -> client(2).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), null))
                 .isInstanceOf(OzonApiException.class)
                 .hasMessageContaining("500");
         // Одна попытка плюс два повтора.
@@ -192,7 +195,7 @@ class OzonClientTransportTest {
         status.set(403);
         responseBody = "{\"code\":7,\"message\":\"forbidden\",\"details\":[]}";
 
-        assertThatThrownBy(() -> client(5).getAccrualsByDay(java.time.LocalDate.of(2026, 4, 10), null))
+        assertThatThrownBy(() -> client(5).getAccrualsByDay(CREDENTIALS, java.time.LocalDate.of(2026, 4, 10), null))
                 .isInstanceOf(OzonApiException.class);
         assertThat(recorded).as("403 не повторяем").hasSize(1);
     }

@@ -3,6 +3,7 @@ package ru.analizer.marketplace.ozon;
 import org.junit.jupiter.api.Test;
 import ru.analizer.marketplace.AccrualDto;
 import ru.analizer.marketplace.AccrualPage;
+import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.marketplace.ozon.dto.FinanceAccrualByDayRequest;
 
 import java.time.Duration;
@@ -24,6 +25,10 @@ class OzonAdapterPaginationTest {
 
     private static final LocalDate DAY = LocalDate.of(2026, 4, 10);
 
+    /** Ключи подставные: настоящий HTTP не используется. */
+    private static final MarketplaceCredentials CREDENTIALS =
+            new MarketplaceCredentials("1154", "test-key");
+
     /** Заглушка клиента: отдаёт заранее заданные страницы и записывает запросы. */
     private static final class ScriptedClient extends OzonClient {
 
@@ -42,7 +47,7 @@ class OzonAdapterPaginationTest {
         private final List<String> lastIds = new ArrayList<>();
 
         @Override
-        public AccrualPage getAccrualsByDay(LocalDate date, String lastId) {
+        public AccrualPage getAccrualsByDay(MarketplaceCredentials credentials, LocalDate date, String lastId) {
             requests.add(new FinanceAccrualByDayRequest(date.toString(), lastId == null ? "" : lastId));
             int index = requests.size() - 1;
             String next = index < lastIds.size() ? lastIds.get(index) : "";
@@ -57,7 +62,7 @@ class OzonAdapterPaginationTest {
         client.addPage(List.of(accrual(3L)), "cursor-2");
         client.addPage(List.of(accrual(4L), accrual(5L)), "");
 
-        List<AccrualDto> result = new OzonAdapter(client).fetchAccrualsByDay(DAY);
+        List<AccrualDto> result = new OzonAdapter(client).fetchAccrualsByDay(CREDENTIALS, DAY);
 
         assertThat(result).extracting(AccrualDto::externalId).containsExactly(1L, 2L, 3L, 4L, 5L);
         assertThat(client.requests).hasSize(3);
@@ -72,7 +77,7 @@ class OzonAdapterPaginationTest {
         client.addPage(List.of(accrual(1L)), "cursor-1");
         client.addPage(List.of(accrual(2L)), "");
 
-        new OzonAdapter(client).fetchAccrualsByDay(DAY);
+        new OzonAdapter(client).fetchAccrualsByDay(CREDENTIALS, DAY);
 
         // OZON возвращает 400, если вместе с last_id передать другую дату.
         assertThat(client.requests).allSatisfy(r ->
@@ -84,7 +89,7 @@ class OzonAdapterPaginationTest {
         ScriptedClient client = new ScriptedClient();
         client.addPage(List.of(accrual(1L)), "");
 
-        List<AccrualDto> result = new OzonAdapter(client).fetchAccrualsByDay(DAY);
+        List<AccrualDto> result = new OzonAdapter(client).fetchAccrualsByDay(CREDENTIALS, DAY);
 
         assertThat(result).hasSize(1);
         assertThat(client.requests).hasSize(1);
@@ -95,16 +100,7 @@ class OzonAdapterPaginationTest {
         ScriptedClient client = new ScriptedClient();
         client.addPage(List.of(), "");
 
-        assertThat(new OzonAdapter(client).fetchAccrualsByDay(DAY)).isEmpty();
-    }
-
-    @Test
-    void doesNotCallApiWhenCredentialsAreMissing() {
-        OzonClient client = new OzonClient(RestClientFactory.noop(), OzonPropertiesFixture.blank());
-
-        assertThatThrownBy(() -> client.getAccrualsByDay(DAY, null))
-                .isInstanceOf(OzonNotConfiguredException.class)
-                .hasMessageContaining("OZON_CLIENT_ID");
+        assertThat(new OzonAdapter(client).fetchAccrualsByDay(CREDENTIALS, DAY)).isEmpty();
     }
 
     private static AccrualDto accrual(long id) {
@@ -116,13 +112,8 @@ class OzonAdapterPaginationTest {
     /** Значения таймаутов не влияют на тест, но конфигурация должна быть валидной. */
     private static final class OzonPropertiesFixture {
         static OzonProperties configured() {
-            return new OzonProperties("https://api-seller.ozon.ru", "1154", "key",
-                    Duration.ofSeconds(1), Duration.ofSeconds(1), 0, Duration.ZERO);
-        }
-
-        static OzonProperties blank() {
-            return new OzonProperties("https://api-seller.ozon.ru", "", "",
-                    Duration.ofSeconds(1), Duration.ofSeconds(1), 0, Duration.ZERO);
+            return new OzonProperties("https://api-seller.ozon.ru",
+                Duration.ofSeconds(1), Duration.ofSeconds(1), 0, Duration.ZERO);
         }
     }
 }

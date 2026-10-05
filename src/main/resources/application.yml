@@ -2,8 +2,8 @@ spring:
   application:
     name: analizer
 
-  # Файл .env с реквизитами OZON, если он есть. Опционален: без него приложение
-  # стартует, но запросы к OZON вернут 503 с понятным текстом.
+  # Файл .env с настройками доступа к базе и таймаутами, если он есть. Опционален.
+  # Реквизитов OZON в нём больше нет: их задаёт пользователь через API.
   config:
     import:
       - optional:file:.env[.properties]
@@ -49,8 +49,6 @@ management:
 
 ozon:
   base-url: ${OZON_BASE_URL:https://api-seller.ozon.ru}
-  client-id: ${OZON_CLIENT_ID:}
-  api-key: ${OZON_API_KEY:}
   connect-timeout: ${OZON_CONNECT_TIMEOUT:10s}
   read-timeout: ${OZON_READ_TIMEOUT:60s}
   max-retries: ${OZON_MAX_RETRIES:5}

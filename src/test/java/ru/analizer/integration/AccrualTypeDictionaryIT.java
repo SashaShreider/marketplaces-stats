@@ -35,7 +35,7 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
 
         assertThat(remote).as("реальный справочник OZON на 2026-09-30").hasSize(132);
 
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
 
         assertThat(count("accrual_type")).isEqualTo(132);
         assertThat(jdbc.queryForObject(
@@ -80,7 +80,7 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Названия типов приходят из API, а не из кода приложения")
     void namesComeFromApiNotFromCode() {
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
 
         Map<Integer, String> byExternalId = FixtureAdapters.types().stream()
                 .collect(Collectors.toMap(AccrualTypeInfo::externalId, AccrualTypeInfo::name));
@@ -104,7 +104,7 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
     @Test
     @DisplayName("Справочник привязан к маркетплейсу, а не к конкретной БД")
     void dictionaryIsScopedToMarketplace() {
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
 
         assertThat(jdbc.queryForObject("""
                 select count(*) from accrual_type a
