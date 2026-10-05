@@ -162,6 +162,25 @@ public class AccountLookup {
         return new ConnectedAccount(marketplace.getCode(), account.getClientId());
     }
 
+    /**
+     * Удаляет магазин пользователя вместе со всеми его данными.
+     *
+     * <p>Отдельные удаления не нужны: в схеме все таблицы ссылаются на
+     * {@code seller_account} с {@code ON DELETE CASCADE}, поэтому начисления, каталог,
+     * авторы и прогоны уходят вместе с аккаунтом. Справочник типов начислений остаётся:
+     * он общий для маркетплейса, а не для магазина.
+     *
+     * <p>Аккаунт ищется по текущему пользователю, поэтому чужой магазин удалить нельзя
+     * даже зная его идентификатор.
+     *
+     * @throws ru.analizer.web.NotConnectedException магазин не подключён, удалять нечего
+     */
+    @Transactional
+    public void deleteAccount(String marketplaceCode) {
+        SellerAccount account = requireAccount(marketplaceCode);
+        sellerAccountRepository.delete(account);
+    }
+
     private MarketplaceProvisioner provisionerFor(String code) {
         return provisioners.stream()
                 .filter(p -> p.supports(code))

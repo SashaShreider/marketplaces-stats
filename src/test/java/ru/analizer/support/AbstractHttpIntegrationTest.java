@@ -137,6 +137,23 @@ public abstract class AbstractHttpIntegrationTest extends AbstractPostgresIntegr
                 HttpResponse.BodyHandlers.ofString());
     }
 
+    /** DELETE текущим пользователем, с заголовком CSRF. */
+    protected HttpResponse<String> delete(String path) throws IOException, InterruptedException {
+        return client.send(
+                HttpRequest.newBuilder().uri(URI.create(url(path)))
+                        .header(CSRF_HEADER, csrfToken)
+                        .DELETE().build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    /** Запрос без кук и без CSRF — как его отправил бы посторонний. */
+    protected HttpResponse<String> deleteAnonymous(String path)
+            throws IOException, InterruptedException {
+        return HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder().uri(URI.create(url(path))).DELETE().build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
     /**
      * Запрос вообще без кук — для проверки, что защищённый метод отвечает 401.
      *

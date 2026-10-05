@@ -96,6 +96,120 @@ class MarketplaceCredentialsIT extends AbstractHttpIntegrationTest {
         assertThat(response.body()).contains("not-connected");
     }
 
+    @Test
+    @DisplayName("Удаление магазина уносит вместе с ним все его данные")
+    void deleteRemovesAccountAndItsData() throws Exception {
+        assertThat(putCredentials("1154", "key-1").statusCode()).isEqualTo(200);
+        Long accountId = jdbc.queryForObject(
+                "select id from seller_account where client_id = '1154'", Long.class);
+        seedData(accountId);
+        // Справочник типов общий для маркетплейса: его удаление магазина не должно
+        // затронуть, иначе у следующего продавца расходы остались бы без названий.
+        seedAccrualType();
+
+        HttpResponse<String> response = delete("/api/marketplaces/ozon");
+
+        assertThat(response.statusCode()).as("ответ: %s", response.body()).isEqualTo(204);
+        assertThat(response.body()).as("ответ должен быть пустым").isEmpty();
+
+        assertThat(count("seller_account")).as("аккаунт удалён").isZero();
+        assertThat(count("finance_accrual")).as("начисления ушли каскадом").isZero();
+        assertThat(count("imported_day")).as("дни загрузки ушли каскадом").isZero();
+        assertThat(count("ozon_product")).as("каталог ушёл каскадом").isZero();
+        assertThat(count("product_author")).as("авторы ушли каскадом").isZero();
+
+        assertThat(count("accrual_type"))
+                .as("справочник типов общий для маркетплейса и должен был уцелеть")
+                .isEqualTo(1L);
+        assertThat(count("marketplace")).as("маркетплейс остался в справочнике").isPositive();
+    }
+
+    @Test
+    @DisplayName("После удаления магазин можно подключить заново")
+    void storeCanBeConnectedAgainAfterDelete() throws Exception {
+        assertThat(putCredentials("1154", "key-1").statusCode()).isEqualTo(200);
+        assertThat(delete("/api/marketplaces/ozon").statusCode()).isEqualTo(204);
+
+        HttpResponse<String> again = putCredentials("1154", "key-2");
+
+        assertThat(again.statusCode()).isEqualTo(200);
+        assertThat(jdbc.queryForObject(
+                "select api_key from seller_account where client_id = '1154'", String.class))
+                .isEqualTo("key-2");
+    }
+
+    @Test
+    @DisplayName("После удаления отчёт честно говорит NOT_LOADED, а не показывает нули")
+    void reportAfterDeleteSaysNotLoaded() throws Exception {
+        assertThat(putCredentials("1154", "key-1").statusCode()).isEqualTo(200);
+        seedData(jdbc.queryForObject(
+                "select id from seller_account where client_id = '1154'", Long.class));
+
+        assertThat(delete("/api/marketplaces/ozon").statusCode()).isEqualTo(204);
+
+        HttpResponse<String> report = get(
+                "/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
+
+        assertThat(report.statusCode()).isEqualTo(200);
+        assertThat(report.body())
+                // Главное: приложение обязано сказать «данных нет», а не отдать нули,
+                // которые читаются как «денег не было».
+                .contains("\"status\":\"NOT_LOADED\"");
+    }
+
+    @Test
+    @DisplayName("Удаление неподключённого маркетплейса — 409, а не 204")
+    void deleteWithoutConnectionIsConflict() throws Exception {
+        HttpResponse<String> response = delete("/api/marketplaces/ozon");
+
+        assertThat(response.statusCode())
+                .as("нечего удалять — клиент должен это понимать, а не считать успехом")
+                .isEqualTo(409);
+        assertThat(response.body()).contains("not-connected");
+    }
+
+    @Test
+    @DisplayName("Удаление без сессии — 401")
+    void deleteWithoutSessionIsUnauthorized() throws Exception {
+        assertThat(putCredentials("1154", "key-1").statusCode()).isEqualTo(200);
+
+        HttpResponse<String> response = deleteAnonymous("/api/marketplaces/ozon");
+
+        assertThat(response.statusCode()).isEqualTo(401);
+        assertThat(count("seller_account"))
+                .as("чужой вызов не должен ничего удалять")
+                .isEqualTo(1L);
+    }
+
+    /** Заполняет таблицы аккаунта, чтобы проверить каскад. */
+    private void seedData(Long accountId) {
+        jdbc.update("""
+                insert into imported_day (seller_account_id, day, status, is_final,
+                                          accrual_count, total_amount, change_count)
+                values (?, '2026-04-10', 'DONE', true, 1, 100.00, 0)
+                """, accountId);
+        jdbc.update("""
+                insert into finance_accrual (seller_account_id, external_id, accrual_date,
+                                            unit_number, accrued_category, ozon_type_id,
+                                            total_amount, currency, raw_data)
+                values (?, 1, '2026-04-10', 'u-1', 'NON_ITEM', 1, 100.00, 'RUB', '{}'::jsonb)
+                """, accountId);
+        jdbc.update("""
+                insert into ozon_product (seller_account_id, sku, name, raw_data)
+                values (?, 100, 'Тестовый товар', '{}'::jsonb)
+                """, accountId);
+    }
+
+
+
+        /** Тип начисления в справочнике маркетплейса — он живёт дольше любого магазина. */
+    private void seedAccrualType() {
+        jdbc.update("""
+                insert into accrual_type (marketplace_id, external_type_id, name)
+                values ((select id from marketplace where code = 'OZON'), 1, 'Тестовый тип')
+                """);
+    }
+
     private HttpResponse<String> putCredentials(String clientId, String apiKey) throws Exception {
         return putCredentialsTo("ozon", clientId, apiKey);
     }
