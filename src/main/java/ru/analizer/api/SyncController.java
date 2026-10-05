@@ -9,10 +9,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.analizer.analytics.CatalogFacts;
 import ru.analizer.marketplace.ozon.OzonProperties;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
 import ru.analizer.persistence.repository.MarketplaceRepository;
+import ru.analizer.persistence.repository.OzonProductRepository;
 import ru.analizer.persistence.repository.SellerAccountRepository;
 import ru.analizer.sync.SyncCoverage;
 import ru.analizer.sync.SyncDayService;
@@ -34,20 +36,26 @@ public class SyncController {
 
     private final SyncJobService syncJobService;
     private final SyncDayService syncDayService;
-    private final OzonProperties ozonProperties;
+private final OzonProperties ozonProperties;
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
+    private final OzonProductRepository ozonProductRepository;
+    private final CatalogFacts catalogFacts;
 
     public SyncController(SyncJobService syncJobService,
                           SyncDayService syncDayService,
                           OzonProperties ozonProperties,
                           MarketplaceRepository marketplaceRepository,
-                          SellerAccountRepository sellerAccountRepository) {
+                          SellerAccountRepository sellerAccountRepository,
+                          OzonProductRepository ozonProductRepository,
+                          CatalogFacts catalogFacts) {
         this.syncJobService = syncJobService;
         this.syncDayService = syncDayService;
         this.ozonProperties = ozonProperties;
         this.marketplaceRepository = marketplaceRepository;
         this.sellerAccountRepository = sellerAccountRepository;
+        this.ozonProductRepository = ozonProductRepository;
+        this.catalogFacts = catalogFacts;
     }
 
     /**
@@ -67,6 +75,58 @@ public class SyncController {
         ru.analizer.sync.SyncJobStatus status = syncJobService.submit(
                 account, "OZON", dateFrom, dateTo, syncTypes);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(status);
+    }
+
+    /**
+     * POST /api/sync/catalog — загрузка характеристик товаров.
+     *
+     * <p>Даты не нужны: каталог один на аккаунт. Ответ 202 с номером задачи, работа идёт
+     * в фоне — как и у финансовой загрузки, потому что обход каталога занимает столько
+     * же времени, сколько месяц начислений.
+     */
+    @PostMapping("/catalog")
+    public ResponseEntity<ru.analizer.sync.SyncJobStatus> syncCatalog(
+            @RequestParam(required = false) String clientId) {
+
+        String account = clientId == null || clientId.isBlank() ? ozonProperties.clientId() : clientId;
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(syncJobService.submitCatalog(account, "OZON"));
+    }
+
+    /**
+     * GET /api/sync/catalog — состояние каталога.
+     *
+     * <p>Отвечает и до первой загрузки: «товаров 0, синхронизировано когда-то» — это
+     * ответ, а не ошибка. Иначе фронтенд не смог бы предложить загрузку именно тогда,
+     * когда она и нужна.
+     */
+    @GetMapping("/catalog")
+    public CatalogStatus catalog(@RequestParam(required = false) String clientId) {
+        Optional<Long> accountId = findAccountId(clientId);
+        if (accountId.isEmpty()) {
+            return new CatalogStatus(0, null, false);
+        }
+        long total = ozonProductRepository.countBySellerAccountId(accountId.get());
+        return new CatalogStatus(total, catalogFacts.lastCatalogSync(accountId.get()), total > 0);
+    }
+
+    /**
+     * GET /api/sync/catalog/authors — варианты авторов для фильтра.
+     *
+     * <p>Подсказка строится из данных продавца, а не из наших предположений о том, как он
+     * пишет авторов: иначе подсказка предлагала бы несуществующие написания.
+     */
+    @GetMapping("/catalog/authors")
+    public List<String> catalogAuthors(@RequestParam(required = false) String clientId) {
+        Optional<Long> accountId = findAccountId(clientId);
+        if (accountId.isEmpty()) {
+            return List.of();
+        }
+        return catalogFacts.authorKeys(accountId.get());
+    }
+
+    /** Сводка по каталогу товаров. */
+    public record CatalogStatus(long products, java.time.Instant lastSyncedAt, boolean loaded) {
     }
 
     /** GET /api/sync/status?jobId=… — прогресс фоновой загрузки. */

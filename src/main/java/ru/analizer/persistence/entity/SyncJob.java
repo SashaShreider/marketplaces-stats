@@ -36,11 +36,19 @@ public class SyncJob {
     @Column(name = "marketplace_code", nullable = false, length = 64)
     private String marketplaceCode;
 
-    @Column(name = "date_from", nullable = false)
+    @Column(name = "date_from")
     private LocalDate dateFrom;
 
-    @Column(name = "date_to", nullable = false)
+    @Column(name = "date_to")
     private LocalDate dateTo;
+
+    /**
+     * Вид задачи. У финансовой есть период, у загрузки каталога дат нет вовсе,
+     * поэтому вид задан явно, а не выводится из наличия дат.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "job_type", nullable = false, length = 16)
+    private JobType jobType = JobType.FINANCE;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
@@ -78,8 +86,14 @@ public class SyncJob {
 
     public SyncJob(SellerAccount sellerAccount, String marketplaceCode,
                    LocalDate dateFrom, LocalDate dateTo, int totalDays) {
+        this(sellerAccount, marketplaceCode, JobType.FINANCE, dateFrom, dateTo, totalDays);
+    }
+
+    public SyncJob(SellerAccount sellerAccount, String marketplaceCode, JobType jobType,
+                   LocalDate dateFrom, LocalDate dateTo, int totalDays) {
         this.sellerAccount = sellerAccount;
         this.marketplaceCode = marketplaceCode;
+        this.jobType = jobType == null ? JobType.FINANCE : jobType;
         this.dateFrom = dateFrom;
         this.dateTo = dateTo;
         this.totalDays = totalDays;
@@ -92,6 +106,16 @@ public class SyncJob {
 
     public void currentDay(LocalDate day) {
         this.currentDay = day;
+    }
+
+    /**
+     * Общее число единиц работы: дней у финансовой задачи, товаров у задачи каталога.
+     *
+     * <p>Раздельной колонки для товаров не заводим: показывать прогресс нужно в том же
+     * поле, а вид задачи и так известен по {@link #jobType}.
+     */
+    public void setTotal(int total) {
+        this.totalDays = total;
     }
 
     public void dayDone() {
@@ -134,6 +158,10 @@ public class SyncJob {
 
     public String getMarketplaceCode() {
         return marketplaceCode;
+    }
+
+    public JobType getJobType() {
+        return jobType;
     }
 
     public LocalDate getDateFrom() {

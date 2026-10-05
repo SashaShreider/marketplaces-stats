@@ -156,6 +156,43 @@ public class AnalyticsFactsRepository {
         return names;
     }
 
+    /** Сумма комиссии по периоду — знаком, как отдаёт OZON. */
+    public BigDecimal commission(Long sellerAccountId, LocalDate from, LocalDate to) {
+        BigDecimal value = jdbc.queryForObject("""
+                select coalesce(sum(p.sale_commission), 0)
+                from finance_accrual a
+                join posting po on po.finance_accrual_id = a.id
+                join posting_product p on p.posting_id = po.id
+                where a.seller_account_id = ? and a.accrual_date between ? and ?
+                """, BigDecimal.class, sellerAccountId, from, to);
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /** Сумма логистики по периоду — знаком, как отдаёт OZON. */
+    public BigDecimal logistics(Long sellerAccountId, LocalDate from, LocalDate to) {
+        BigDecimal value = jdbc.queryForObject("""
+                select coalesce(sum(d.amount), 0)
+                from finance_accrual a
+                join posting po on po.finance_accrual_id = a.id
+                join posting_product p on p.posting_id = po.id
+                join delivery_service d on d.posting_product_id = p.id
+                where a.seller_account_id = ? and a.accrual_date between ? and ?
+                """, BigDecimal.class, sellerAccountId, from, to);
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    /** Сумма ITEM-начислений по периоду — знаком, как отдаёт OZON. */
+    public BigDecimal itemFeesTotal(Long sellerAccountId, LocalDate from, LocalDate to) {
+        BigDecimal value = jdbc.queryForObject("""
+                select coalesce(sum(d.amount), 0)
+                from finance_accrual a
+                join item_fee f on f.finance_accrual_id = a.id
+                join item_fee_detail d on d.item_fee_id = f.id
+                where a.seller_account_id = ? and a.accrual_date between ? and ?
+                """, BigDecimal.class, sellerAccountId, from, to);
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
     /** Дни, за которые в базе есть операции, — чтобы отчёт не пропускал пустые дни молча. */
     public List<LocalDate> datesWithAccruals(Long sellerAccountId, LocalDate from, LocalDate to) {
         List<LocalDate> dates = new ArrayList<>();

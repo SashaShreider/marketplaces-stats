@@ -62,11 +62,20 @@ abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected ru.analizer.sync.SyncJobService syncJobService;
 
-    @Autowired
-    protected ru.analizer.analytics.DailyAnalyticsService analytics;
+@Autowired
+protected ru.analizer.analytics.DailyAnalyticsService analytics;
 
     @Autowired
-    protected ru.analizer.sync.SyncDayService syncDayService;
+protected ru.analizer.analytics.ProductAnalyticsService productAnalytics;
+
+    @Autowired
+protected ru.analizer.catalog.CatalogSyncService catalogSyncService;
+
+    @Autowired
+protected ru.analizer.analytics.CatalogFacts catalogFacts;
+
+    @Autowired
+protected ru.analizer.sync.SyncDayService syncDayService;
 
     @Autowired
     protected ru.analizer.persistence.repository.SyncJobRepository syncJobRepository;
@@ -86,10 +95,11 @@ abstract class AbstractPostgresIntegrationTest {
     void resetDatabase() {
         awaitBackgroundJobs();
         FixtureAdapters.clearAll();
-        jdbc.execute("""
+jdbc.execute("""
                 TRUNCATE TABLE finance_accrual, posting, posting_product, delivery_service,
                                item_fee, item_fee_detail, non_item_fee, container_fee,
-                               sync_day, sync_job, accrual_type, seller_account, marketplace
+                               sync_day, sync_job, accrual_type, seller_account, marketplace,
+                               product_author, ozon_product_attribute, ozon_product
                 RESTART IDENTITY CASCADE
                 """);
         jdbc.update("INSERT INTO marketplace (code, name) VALUES ('OZON', 'OZON')");
@@ -122,9 +132,37 @@ abstract class AbstractPostgresIntegrationTest {
         throw new AssertionError("Фоновые задачи синхронизации не завершились за 2 минуты");
     }
 
-    protected long count(String table) {
+protected long count(String table) {
         Long value = jdbc.queryForObject("select count(*) from " + table, Long.class);
         return value == null ? 0 : value;
+    }
+
+    /**
+     * Ждёт завершения фоновой задачи.
+     *
+     * <p>Загрузка идёт в отдельном потоке, поэтому тест не может просто посмотреть на
+     * статус сразу после вызова — он ещё PENDING. Ожидание по факту завершения надёжнее
+     * проверки статуса: так тест упадёт на зависшей задаче, а не пройдёт по счастливой
+     * последовательности.
+     */
+    protected ru.analizer.sync.SyncJobStatus awaitJob(Long jobId) {
+        java.time.Instant deadline = java.time.Instant.now().plus(Duration.ofMinutes(3));
+        while (java.time.Instant.now().isBefore(deadline)) {
+            var status = syncJobService.status(jobId).orElseThrow();
+            if (status.finished()) {
+                if (status.status() == ru.analizer.persistence.entity.JobStatus.FAILED) {
+                    throw new AssertionError("Задача " + jobId + " провалилась: " + status.error());
+                }
+                return status;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Ожидание задачи прервано");
+            }
+        }
+        throw new AssertionError("Задача " + jobId + " не завершилась за 3 минуты");
     }
 
     protected BigDecimalAssert sumTotal(String table) {

@@ -7,7 +7,11 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import ru.analizer.catalog.CatalogProgressListener;
+import ru.analizer.catalog.CatalogSyncReport;
+import ru.analizer.catalog.CatalogSyncService;
 import ru.analizer.persistence.entity.JobStatus;
+import ru.analizer.persistence.entity.JobType;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
 import ru.analizer.persistence.entity.SyncJob;
@@ -58,6 +62,7 @@ public class SyncJobService {
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
     private final SyncService syncService;
+    private final CatalogSyncService catalogSyncService;
     private final TaskExecutor taskExecutor;
     private final TransactionTemplate tx;
     private final Clock clock;
@@ -71,6 +76,7 @@ public class SyncJobService {
                           MarketplaceRepository marketplaceRepository,
                           SellerAccountRepository sellerAccountRepository,
                           SyncService syncService,
+                          CatalogSyncService catalogSyncService,
                           @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor,
                           PlatformTransactionManager transactionManager,
                           Clock clock) {
@@ -78,6 +84,7 @@ public class SyncJobService {
         this.marketplaceRepository = marketplaceRepository;
         this.sellerAccountRepository = sellerAccountRepository;
         this.syncService = syncService;
+        this.catalogSyncService = catalogSyncService;
         this.taskExecutor = taskExecutor;
         this.tx = new TransactionTemplate(transactionManager);
         this.clock = clock;
@@ -114,7 +121,7 @@ public class SyncJobService {
             }
 
             SyncJob job = tx.execute(status -> syncJobRepository.save(new SyncJob(
-                    resolveAccount(clientId, marketplaceCode), marketplaceCode,
+                    resolveAccount(clientId, marketplaceCode), marketplaceCode, JobType.FINANCE,
                     dateFrom, dateTo, countDays(dateFrom, dateTo))));
             if (job == null) {
                 throw new IllegalStateException("Не удалось создать задачу синхронизации");
@@ -128,6 +135,64 @@ public class SyncJobService {
 
         return status(jobId).orElseThrow(() ->
                 new IllegalStateException("Задача " + jobId + " не найдена сразу после создания"));
+    }
+
+    /**
+     * Задача загрузки каталога товаров.
+     *
+     * <p>Даты не задаются и не проверяются: у каталога их нет. Блокировка своя —
+     * достаточно, чтобы активная задача каталога была одна, иначе два процесса
+     * переписывали бы одни и те же товары.
+     */
+    public SyncJobStatus submitCatalog(String clientId, String marketplaceCode) {
+        Long jobId;
+        synchronized (submitLock) {
+            Long accountId = tx.execute(status ->
+                    resolveAccount(clientId, marketplaceCode).getId());
+            if (accountId == null) {
+                throw new IllegalStateException("Не удалось определить аккаунт продавца");
+            }
+            Optional<SyncJob> active = tx.execute(status ->
+                    syncJobRepository.findFirstActiveOfType(accountId, JobType.CATALOG));
+            if (active.isPresent()) {
+                throw new IllegalStateException(
+                        "Загрузка каталога уже выполняется: задача №" + active.get().getId());
+            }
+
+            SyncJob job = tx.execute(status -> syncJobRepository.save(new SyncJob(
+                    resolveAccount(clientId, marketplaceCode), marketplaceCode,
+                    JobType.CATALOG, null, null, 0)));
+            if (job == null) {
+                throw new IllegalStateException("Не удалось создать задачу загрузки каталога");
+            }
+            jobId = job.getId();
+        }
+
+        taskExecutor.execute(() -> runCatalogJob(jobId, clientId));
+
+        return status(jobId).orElseThrow(() ->
+                new IllegalStateException("Задача " + jobId + " не найдена сразу после создания"));
+    }
+
+    void runCatalogJob(Long jobId, String clientId) {
+        if (syncJobRepository.findById(jobId).isEmpty()) {
+            log.warn("Задача {} не найдена, загрузка каталога отменена", jobId);
+            return;
+        }
+        try {
+            touch(jobId, job -> job.start(Instant.now(clock)));
+            CatalogSyncReport report = catalogSyncService.sync(clientId, new CatalogJobProgress(jobId));
+            touch(jobId, job -> job.setTotal(report.totalProducts()));
+            if (report.complete()) {
+                touch(jobId, job -> job.finish(Instant.now(clock)));
+            } else {
+                touch(jobId, job -> job.fail(
+                        "Не сохранено товаров: " + report.failedProducts(), Instant.now(clock)));
+            }
+        } catch (RuntimeException e) {
+            log.error("Фоновая задача {} не выполнена", jobId, e);
+            touch(jobId, job -> job.fail(String.valueOf(e.getMessage()), Instant.now(clock)));
+        }
     }
 
     /**
@@ -199,6 +264,7 @@ public class SyncJobService {
         return new SyncJobStatus(
                 job.getId(),
                 job.getMarketplaceCode(),
+                job.getJobType(),
                 job.getDateFrom(),
                 job.getDateTo(),
                 job.getStatus(),
@@ -248,6 +314,37 @@ public class SyncJobService {
 
         @Override
         public void onDayFailed(LocalDate day, RuntimeException error) {
+            touch(jobId, SyncJob::dayFailed);
+        }
+    }
+
+    /**
+     * Пишет прогресс задачи загрузки каталога.
+     *
+     * <p>Счётчик дней переиспользуется как «сколько товаров обработано»: в задаче нет
+     * дат, а колонки в sync_job одни. Пользователь видит «12 из 108» и не удивляется
+     * отсутствию дат, потому что тип задачи виден в ответе.
+     */
+    private final class CatalogJobProgress implements CatalogProgressListener {
+
+        private final Long jobId;
+
+        private CatalogJobProgress(Long jobId) {
+            this.jobId = jobId;
+        }
+
+        @Override
+        public void onStart(int totalProducts) {
+            touch(jobId, job -> job.setTotal(totalProducts));
+        }
+
+        @Override
+        public void onProduct(int processed, int total, long sku) {
+            touch(jobId, SyncJob::dayDone);
+        }
+
+        @Override
+        public void onProductFailed(long sku, RuntimeException error) {
             touch(jobId, SyncJob::dayFailed);
         }
     }

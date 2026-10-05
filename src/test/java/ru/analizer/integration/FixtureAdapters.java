@@ -104,6 +104,25 @@ final class FixtureAdapters {
         }
     }
 
+    /**
+     * SKU, которые реально встречаются в начислениях за файл-фикстуру.
+     *
+     * <p>Нужно, чтобы отчёт по товарам можно было проверить на настоящих продажах, а не
+     * на выдуманных: у SKU из POSTING и у SKU из ITEM начисления разные.
+     */
+    static List<Long> soldSkus(String resource) {
+        List<Long> skus = new ArrayList<>();
+        for (ru.analizer.marketplace.AccrualDto accrual : parse(resource)) {
+            if (accrual.posting() != null) {
+                accrual.posting().products().forEach(p -> skus.add(p.sku()));
+            }
+            if (accrual.itemFees() != null) {
+                accrual.itemFees().forEach(f -> skus.add(f.sku()));
+            }
+        }
+        return skus;
+    }
+
     private static InputStream open(String resource) throws IOException {
         InputStream in = FixtureAdapters.class.getClassLoader().getResourceAsStream(resource);
         if (in == null) {
