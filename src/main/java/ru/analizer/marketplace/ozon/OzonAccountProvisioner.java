@@ -2,6 +2,7 @@ package ru.analizer.marketplace.ozon;
 
 import org.springframework.stereotype.Component;
 import ru.analizer.marketplace.MarketplaceProvisioner;
+import ru.analizer.persistence.entity.AppUser;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
 import ru.analizer.persistence.repository.SellerAccountRepository;
@@ -9,19 +10,19 @@ import ru.analizer.persistence.repository.SellerAccountRepository;
 /**
  * Создание аккаунта продавца OZON.
  *
- * <p>Идентификатор берётся из конфигурации: у каждого развёртывания он свой, и держать
- * его в базе или в коде одинаково неправильно. Пока это единственный аккаунт на
- * развёртывание — схема рассчитана на один аккаунт на маркетплейс.
+ * <p>Реквизиты приходят из запроса пользователя, а не из конфигурации: их вводит сам
+ * пользователь, и он же может их заменить — ключи у OZON истекают.
+ *
+ * <p>TODO(#single-env-fallback): пока поддерживается только один аккаунт на
+ * развёртывание. Если понадобится режим «один продавец, реквизиты в .env», сюда
+ * добавляется чтение из конфигурации как запасной источник.
  */
 @Component
 public class OzonAccountProvisioner implements MarketplaceProvisioner {
 
-    private final OzonProperties properties;
     private final SellerAccountRepository sellerAccountRepository;
 
-    public OzonAccountProvisioner(OzonProperties properties,
-                                  SellerAccountRepository sellerAccountRepository) {
-        this.properties = properties;
+    public OzonAccountProvisioner(SellerAccountRepository sellerAccountRepository) {
         this.sellerAccountRepository = sellerAccountRepository;
     }
 
@@ -31,14 +32,10 @@ public class OzonAccountProvisioner implements MarketplaceProvisioner {
     }
 
     @Override
-    public SellerAccount provision(Marketplace marketplace) {
-        if (!properties.isConfigured()) {
-            // Без Client-Id и Api-Key импорт всё равно не сработал бы, поэтому
-            // сообщаем об этом сразу и понятным текстом.
-            throw new OzonNotConfiguredException();
-        }
-        String clientId = properties.clientId();
-        return sellerAccountRepository.save(
-                new SellerAccount(marketplace, "OZON " + clientId, clientId));
+    public SellerAccount provision(Marketplace marketplace, AppUser user,
+                                   ru.analizer.marketplace.MarketplaceCredentials credentials) {
+        return sellerAccountRepository.save(new SellerAccount(
+                user, marketplace, "OZON " + credentials.clientId(),
+                credentials.clientId(), credentials.apiKey()));
     }
 }

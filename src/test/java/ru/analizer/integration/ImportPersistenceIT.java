@@ -19,7 +19,7 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
 
     private AccrualImportReport sync() {
         FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
         return accrualImportService.importAccruals(accountId(), DAY, DAY);
     }
 
@@ -279,15 +279,18 @@ class SyncPersistenceIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-ключ не сохраняется в базе")
-    void neverStoresApiKey() {
+    @DisplayName("API-ключ хранится у аккаунта")
+    void storesApiKeyOnAccount() {
         sync();
 
-        var columns = jdbc.queryForList("""
-                select column_name from information_schema.columns
-                where table_name = 'seller_account'
-                """, String.class);
-        assertThat(columns).noneMatch(c -> c.toLowerCase().contains("api_key"));
+        // Ключ лежит у аккаунта: пользователь вводит его через
+        // PUT /api/marketplaces/ozon/credentials, и импорту он нужен каждый раз.
+        //
+        // TODO(#encrypt-credentials): хранится в открытом виде. Проверка, что ключ
+        // не утекает наружу, живёт в ApiContractIT — там, где есть настоящий HTTP.
+        String stored = jdbc.queryForObject(
+                "select api_key from seller_account where client_id = ?", String.class, CLIENT_ID);
+        assertThat(stored).isEqualTo(API_KEY);
     }
 
     @Test

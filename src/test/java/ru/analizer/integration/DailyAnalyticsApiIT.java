@@ -28,20 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(FixtureAdapterConfig.class)
-class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
+class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
 
-    @LocalServerPort
-    int port;
-
-    /**
-     * Контроллер берёт client_id из конфигурации. В тесте задаём тот же, что и при синхронизации,
-     * иначе отчёт искал бы несуществующий аккаунт.
-     */
-    @org.springframework.test.context.DynamicPropertySource
-    static void ozonClientId(org.springframework.test.context.DynamicPropertyRegistry registry) {
-        registry.add("ozon.client-id", () -> CLIENT_ID);
-        registry.add("ozon.api-key", () -> "test-key-not-used-here");
-    }
 
     private static final tools.jackson.databind.ObjectMapper MAPPER = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -49,19 +37,11 @@ class DailyAnalyticsApiIT extends AbstractPostgresIntegrationTest {
 
     private static final String DAY_2026_04_10 = "example-2026-04-10.json";
 
-    private HttpResponse<String> get(String path) throws IOException, InterruptedException {
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("http://localhost:" + port + path))
-                .GET()
-                .build();
-        return client.send(request, HttpResponse.BodyHandlers.ofString());
-    }
 
     private void syncApr10() {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(LocalDate.of(2026, 4, 10), DAY_2026_04_10);
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
         accrualImportService.importAccruals(accountId(), LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
     }
 

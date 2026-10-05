@@ -169,7 +169,7 @@ class ImportRunLongPeriodIT extends AbstractPostgresIntegrationTest {
     void reportForLoadedHalfYearIsReady() {
         awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
 
-        var report = analytics.dailyReport(MARKETPLACE, FROM, TO);
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), FROM, TO);
 
         assertThat(report.status()).isEqualTo(ReportStatus.READY);
         assertThat(report.coverage().requestedDays()).isEqualTo(DAYS);
@@ -193,7 +193,7 @@ class ImportRunLongPeriodIT extends AbstractPostgresIntegrationTest {
 
         awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, half, true).id());
 
-        var report = analytics.dailyReport(MARKETPLACE, FROM, TO);
+        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), FROM, TO);
 
         assertThat(report.status()).isEqualTo(ReportStatus.PARTIAL);
         assertThat(report.coverage().loadedDays()).isEqualTo(expectedLoaded);

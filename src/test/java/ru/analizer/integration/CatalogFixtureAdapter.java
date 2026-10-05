@@ -57,12 +57,12 @@ final class CatalogFixtureAdapter implements ProductCatalogAdapter {
     }
 
     @Override
-    public CatalogPage fetchProducts(String lastId, int limit) {
+    public CatalogPage fetchProducts(ru.analizer.marketplace.MarketplaceCredentials credentials, String lastId, int limit) {
         return page(lastId, limit);
     }
 
     @Override
-    public CatalogPage fetchProductsBySku(List<String> skus) {
+    public CatalogPage fetchProductsBySku(ru.analizer.marketplace.MarketplaceCredentials credentials, List<String> skus) {
         List<ProductEntry> all = products();
         if (skus == null || skus.isEmpty()) {
             return new CatalogPage(List.of(), 0, "");

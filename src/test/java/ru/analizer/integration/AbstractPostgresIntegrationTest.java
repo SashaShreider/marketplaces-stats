@@ -2,6 +2,7 @@ package ru.analizer.integration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -56,6 +57,9 @@ abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected JdbcTemplate jdbc;
 
+    @Autowired
+    protected org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
 @Autowired
     protected ru.analizer.sync.AccrualImportService accrualImportService;
 
@@ -86,10 +90,29 @@ abstract class AbstractPostgresIntegrationTest {
     @Autowired
     protected ru.analizer.persistence.repository.SellerAccountRepository sellerAccountRepository;
 
+    @Autowired
+    protected ru.analizer.persistence.repository.AppUserRepository appUserRepository;
+
     protected static final String CLIENT_ID = "1154";
+
+    /**
+     * Логин тестового пользователя.
+     *
+     * <p>HTTP-тесты подставляют его в аутентификацию через {@code @WithMockUser}, а
+     * сервисные получают аккаунт этого пользователя напрямую. Пользователь должен
+     * существовать в базе: {@code AccountLookup} ищет его по логину из сессии, и если
+     * его нет, тесты падали бы с «сессия указывает на несуществующего пользователя».
+     */
+    protected static final String LOGIN = "test-user";
+
+    /** Пароль тестового пользователя. */
+    protected static final String PASSWORD = "test-password-1";
 
     /** Код маркетплейса, подставляемый в путь запроса. */
     protected static final String MARKETPLACE = "OZON";
+
+    /** Ключи тестового аккаунта; настоящий адаптер подменён, поэтому значения любые. */
+    protected static final String API_KEY = "test-api-key";
 
     /** Дата, которую используют тесты одиночных дней. */
     protected static final java.time.LocalDate DAY = java.time.LocalDate.of(2026, 4, 10);
@@ -104,12 +127,36 @@ abstract class AbstractPostgresIntegrationTest {
         return account().getId();
     }
 
+    /**
+     * Аккаунт тестового пользователя, создавая его при необходимости.
+     *
+     * <p>У аккаунта обязателен {@code api_key}: фоновые задачи берут из него ключи для
+     * запросов к маркетплейсу, и без него импорт падал бы на середине.
+     */
     protected ru.analizer.persistence.entity.SellerAccount account() {
         return sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplace().getId(), CLIENT_ID)
+                .findByUserIdAndMarketplaceId(user().getId(), marketplace().getId())
                 .orElseGet(() -> sellerAccountRepository.save(
                         new ru.analizer.persistence.entity.SellerAccount(
-                                marketplace(), MARKETPLACE + " " + CLIENT_ID, CLIENT_ID)));
+                                user(), marketplace(), MARKETPLACE + " " + CLIENT_ID,
+                                CLIENT_ID, API_KEY)));
+    }
+
+    /**
+     * Идентификатор аккаунта для вызовов сервисов.
+     *
+     * <p>Сервисы принимают аккаунт готовым: искать его внутри них нельзя, поиск идёт
+     * через сессию, а она есть только в потоке запроса. Поэтому тесты, работающие с
+     * сервисами напрямую, передают аккаунт сами — ровно так же, как это делает контроллер.
+     */
+    protected java.util.Optional<Long> accountIdOpt() {
+        return java.util.Optional.of(account().getId());
+    }
+
+    /** Пользователь, которому принадлежат тестовые данные. */
+    protected ru.analizer.persistence.entity.AppUser user() {
+        return appUserRepository.findByLogin(LOGIN)
+                .orElseThrow(() -> new AssertionError("Тестовый пользователь не найден"));
     }
 
     protected ru.analizer.persistence.entity.Marketplace marketplace() {
@@ -125,10 +172,20 @@ jdbc.execute("""
                 TRUNCATE TABLE finance_accrual, posting, posting_product, delivery_service,
                                item_fee, item_fee_detail, non_item_fee, container_fee,
                                imported_day, import_run, accrual_type, seller_account, marketplace,
-                               product_author, ozon_product_attribute, ozon_product
+                               product_author, ozon_product_attribute, ozon_product,
+                               app_user
                 RESTART IDENTITY CASCADE
                 """);
         jdbc.update("INSERT INTO marketplace (code, name) VALUES ('OZON', 'OZON')");
+        // Пользователь заводится в каждом тесте заново: без него не работает AccountLookup,
+        // а аккаунту он принадлежит по внешнему ключу. Хэш фиктивный — настоящий вход
+        // проверяется HTTP-тестами через /api/auth/register.
+        // Хэш настоящий: HTTP-тесты входят под этим паролем через /api/auth/login.
+        // Фиктивная строка означала бы, что вход невозможен, а проверялся бы отказ.
+        jdbc.update("""
+                INSERT INTO app_user (login, password_hash, display_name)
+                VALUES (?, ?, 'Тестовый пользователь')
+                """, LOGIN, passwordEncoder.encode(PASSWORD));
     }
 
     /**

@@ -25,7 +25,7 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
 
     private AccrualImportReport firstSync() {
         FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
         return accrualImportService.importAccruals(accountId(), DAY, DAY);
     }
 
@@ -70,7 +70,7 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         FixtureAdapters.FIXTURES.clear();
         FixtureAdapters.FIXTURES.put(yesterday, DAY_2026_04_10);
 
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
         AccrualImportReport first = accrualImportService.importAccruals(accountId(), yesterday, yesterday);
         assertThat(first.accrualsInserted()).isEqualTo(94);
 
@@ -128,8 +128,8 @@ class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
         int initial = (int) count("accrual_type");
         assertThat(initial).isEqualTo(132);
 
-        accrualImportService.refreshAccrualTypes();
-        accrualImportService.refreshAccrualTypes();
+        accrualImportService.refreshAccrualTypes(accountId());
+        accrualImportService.refreshAccrualTypes(accountId());
 
         assertThat(count("accrual_type")).isEqualTo(initial);
     }

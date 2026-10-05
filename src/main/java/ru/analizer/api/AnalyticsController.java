@@ -10,9 +10,12 @@ import ru.analizer.analytics.DailyAnalyticsService;
 import ru.analizer.analytics.DailyReport;
 import ru.analizer.analytics.ProductAnalyticsService;
 import ru.analizer.analytics.ProductReport;
+import ru.analizer.persistence.AccountLookup;
+import ru.analizer.persistence.entity.SellerAccount;
 
 import java.time.LocalDate;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Отчёты по сохранённым данным.
@@ -30,11 +33,14 @@ public class AnalyticsController {
 
     private final DailyAnalyticsService dailyAnalytics;
     private final ProductAnalyticsService productAnalytics;
+    private final AccountLookup accountLookup;
 
     public AnalyticsController(DailyAnalyticsService dailyAnalytics,
-                               ProductAnalyticsService productAnalytics) {
+                               ProductAnalyticsService productAnalytics,
+                               AccountLookup accountLookup) {
         this.dailyAnalytics = dailyAnalytics;
         this.productAnalytics = productAnalytics;
+        this.accountLookup = accountLookup;
     }
 
     /**
@@ -52,7 +58,11 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
 
-        return dailyAnalytics.dailyReport(marketplaceCode(marketplace), dateFrom, dateTo);
+        // Аккаунт ищется здесь, в потоке запроса: только тут доступна сессия. Сервис получает
+        // его готовым и потому одинаково работает из фоновой задачи и из теста —
+        // там, где сессии нет вовсе.
+        return dailyAnalytics.dailyReport(
+                marketplaceCode(marketplace), accountId(marketplace), dateFrom, dateTo);
     }
 
     /**
@@ -85,8 +95,19 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
-        return productAnalytics.productReport(
-                marketplaceCode(marketplace), dateFrom, dateTo, author, query, sort, page, size);
+        return productAnalytics.productReport(marketplaceCode(marketplace), accountId(marketplace),
+                dateFrom, dateTo, author, query, sort, page, size);
+    }
+
+    /**
+     * Аккаунт текущего пользователя на маркетплейсе; пусто — не подключён.
+     *
+     * <p>Пусто не ошибка: отчёт обязан ответить {@code NOT_LOADED}, чтобы клиент
+     * предложил загрузку, а не показал нули как будто денег не было.
+     */
+    private Optional<Long> accountId(String marketplace) {
+        accountLookup.requireMarketplace(marketplace);
+        return accountLookup.findAccount(marketplace).map(SellerAccount::getId);
     }
 
     /** Код маркетплейса в верхнем регистре — так он хранится и возвращается в ответе. */

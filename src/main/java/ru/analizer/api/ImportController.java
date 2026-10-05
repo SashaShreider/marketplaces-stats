@@ -56,6 +56,7 @@ public class ImportController {
      * @param refreshAccrualTypes обновить ли справочник типов начислений; стоит одного
      *                           дополнительного запроса к OZON
      * @return 202 Accepted и номер прогона
+     * @throws ru.analizer.api.NotConnectedException 409, если маркетплейс не подключён
      * @throws ru.analizer.sync.ImportConflictException 409, если уже идёт импорт
      *                                              пересекающегося периода
      */
@@ -66,9 +67,11 @@ public class ImportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(defaultValue = "false") boolean refreshAccrualTypes) {
 
-        // Именно ensureAccount: на чистой установке аккаунта ещё нет, и первый импорт
-        // обязан его создать — иначе пришлось бы заводить аккаунт вручную.
-        SellerAccount account = accountLookup.ensureAccount(marketplace);
+        // Импорту нужны реквизиты, а они появляются только при подключении.
+        // Раньше здесь был ensureAccount, который создавал аккаунт с ключами из
+        // конфигурации; теперь ключи ввод��т пользователь, и заводить аккаунт
+        // в обход проверки нельзя — иначе импорт стартовал бы с чужими ключами.
+        SellerAccount account = accountLookup.requireAccount(marketplace);
         ImportProgress progress = importService.startFinanceImport(
                 account, marketplaceCode(marketplace), dateFrom, dateTo, refreshAccrualTypes);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(progress);
@@ -88,7 +91,7 @@ public class ImportController {
      */
     @PostMapping("/catalog")
     public ResponseEntity<ImportProgress> startCatalogImport(@PathVariable String marketplace) {
-        SellerAccount account = accountLookup.ensureAccount(marketplace);
+        SellerAccount account = accountLookup.requireAccount(marketplace);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(importService.startCatalogImport(account, marketplaceCode(marketplace)));
     }

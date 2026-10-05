@@ -23,6 +23,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 
     // В Boot 4 автоконфигурации вынесены в отдельные модули и не подтягиваются транзитивно.
     implementation("org.springframework.boot:spring-boot-restclient")
@@ -34,6 +35,7 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.springframework.security:spring-security-test")
     // Boot 4.1 управляет Testcontainers 2.0.5. В Testcontainers 2.x модули
     // называются testcontainers-<tech>, а не <tech>.
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")

@@ -2,6 +2,7 @@ package ru.analizer.marketplace.ozon;
 
 import org.springframework.stereotype.Component;
 import ru.analizer.marketplace.CatalogPage;
+import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.marketplace.ProductCatalogAdapter;
 import ru.analizer.marketplace.ozon.dto.ProductAttributesFilter;
 import ru.analizer.marketplace.ozon.dto.ProductAttributesRequest;
@@ -42,19 +43,19 @@ public class OzonCatalogAdapter implements ProductCatalogAdapter {
     }
 
     @Override
-    public CatalogPage fetchProducts(String lastId, int limit) {
+    public CatalogPage fetchProducts(MarketplaceCredentials credentials, String lastId, int limit) {
         ProductAttributesFilter filter = new ProductAttributesFilter(
                 VISIBILITY_ALL, null, null, null);
-        return client.getProductAttributes(
+        return client.getProductAttributes(credentials,
                 new ProductAttributesRequest(filter, lastId == null ? "" : lastId, limit, null));
     }
 
     @Override
-    public CatalogPage fetchProductsBySku(List<String> skus) {
+    public CatalogPage fetchProductsBySku(MarketplaceCredentials credentials, List<String> skus) {
         if (skus == null || skus.isEmpty()) {
             return new CatalogPage(List.of(), 0, "");
         }
-        return client.getProductAttributes(new ProductAttributesRequest(
+        return client.getProductAttributes(credentials, new ProductAttributesRequest(
                 ProductAttributesFilter.bySku(skus), "", DEFAULT_LIMIT, null));
     }
 }

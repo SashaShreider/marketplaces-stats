@@ -29,13 +29,18 @@ public class FixtureAdapterConfig {
                 return "OZON";
             }
 
+                        @Override
+            // Реквизиты в тестах не проверяются: адаптер подменён заглушкой.
+            public void verifyCredentials(ru.analizer.marketplace.MarketplaceCredentials credentials) {
+            }
+
             @Override
-            public List<AccrualTypeInfo> fetchAccrualTypes() {
+            public List<AccrualTypeInfo> fetchAccrualTypes(ru.analizer.marketplace.MarketplaceCredentials credentials) {
                 return FixtureAdapters.types();
             }
 
             @Override
-            public List<AccrualDto> fetchAccrualsByDay(LocalDate date) {
+            public List<AccrualDto> fetchAccrualsByDay(ru.analizer.marketplace.MarketplaceCredentials credentials, LocalDate date) {
                 String resource = FixtureAdapters.FIXTURES.get(date);
                 return resource == null ? List.of() : FixtureAdapters.parse(resource);
             }

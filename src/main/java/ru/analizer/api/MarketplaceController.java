@@ -3,57 +3,52 @@ package ru.analizer.api;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.analizer.marketplace.MarketplaceAdapter;
-import ru.analizer.marketplace.ozon.OzonProperties;
+import ru.analizer.persistence.AccountLookup;
 import ru.analizer.persistence.entity.Marketplace;
 import ru.analizer.persistence.entity.SellerAccount;
+import ru.analizer.persistence.repository.ImportRunRepository;
 import ru.analizer.persistence.repository.MarketplaceRepository;
 import ru.analizer.persistence.repository.OzonProductRepository;
-import ru.analizer.persistence.repository.SellerAccountRepository;
-import ru.analizer.persistence.repository.ImportRunRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
- * Что вообще доступно.
+ * Что доступно текущему пользователю.
  *
- * <p>Единственный метод без сегмента маркетплейса: он отвечает на вопрос «какие
- * маркетплейсы подключены и готовы ли они к работе», поэтому вызывается до того, как
- * известен конкретный маркетплейс.
+ * <p>Единственный метод без сегмента маркетплейса: он отвечает на вопрос «что у меня уже
+ * подключено», поэтому вызывается раньше, чем известен конкретный маркетплейс.
  *
- * <p>Собственные запросы к OZON не выполняет: только состояние конфигурации и нашей базы.
+ * <p>Список показывает все маркетплейсы системы, а не только подключённые: иначе
+ * пользователь не увидит, что Wildberries вообще поддерживается, и не поймёт, куда
+ * идти подключаться. Отличается поле {@code connected}.
+ *
+ * <p>Собственных запросов к маркетплейсам не выполняет: только состояние нашей базы.
  */
 @RestController
 @RequestMapping("/api/marketplaces")
 public class MarketplaceController {
 
     private final MarketplaceRepository marketplaceRepository;
-    private final SellerAccountRepository sellerAccountRepository;
+    private final AccountLookup accountLookup;
     private final ImportRunRepository importRunRepository;
     private final OzonProductRepository ozonProductRepository;
-    private final MarketplaceAdapter marketplaceAdapter;
-    private final OzonProperties ozonProperties;
 
     public MarketplaceController(MarketplaceRepository marketplaceRepository,
-                                 SellerAccountRepository sellerAccountRepository,
+                                 AccountLookup accountLookup,
                                  ImportRunRepository importRunRepository,
-                                 OzonProductRepository ozonProductRepository,
-                                 MarketplaceAdapter marketplaceAdapter,
-                                 OzonProperties ozonProperties) {
+                                 OzonProductRepository ozonProductRepository) {
         this.marketplaceRepository = marketplaceRepository;
-        this.sellerAccountRepository = sellerAccountRepository;
+        this.accountLookup = accountLookup;
         this.importRunRepository = importRunRepository;
         this.ozonProductRepository = ozonProductRepository;
-        this.marketplaceAdapter = marketplaceAdapter;
-        this.ozonProperties = ozonProperties;
     }
 
     /**
      * GET /api/marketplaces
      *
      * <p>Позволяет клиенту построить выбор маркетплейса, не зная заранее кодов.
-     * Поле {@code credentialsConfigured} показывает, можно ли запускать импорт: без
-     * ключей запрос вернёт 503, и клиенту лучше сказать это заранее.
+     * Поле {@code connected} показывает, можно ли запускать импорт.
      */
     @GetMapping
     public List<MarketplaceInfo> list() {
@@ -63,36 +58,36 @@ public class MarketplaceController {
     }
 
     private MarketplaceInfo toInfo(Marketplace marketplace) {
-        List<SellerAccount> accounts = sellerAccountRepository
-                .findByMarketplaceId(marketplace.getId());
-        SellerAccount account = accounts.isEmpty() ? null : accounts.getFirst();
-
-        boolean credentialsConfigured = marketplaceAdapter.marketplaceCode().equals(marketplace.getCode())
-                && ozonProperties.isConfigured();
+        // Ищем аккаунт именно текущего пользователя: чужие подключения в ответе
+        // показывать нельзя, это утечка самого факта работы магазина.
+        Optional<SellerAccount> account = accountLookup.findAccount(marketplace.getCode());
 
         return new MarketplaceInfo(
                 marketplace.getCode(),
                 marketplace.getName(),
-                accounts.size(),
-                account == null ? null : account.getName(),
-                credentialsConfigured,
-                account == null ? 0 : ozonProductRepository.countBySellerAccountId(account.getId()),
-                account == null ? 0 : importRunRepository.countBySellerAccountId(account.getId()));
+                account.isPresent(),
+                account.map(SellerAccount::getName).orElse(null),
+                account.map(SellerAccount::getClientId).orElse(null),
+                account.map(a -> ozonProductRepository.countBySellerAccountId(a.getId())).orElse(0L),
+                account.map(a -> importRunRepository.countBySellerAccountId(a.getId())).orElse(0L));
     }
 
     /**
-     * @param code                   код маркетплейса; подставляется в путь следующих запросов
-     * @param accounts               сколько на него заведено аккаунтов; больше одного — конфликт
-     * @param credentialsConfigured  заданы ли ключи API; при {@code false} импорт вернёт 503
-     * @param catalogProducts        товаров в каталоге; 0 означает, что каталог ещё не импортирован
-     * @param importRuns             сколько импортов запускалось за всё время
+     * @param code            код маркетплейса; подставляется в путь следующих запросов
+     * @param name            название для интерфейса
+     * @param connected       задан ли аккаунт; при {@code false} импорт вернёт 409
+     *                       с просьбой подключить маркетплейс
+     * @param accountName     имя подключённого аккаунта
+     * @param clientId        идентификатор клиента; секретный ключ не возвращается
+     * @param catalogProducts товаров в каталоге; 0 означает, что каталог ещё не импортирован
+     * @param importRuns      сколько импортов запускалось за всё время
      */
     public record MarketplaceInfo(
             String code,
             String name,
-            int accounts,
+            boolean connected,
             String accountName,
-            boolean credentialsConfigured,
+            String clientId,
             long catalogProducts,
             long importRuns
     ) {

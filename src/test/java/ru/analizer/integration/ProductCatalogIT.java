@@ -19,7 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Фикстура настоящая, а не выдуманная: идентификаторы авторов и разделители имён
  * взяты из неё, и выдуманные данные были бы проверкой выдуманных данных.
  */
-@Import(CatalogAdapterConfig.class)
+// Оба адаптера подменены: тесты не должны уходить в настоящий OZON. Раньше был подменён
+// только каталог, и финансовые данные приходили из .env разработчика.
+@Import({CatalogAdapterConfig.class, FixtureAdapterConfig.class})
 class ProductCatalogIT extends AbstractPostgresIntegrationTest {
 
     private static final LocalDate DAY = LocalDate.of(2026, 4, 10);
@@ -178,7 +180,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
 
         assertThat(report.totalRows()).isEqualTo(108);
         assertThat(report.rows()).hasSize(108);
@@ -197,7 +199,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
 
         long soldSkus = new java.util.HashSet<>(FixtureAdapters.soldSkus(FINANCE_FIXTURE)).size();
         assertThat(soldSkus).isGreaterThan(0);
@@ -210,12 +212,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         catalogImportService.importProducts(accountId(), null);
         FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
         accrualImportService.importAccruals(accountId(), DAY, DAY);
-        Long accountId = sellerAccountRepository
-                .findByMarketplaceIdAndClientId(marketplaceRepository
-                        .findByCode("OZON").orElseThrow().getId(), CLIENT_ID)
-                .orElseThrow().getId();
-
-        assertThat(productAnalytics.expensesReconciliationDiff(accountId, DAY, DAY))
+        assertThat(productAnalytics.expensesReconciliationDiff(accountId(), DAY, DAY))
                 .isEqualByComparingTo(java.math.BigDecimal.ZERO);
     }
 
@@ -227,7 +224,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
 
         // NON_ITEM и CONTAINER приходят без SKU: распределить их значило бы выдумать
         // правило. Поэтому они показаны отдельно, а не размазаны по товарам.
@@ -240,7 +237,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         catalogImportService.importProducts(accountId(), null);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
 
         assertThat(report.status().name()).isEqualTo("NOT_LOADED");
         assertThat(report.coverage().loadedDays()).isZero();
@@ -259,7 +256,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         // Запрашиваем на день больше, чем загрузили: иначе период закрыт полностью и
         // READY был бы правильным ответом.
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY.plusDays(2), null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY.plusDays(2), null, null, "SKU", 0, 500);
 
         assertThat(report.status().name()).isEqualTo("PARTIAL");
         assertThat(report.coverage().loadedDays()).isEqualTo(2);
@@ -274,7 +271,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
 
         assertThat(report.status().name()).isEqualTo("READY");
         assertThat(report.coverage().loadedDays()).isEqualTo(1);
@@ -286,7 +283,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         catalogImportService.importProducts(accountId(), null);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, "Сурцуков Анатолий", null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null, "SKU", 0, 500);
 
         assertThat(report.totalRows()).isPositive();
         assertThat(report.rows()).allSatisfy(row ->
@@ -299,9 +296,9 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         catalogImportService.importProducts(accountId(), null);
 
         ProductReport bySurname = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, "Сурцуков", null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков", null, "SKU", 0, 500);
         ProductReport byFullName = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, "Сурцуков А.", null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков А.", null, "SKU", 0, 500);
 
         assertThat(bySurname.totalRows()).isEqualTo(byFullName.totalRows());
         assertThat(bySurname.totalRows()).isPositive();
@@ -313,7 +310,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         catalogImportService.importProducts(accountId(), null);
 
         ProductReport byIsbn = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, "9785907081338", "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, "9785907081338", "SKU", 0, 500);
 
         assertThat(byIsbn.totalRows()).isEqualTo(1);
         assertThat(byIsbn.rows().getFirst().isbn()).isEqualTo("9785907081338");
@@ -325,7 +322,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         catalogImportService.importProducts(accountId(), null);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, "Умнова-Конюхова", null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Умнова-Конюхова", null, "SKU", 0, 500);
 
         assertThat(report.rows()).isNotEmpty();
         assertThat(report.rows().getFirst().authors()).extracting("raw")
@@ -341,7 +338,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "INCOME", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 500);
 
         List<java.math.BigDecimal> incomes = report.rows().stream()
                 .map(r -> r.income()).toList();
@@ -356,9 +353,9 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
         ProductReport all = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "INCOME", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 500);
         ProductReport firstPage = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "INCOME", 0, 20);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 20);
 
         assertThat(firstPage.rows()).hasSize(20);
         assertThat(firstPage.totalRows()).isEqualTo(108);
@@ -374,7 +371,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
 
         // Каталог не загружали: все SKU из начислений отсутствуют.
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
 
         assertThat(report.skusMissingFromCatalog()).isNotEmpty();
         assertThat(report.catalog().loaded()).isFalse();

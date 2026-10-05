@@ -25,21 +25,29 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(CatalogAdapterConfig.class)
-class ApiContractIT extends AbstractPostgresIntegrationTest {
+class ApiContractIT extends AbstractHttpIntegrationTest {
 
-    @LocalServerPort
-    int port;
 
-    private HttpResponse<String> get(String path) throws IOException, InterruptedException {
-        return HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder().uri(uri(path)).GET().build(),
-                HttpResponse.BodyHandlers.ofString());
-    }
 
-    private HttpResponse<String> post(String path) throws IOException, InterruptedException {
-        return HttpClient.newHttpClient().send(
-                HttpRequest.newBuilder().uri(uri(path)).POST(HttpRequest.BodyPublishers.noBody()).build(),
-                HttpResponse.BodyHandlers.ofString());
+
+    /**
+     * Секретный ключ маркетплейса не должен попадать ни в один ответ.
+     *
+     * <p>Проверяется на живом HTTP, а не по коду: утечка обычно случается не в том
+     * методе, который её добавил, а в том, который возвращает сущность целиком.
+     */
+    @Test
+    @DisplayName("API-ключ не утекает в ответе списка маркетплейсов")
+    void apiKeyNeverLeaksToClient() throws Exception {
+        account();
+
+        HttpResponse<String> response = get("/api/marketplaces");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body())
+                .as("ответ должен показывать свой аккаунт")
+                .contains(CLIENT_ID)
+                .doesNotContain(API_KEY);
     }
 
     private URI uri(String path) {

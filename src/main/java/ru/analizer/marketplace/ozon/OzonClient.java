@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import ru.analizer.marketplace.AccrualDto;
+import ru.analizer.marketplace.MarketplaceCredentials;
 import ru.analizer.marketplace.AccrualPage;
 import ru.analizer.marketplace.CatalogPage;
 import ru.analizer.marketplace.ProductEntry;
@@ -42,7 +43,7 @@ public class OzonClient {
     private static final String PATH_TYPES = "/v1/finance/accrual/types";
     private static final String PATH_PRODUCT_ATTRIBUTES = "/v4/product/info/attributes";
 
-    private final RestClient restClient;
+    private final RestClient.Builder restClientBuilder;
     private final OzonProperties properties;
     private final ObjectMapper mapper;
 
@@ -51,10 +52,25 @@ public class OzonClient {
         this.mapper = JsonMapper.builder()
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                 .build();
-        this.restClient = builder
+        this.restClientBuilder = builder;
+    }
+
+    /**
+     * HTTP-клиент под конкретные реквизиты.
+     *
+     * <p>Раньше реквизиты задавались один раз в конструкторе бина, и это работало,
+     * пока аккаунт был единственным. Теперь у каждого пользователя свои ключи, поэтому
+     * клиент собирается на каждый вызов.
+     *
+     * <p>Затраты на сборку ничтожны: {@code RestClient} — лёгкая обёртка над общим
+     * {@code HttpClient}, а не новое соединение. Зато состояние не общее: два
+     * пользователя не могут перепутать ключи.
+     */
+    private RestClient clientFor(MarketplaceCredentials credentials) {
+        return restClientBuilder
                 .baseUrl(properties.baseUrl())
-                .defaultHeader("Client-Id", orEmpty(properties.clientId()))
-                .defaultHeader("Api-Key", orEmpty(properties.apiKey()))
+                .defaultHeader("Client-Id", credentials.clientId())
+                .defaultHeader("Api-Key", credentials.apiKey())
                 .build();
     }
 
@@ -65,9 +81,10 @@ public class OzonClient {
      *              иначе OZON отвечает 400
      * @param lastId курсор следующей страницы, {@code null} или пустая строка — первая страница
      */
-    public AccrualPage getAccrualsByDay(LocalDate date, String lastId) {
+    public AccrualPage getAccrualsByDay(MarketplaceCredentials credentials, LocalDate date, String lastId) {
         FinanceAccrualByDayRequest request = new FinanceAccrualByDayRequest(date.toString(), orEmpty(lastId));
 
+        RestClient restClient = clientFor(credentials);
         ObjectNode root = execute("GET " + PATH_BY_DAY, () -> restClient.post()
                 .uri(PATH_BY_DAY)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -91,8 +108,8 @@ public class OzonClient {
         return new AccrualPage(parsed, nextLastId);
     }
 
-    public FinanceAccrualTypesResponse getAccrualTypes() {
-        return execute("GET " + PATH_TYPES, () -> restClient.post()
+    public FinanceAccrualTypesResponse getAccrualTypes(MarketplaceCredentials credentials) {
+        return execute("GET " + PATH_TYPES, () -> clientFor(credentials).post()
                 .uri(PATH_TYPES)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body("{}")
@@ -111,7 +128,8 @@ public class OzonClient {
      * неизвестный атрибут пришлось бы угадывать, а переинтерпретировать данные
      * при смене правил было бы нечем.
      */
-    public CatalogPage getProductAttributes(ProductAttributesRequest request) {
+    public CatalogPage getProductAttributes(MarketplaceCredentials credentials, ProductAttributesRequest request) {
+        RestClient restClient = clientFor(credentials);
         ObjectNode root = execute("POST " + PATH_PRODUCT_ATTRIBUTES, () -> restClient.post()
                 .uri(PATH_PRODUCT_ATTRIBUTES)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -141,9 +159,6 @@ public class OzonClient {
     }
 
     private <T> T execute(String operation, Supplier<T> call) {
-        if (!properties.isConfigured()) {
-            throw new OzonNotConfiguredException();
-        }
         int attempt = 0;
         while (true) {
             try {
