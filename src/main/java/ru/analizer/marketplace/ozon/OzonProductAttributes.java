@@ -22,9 +22,6 @@ public final class OzonProductAttributes {
     /** ISBN. Есть у 101 из 108 товаров. */
     public static final long ISBN = 4184L;
 
-    /** Тип носителя, например «Печатная книга». Пригодится для фильтра по типу. */
-    public static final long MEDIA_TYPE = 9236L;
-
     private OzonProductAttributes() {
     }
 }

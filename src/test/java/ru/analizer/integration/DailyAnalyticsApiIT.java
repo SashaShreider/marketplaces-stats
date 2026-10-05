@@ -35,7 +35,7 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
-    private static final String DAY_2026_04_10 = "example-2026-04-10.json";
+    private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
 
 
     private void syncApr10() {

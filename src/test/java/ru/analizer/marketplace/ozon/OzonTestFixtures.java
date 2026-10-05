@@ -28,8 +28,8 @@ final class OzonTestFixtures {
     }
 
     /**
-     * @param resource путь относительно корня проекта; файлы в корне проекта
-     *                 (например {@code example-2026-04-10.json}) и в {@code src/test/resources}
+     * @param resource путь к фикстуре в {@code src/test/resources}, например
+     *                 {@code fixtures/accruals-2026-04-10.json}
      */
     static List<AccrualDto> load(String resource) throws IOException {
         String raw = read(resource);
@@ -56,13 +56,18 @@ final class OzonTestFixtures {
         }
     }
 
+    /**
+     * Читает фикстуру из classpath.
+     *
+     * <p>Раньше здесь был запасной вариант «прочитать из файловой системы», из-за чего
+     * фикстура лежала в корне проекта и работала только пока тесты запускаются из него.
+     * Теперь всё лежит в {@code src/test/resources} и путь не зависит от того, откуда
+     * запустили сборку.
+     */
     private static InputStream open(String resource) throws IOException {
         InputStream in = OzonTestFixtures.class.getClassLoader().getResourceAsStream(resource);
         if (in == null) {
-            in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(resource));
-        }
-        if (in == null) {
-            throw new IOException("Фикстура не найдена: " + resource);
+            throw new IOException("Фикстура не найдена в src/test/resources: " + resource);
         }
         return in;
     }

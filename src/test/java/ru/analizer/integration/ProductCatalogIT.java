@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ProductCatalogIT extends AbstractPostgresIntegrationTest {
 
     private static final LocalDate DAY = LocalDate.of(2026, 4, 10);
-    private static final String FINANCE_FIXTURE = "example-2026-04-10.json";
+    private static final String FINANCE_FIXTURE = "fixtures/accruals-2026-04-10.json";
 
     @Test
     @DisplayName("Загрузка каталога сохраняет все 108 товаров")

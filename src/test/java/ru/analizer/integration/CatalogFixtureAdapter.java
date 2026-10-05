@@ -155,10 +155,7 @@ final class CatalogFixtureAdapter implements ProductCatalogAdapter {
     private static InputStream open() throws IOException {
         InputStream in = CatalogFixtureAdapter.class.getClassLoader().getResourceAsStream(FIXTURE);
         if (in == null) {
-            in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(FIXTURE));
-        }
-        if (in == null) {
-            throw new IOException("Фикстура не найдена: " + FIXTURE);
+            throw new IOException("Фикстура не найдена в src/test/resources: " + FIXTURE);
         }
         return in;
     }

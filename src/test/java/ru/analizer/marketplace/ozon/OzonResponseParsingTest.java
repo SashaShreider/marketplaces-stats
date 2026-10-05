@@ -18,7 +18,7 @@ import static ru.analizer.marketplace.ozon.OzonTestFixtures.load;
  */
 class OzonResponseParsingTest {
 
-    private static final String FIXTURE = "example-2026-04-10.json";
+    private static final String FIXTURE = "fixtures/accruals-2026-04-10.json";
 
     @Test
     void parsesRealResponseWithoutLosingAccruals() throws IOException {

@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(FixtureAdapterConfig.class)
 class SyncIdempotencyIT extends AbstractPostgresIntegrationTest {
 
-    private static final String DAY_2026_04_10 = "example-2026-04-10.json";
+    private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
 
     private AccrualImportReport firstSync() {
         FixtureAdapters.FIXTURES.put(DAY, DAY_2026_04_10);

@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(FixtureAdapterConfig.class)
 class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
 
-    private static final String DAY_2026_04_10 = "example-2026-04-10.json";
+    private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
     private static final String DAY_2026_09_26 = "fixtures/accruals-2026-09-26-full.json";
 
     private DailyReport syncAndReport(String fixture, LocalDate date) {

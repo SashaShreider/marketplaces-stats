@@ -134,10 +134,7 @@ final class FixtureAdapters {
     private static InputStream open(String resource) throws IOException {
         InputStream in = FixtureAdapters.class.getClassLoader().getResourceAsStream(resource);
         if (in == null) {
-            in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(resource));
-        }
-        if (in == null) {
-            throw new IOException("Фикстура не найдена: " + resource);
+            throw new IOException("Фикстура не найдена в src/test/resources: " + resource);
         }
         return in;
     }

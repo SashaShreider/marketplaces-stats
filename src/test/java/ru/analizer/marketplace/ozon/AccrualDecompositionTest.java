@@ -21,7 +21,7 @@ import static ru.analizer.marketplace.ozon.OzonTestFixtures.num;
  */
 class AccrualDecompositionTest {
 
-    private static final String DAY_2026_04_10 = "example-2026-04-10.json";
+    private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
     private static final String MULTI_PRODUCT = "fixtures/accruals-2026-09-26-multiproduct.json";
 
     /**

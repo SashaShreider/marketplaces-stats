@@ -22,10 +22,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class FinancialModelTest {
 
-    private static final String DAY_2026_04_10 = "example-2026-04-10.json";
+    private static final String DAY_2026_04_10 = "fixtures/accruals-2026-04-10.json";
     private static final String DAY_2026_09_26 = "fixtures/accruals-2026-09-26-full.json";
 
-    /** Ручной подсчёт по файлу example-2026-04-10.json. */
+    /** Ручной подсчёт по файлу fixtures/accruals-2026-04-10.json. */
     private static final LocalDate D1 = LocalDate.of(2026, 4, 10);
     private static final String D1_SALES = "19804.67";
     private static final String D1_RETURNS = "-1039.05";
