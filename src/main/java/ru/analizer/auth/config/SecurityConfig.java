@@ -17,6 +17,11 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * Авторизация по сессии в куке.
@@ -72,8 +77,60 @@ public class SecurityConfig {
         return new HttpSessionSecurityContextRepository();
     }
 
+    /**
+     * Разрешённые источники.
+     *
+     * <p>Пока список пуст, поведение прежнее: браузер ходит только с нашего источника.
+     * Как только в {@code app.cors.allowed-origins} появляется адрес сервера разработки,
+     * запросы с него начинают проходить вместе с куками.
+     *
+     * <p>Отдельный бин нужен ещё и потому, что {@code http.cors(...)} ставит
+     * {@code CorsFilter} <b>до</b> фильтра CSRF. Иначе предварительный запрос
+     * {@code OPTIONS} от чужого источника отклонился бы как подделка CSRF, и браузер
+     * не отправил бы основной запрос.
+     */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
+        CorsConfiguration configuration = new CorsConfiguration();
+        if (properties.hasAllowedOrigins()) {
+            configuration.setAllowedOrigins(properties.allowedOrigins());
+            // Явно, а не «звёздочка с куками»: браузер всё равно не примет «*» вместе
+            // с credentials, и отказ выглядел бы как загадочная ошибка сети.
+            configuration.setAllowCredentials(true);
+            configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+            // Своё значение куки XSRF-TOKEN видно JavaScript, и клиент дублирует его
+            // в заголовке с таким же именем.
+            configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
+            configuration.setExposedHeaders(List.of("Location"));
+        }
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        if (properties.hasAllowedOrigins()) {
+            source.registerCorsConfiguration("/api/**", configuration);
+        }
+        return source;
+    }
+
+    /**
+     * Кука с CSRF-токеном.
+     *
+     * <p>Отдельный бин, а не {@code withHttpOnlyFalse()} прямо в фильтре, потому что
+     * здесь задаются ещё SameSite и Secure. Кука CSRF обязана быть видна JavaScript,
+     * иначе SPA не прочитает токен и не приложит его к заголовку — а это выглядит
+     * не как «сломан CORS», а как «все POST-методы отклонены».
+     */
+    @Bean
+    public CookieCsrfTokenRepository csrfTokenRepository(CookieProperties properties) {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(cookie -> cookie
+                .sameSite(properties.sameSiteAttribute())
+                .secure(properties.secure()));
+        return repository;
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository)
+            throws Exception {
         // Токен из куки должен совпадать со значением в заголовке. По умолчанию Spring
         // маскирует токен при разборе заголовка (защита от BREACH), а кука хранит
         // «сырое» значение — и проверка всегда отклоняла бы запрос. Отключаем маскирование.
@@ -86,6 +143,9 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
+                // CORS настраивается здесь, а не в MVC: фильтр должен отработать раньше
+                // проверки CSRF, иначе предварительный OPTIONS будет отклонён.
+                .cors(cors -> { })
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(PUBLIC_PATHS).permitAll()
                         .anyRequest().authenticated())
@@ -98,7 +158,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         // Токен доступен JavaScript: иначе SPA не приложит его
                         // к заголовку и все POST-методы будут отклонены.
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository)
                         .csrfTokenRequestHandler(csrfHandler))
                 .build();
     }

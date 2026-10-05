@@ -38,6 +38,14 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      cookie:
+        # Lax и без Secure — чтобы работало на http://localhost:8080 без настроек.
+        # Для публикации по HTTPS задайте COOKIE_SAME_SITE=None и COOKIE_SECURE=true:
+        # иначе браузер не примет куку сессии и каждый запрос будет давать 401.
+        same-site: ${COOKIE_SAME_SITE:Lax}
+        secure: ${COOKIE_SECURE:false}
 
 management:
   endpoints:
@@ -72,3 +80,16 @@ logging:
   level:
     ru.analizer: INFO
     org.hibernate.SQL: WARN
+
+app:
+  # Источники, которым разрешено обращаться к API с куками. Пусто — приложение
+  # работает только со своего источника, и CORS не нужен вовсе.
+  # Для разработки, когда фронтенд запущен отдельно, добавьте, например:
+  #   APP_ALLOWED_ORIGINS=http://localhost:5173
+  cors:
+    allowed-origins: ${APP_ALLOWED_ORIGINS:}
+  cookie:
+    # Те же параметры, что у server.servlet.session.cookie, но для куки XSRF-TOKEN.
+    # Держать их разными незачем: обе куки живут рядом и уходят вместе с браузером.
+    same-site: ${COOKIE_SAME_SITE:Lax}
+    secure: ${COOKIE_SECURE:false}
