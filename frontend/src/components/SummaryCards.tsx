@@ -40,7 +40,6 @@ function Card({
   iconBg: string
   icon: React.ReactNode
   title: string
-  hint: string
   amount: number
   children: React.ReactNode
 }) {
