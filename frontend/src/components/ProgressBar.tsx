@@ -4,12 +4,22 @@ import type { ImportRunner } from '../hooks/useImportRunner'
 import { fmtDayShort, fmtRange } from '../utils/format'
 
 /**
- * Прогресс фонового импорта (поля ImportProgress: percent, doneUnits, totalUnits…)
- * + уведомление о неудаче импорта.
+ * Сообщение о неудаче импорта и, опционально, полоса прогресса.
+ *
+ * <p>Полоса у обзора отключена: прогресс показывается рядом с календарём, в одном
+ * месте с периодами, которые он и объясняет. Здесь остаётся только неудача — её
+ * действительно надо заметить сразу и крупно.
  */
-export default function ProgressBar({ runner }: { runner: ImportRunner }) {
+export default function ProgressBar({
+  runner,
+  showProgress = true,
+}: {
+  runner: ImportRunner
+  /** Показывать полосу прогресса */
+  showProgress?: boolean
+}) {
   const { run, error, dismiss } = runner
-  const active = Boolean(run?.inProgress)
+  const active = Boolean(run?.inProgress) && showProgress
   const failedMsg =
     error ??
     (run && !run.inProgress && run.status === 'FAILED'

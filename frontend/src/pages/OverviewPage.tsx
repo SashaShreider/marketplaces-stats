@@ -4,20 +4,22 @@ import { getDaily } from '../api/client'
 import { describeError } from '../api/http'
 import { mapDaily } from '../api/mappers'
 import DateRangePicker from '../components/DateRangePicker'
-import { DataStatusBanner, NotLoadedHero } from '../components/DataStatus'
 import EmptyState from '../components/EmptyState'
 import ExpenseDonut from '../components/ExpenseDonut'
 import FinanceSection from '../components/FinanceSection'
 import ProgressBar from '../components/ProgressBar'
 import SummaryCards from '../components/SummaryCards'
+import SyncIndicator from '../components/SyncIndicator'
 import { MarketplaceLogo, PageHeader } from '../components/ui'
+import { useAutoSync } from '../hooks/useAutoSync'
 import type { ImportRunner } from '../hooks/useImportRunner'
 import type { DailyReport, DateRange, MarketplaceInfo } from '../types'
 import { sumDays } from '../utils/format'
 
 const EMPTY_TOTALS = sumDays([])
-/** Дней, начиная с которых предупреждаем о большом числе запросов к маркетплейсу */
-const BIG_IMPORT_DAYS = 45
+/** Дней, начиная с которых предупреждаем о большом числе запросов к маркетплейсу.
+ *  Сейчас не используется: подтверждение отключено в пользу автозагрузки. */
+/* const BIG_IMPORT_DAYS = 45 */
 
 export default function OverviewPage({
   mp,
@@ -77,18 +79,23 @@ export default function OverviewPage({
   const totals = useMemo(() => (days.length ? sumDays(days) : EMPTY_TOTALS), [days])
 
   const startSync = () => {
-    const cov = report?.coverage
+    // Подтверждение расхода квоты отключено закомментированным блоком ниже:
+    // автозагрузка и повторный запуск берут только незагруженные дни,
+    // поэтому отдельного диалога не требуется.
+    /**const cov = report?.coverage
     const toLoad = cov
       ? cov.missingDays.length + cov.failedDates.length + cov.provisionalDays.length
       : 0
-    /**if (toLoad > BIG_IMPORT_DAYS) {
+    if (toLoad > BIG_IMPORT_DAYS) {
       const ok = window.confirm(
         `Для загрузки потребуется около ${toLoad} запросов к API маркетплейса, это расходует квоту. Продолжить?`,
       )
       if (!ok) return
-    }**/
+    }*/
     runner.startFinance(range.from, range.to)
   }
+
+  const auto = useAutoSync({ mp: mp.connected ? mp.code : null, report, range, runner })
 
   const header = (
     <PageHeader
@@ -100,7 +107,10 @@ export default function OverviewPage({
         </>
       }
     >
-      <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
+      <div className="flex items-center gap-1.5">
+        <SyncIndicator state={auto.state} busy={runner.busy} onRetry={startSync} />
+        <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
+      </div>
     </PageHeader>
   )
 
@@ -113,12 +123,10 @@ export default function OverviewPage({
     )
   }
 
-  const showHero = report?.status === 'NOT_LOADED' && !runner.busy
-
   return (
     <>
-      {header}
-      <ProgressBar runner={runner} />
+{header}
+        <ProgressBar runner={runner} showProgress={false} />
 
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">
@@ -142,17 +150,8 @@ export default function OverviewPage({
             ))}
           </div>
         )
-      ) : showHero ? (
-        <NotLoadedHero coverage={report.coverage} busy={runner.busy} onSync={startSync} />
       ) : (
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-          <DataStatusBanner
-            status={report.status}
-            coverage={report.coverage}
-            reconciled={report.reconciled}
-            busy={runner.busy}
-            onSync={startSync}
-          />
           <div className="space-y-4">
             <SummaryCards totals={totals} />
             <FinanceSection days={days} />

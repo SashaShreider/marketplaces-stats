@@ -6,9 +6,9 @@ import {
 import { getAuthors, getProducts } from '../api/client'
 import { describeError } from '../api/http'
 import DateRangePicker from '../components/DateRangePicker'
-import { DataStatusBanner } from '../components/DataStatus'
 import EmptyState from '../components/EmptyState'
 import ProgressBar from '../components/ProgressBar'
+import SyncIndicator, { syncStateOf } from '../components/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '../components/ui'
 import type { ImportRunner } from '../hooks/useImportRunner'
 import type { DateRange, MarketplaceInfo, ProductRow, ProductSort, ProductsReport } from '../types'
@@ -208,7 +208,14 @@ export default function ProductsPage({
         </>
       }
     >
-      <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
+      <div className="flex items-center gap-1.5">
+        <SyncIndicator
+          state={syncStateOf(report, run)}
+          busy={runner.busy}
+          onRetry={() => runner.startFinance(range.from, range.to)}
+        />
+        <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
+      </div>
     </PageHeader>
   )
 
@@ -275,15 +282,6 @@ export default function ProductsPage({
         </motion.div>
       ) : (
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-          {report.status !== 'READY' && (
-            <DataStatusBanner
-              status={report.status}
-              coverage={report.coverage}
-              busy={runner.busy}
-              onSync={() => runner.startFinance(range.from, range.to)}
-            />
-          )}
-
           {totals && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Stat label="Доходы" tone="border-emerald-200/60 bg-emerald-50/60" delay={0.05}>
