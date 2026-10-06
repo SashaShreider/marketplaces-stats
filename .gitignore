@@ -5,6 +5,13 @@ bin/
 !gradle/wrapper/gradle-wrapper.jar
 .gradle/
 
+# Frontend
+node_modules/
+dist/
+.vite/
+*.local
+.worktrees/
+
 # Secrets
 .env
 .env.*
