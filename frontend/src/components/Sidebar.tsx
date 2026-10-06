@@ -73,14 +73,15 @@ export default function Sidebar({
         })}
       </nav>
 
-      <div className="mt-auto px-3 pb-5">
+      {/*  <div className="mt-auto px-3 pb-5">
         <div className="rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-brand-50/60 p-4">
           <div className="text-[12px] font-bold text-slate-800">Нужна помощь?</div>
           <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
             Инструкции по подключению API-ключей — в разделе профиля.
           </p>
         </div>
-      </div>
+      </div> **/}
+
     </aside>
   )
 }

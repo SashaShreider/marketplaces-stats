@@ -72,6 +72,7 @@ export default function AuthScreen({
   return (
     <div className="flex min-h-screen">
       {/* Бренд-панель */}
+      {/* 
       <div className="relative hidden w-[46%] overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-[#14296b] lg:block">
         <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-24 right-0 h-96 w-96 rounded-full bg-indigo-400/30 blur-3xl" />
@@ -106,7 +107,7 @@ export default function AuthScreen({
 
           <div className="text-[12px] font-medium text-white/40">Данные только на чтение</div>
         </div>
-      </div>
+      </div>*/}
 
       {/* Форма */}
       <div className="flex flex-1 items-center justify-center p-6">
@@ -130,11 +131,12 @@ export default function AuthScreen({
           <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900">
             {mode === 'login' ? 'Вход в аккаунт' : 'Создать аккаунт'}
           </h1>
+          {/** 
           <p className="mt-1.5 text-[13.5px] font-medium text-slate-500">
             {mode === 'login'
               ? 'Войдите, чтобы увидеть аналитику вашего магазина'
               : 'Регистрация занимает меньше минуты'}
-          </p>
+          </p>*/}
 
           <div className="mt-6 flex rounded-xl bg-slate-100 p-1">
             {(['login', 'register'] as const).map((m) => (

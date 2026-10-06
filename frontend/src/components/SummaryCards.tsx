@@ -111,7 +111,7 @@ export default function SummaryCards({ totals }: { totals: FinanceTotals }) {
         <Row label="Расходы" value={totals.expenses} negative />
         <div className="mt-1.5 flex items-center gap-1.5 border-t border-slate-200/50 pt-2.5 text-[11px] font-medium text-slate-400">
           <Info size={12} />
-          Себестоимость товаров не учтена
+          Себестоимость товаров и налог не учтены
         </div>
       </Card>
     </div>
