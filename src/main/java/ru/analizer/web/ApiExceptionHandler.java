@@ -2,6 +2,7 @@ package ru.analizer.web;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -150,6 +151,28 @@ public class ApiExceptionHandler {
         problem.setType(URI.create("urn:analizer:error:ozon-api"));
         problem.setProperty("ozonStatus", e.status() == null ? null : e.status().value());
         problem.setProperty("ozonCode", e.ozonCode());
+        return problem;
+    }
+
+    /**
+     * Нарушение ограничения в базе.
+     *
+     * <p>409, а не 500: запрос был правильным, состояние не позволяло его выполнить —
+     * ровно то, что уже означают остальные конфликты здесь. Сырой 500 с текстом
+     * ограничения отдавал клиенту детали схемы и выглядел как сбой приложения,
+     * хотя виноват был повтор запроса.
+     *
+     * <p>Подробности ограничения в ответ не попадают: имя колонок и таблиц —
+     * внутреннее устройство, а не контракт.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException e) {
+        log.warn("Нарушено ограничение в базе: {}", e.getMostSpecificCause().getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Такое состояние уже существует. Проверьте, не подключён ли магазин ранее.");
+        problem.setTitle("Конфликт с уже существующими данными");
+        problem.setType(URI.create("urn:analizer:error:data-conflict"));
         return problem;
     }
 }

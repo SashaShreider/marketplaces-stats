@@ -39,9 +39,10 @@ docker compose up --build
 Первый запрос: зарегистрируйтесь, войдите, подключите маркетплейс.
 
 ```
-POST /api/auth/register                        {"login":"…","password":"…"}
-PUT  /api/marketplaces/ozon/credentials       {"clientId":"…","apiKey":"…"}
-POST /api/marketplaces/ozon/imports/finance   {"dateFrom":"2026-09-01","dateTo":"2026-09-30"}
+POST /api/auth/register                     {"login":"…","password":"…"}
+PUT  /api/marketplaces/ozon/credentials      {"clientId":"…","apiKey":"…"}
+POST /api/marketplaces/ozon/imports/finance?dateFrom=2026-09-01&dateTo=2026-09-30
+POST /api/marketplaces/ozon/imports/catalog
 GET  /api/marketplaces/ozon/analytics/daily?dateFrom=2026-09-01&dateTo=2026-09-30
 ```
 

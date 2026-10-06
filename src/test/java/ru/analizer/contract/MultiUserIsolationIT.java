@@ -82,12 +82,37 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
                 .doesNotContain("\"clientId\":\"1\"");
     }
 
+    /**
+     * Одинаковый {@code clientId} у двух разных пользователей не считается конфликтом.
+     *
+     * <p>Проверка появилась из живого прогона, а не из размышления о схеме. Ограничение
+     * {@code UNIQUE (marketplace_id, client_id)} досталось от времён, когда аккаунты
+     * были общими, и после появления пользователей превратилось в запрет: второй
+     * продавец с тем же идентификатором клиента получал 500 вместо ответа.
+     *
+     * <p>Идентификатор клиента — понятие OZON, а не наше: у другого маркетплейса он
+     * называется иначе и не обязан быть уникальным глобально. Правило «один аккаунт
+     * на маркетплейс у пользователя» выражает отдельное ограничение, и проверять надо
+     * именно его — не то, что от него не зависит.
+     */
+    @Test
+    @DisplayName("Два пользователя подключают один clientId без конфликта")
+    void sameClientIdBelongsToTwoUsersIndependently() {
+        importFor(FIRST, FIRST_PASSWORD, "shared-client", "100.00");
+        importFor(SECOND, SECOND_PASSWORD, "shared-client", "250.00");
+
+        assertThat(accountIdOf(FIRST))
+                .as("одинаковый clientId не должен делать аккаунты общими")
+                .isNotEqualTo(accountIdOf(SECOND));
+        assertThat(clientIdOf(FIRST)).isEqualTo("shared-client");
+        assertThat(clientIdOf(SECOND)).isEqualTo("shared-client");
+    }
+
     @Test
     @DisplayName("Чужой прогон импорта не открывается по его номеру")
     void foreignImportRunIsNotVisible() throws Exception {
         importFor(FIRST, FIRST_PASSWORD, "1", "100.00");
-        String sessionOne = login(FIRST, FIRST_PASSWORD);
-        Long importId = latestImportIdOf(FIRST);
+        String sessionOne = login(FIRST, FIRST_PASSWORD);        Long importId = latestImportIdOf(FIRST);
 
         importFor(SECOND, SECOND_PASSWORD, "2", "250.00");
         String sessionTwo = login(SECOND, SECOND_PASSWORD);
