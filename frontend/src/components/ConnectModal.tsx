@@ -120,7 +120,7 @@ export default function ConnectModal({
                     <input
                       value={clientId}
                       onChange={(e) => setClientId(e.target.value)}
-                      placeholder="Например, 1154"
+                      placeholder="Например, 1234"
                       className={inputCls}
                     />
                   </div>

@@ -62,6 +62,7 @@ export class ApiError extends Error {
   }
 }
 
+/**TODO - проверить коды ошибок - пишет попробуйте позже, даже когда ключ неверный */
 /** Человекочитаемое описание любой ошибки */
 export function describeError(e: unknown): string {
   if (e instanceof ApiError) {
