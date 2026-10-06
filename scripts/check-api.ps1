@@ -248,6 +248,19 @@ Assert-True ($dailyDiff -eq 0) `
     "тождество не сошлось на $dailyDiff — расходы потеряны или задвоены"
 Assert-True ($daily.reconciled) 'признак reconciled подтверждён сервером' 'сервер не подтвердил сверку'
 
+if ($hasData) {
+    # Количество проверяется отдельно от денег намеренно: неверный счёт единиц не портит
+    # тождество выше, поэтому деньги остались бы верными и при неверном количестве.
+    $sold = [int]($daily.total.soldQuantity)
+    $returned = [int]($daily.total.returnedQuantity)
+    Assert-True ($sold -ge 0 -and $returned -ge 0) `
+        "количество неотрицательное: продано $sold, возвращено $returned" `
+        "количество отрицательное — количество не может быть отрицательным"
+    Assert-True ($sold -gt 0) `
+        "за период что-то продано: $sold единиц" `
+        "за период продано ноль единиц, хотя выручка $($daily.total.sales) — количество считается неверно"
+}
+
 Write-Step 'Отчёт по товарам'
 $products = Invoke-Api "/api/marketplaces/ozon/analytics/products?dateFrom=$DateFrom&dateTo=$DateTo&size=5"
 
@@ -259,6 +272,15 @@ if ($hasData) {
     Assert-True ($products.totals.income -eq $daily.income) `
         "доходы совпали с дневным отчётом: $($products.totals.income)" `
         "доходы разошлись: товары $($products.totals.income), дни $($daily.income)"
+
+    # Количество считается двумя разными путями: в дневном отчёте свёрткой строк,
+    # в товарном — агрегатом SQL по SKU. Расхождение означало бы, что одно из двух врёт.
+    Assert-True ($products.totals.soldQuantity -eq $daily.total.soldQuantity) `
+        "количество продаж совпало с дневным отчётом: $($products.totals.soldQuantity)" `
+        "количество разошлось: товары $($products.totals.soldQuantity), дни $($daily.total.soldQuantity)"
+    Assert-True ($products.totals.returnedQuantity -eq $daily.total.returnedQuantity) `
+        "количество возвратов совпало с дневным отчётом: $($products.totals.returnedQuantity)" `
+        "возвраты разошлись: товары $($products.totals.returnedQuantity), дни $($daily.total.returnedQuantity)"
 
     $unallocated = Get-Number $products.unallocatedExpenses
     $productExpenses = [math]::Round((Get-Number $products.totals.expenses) + $unallocated, 2)

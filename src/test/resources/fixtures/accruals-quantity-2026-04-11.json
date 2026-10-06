@@ -1,0 +1,111 @@
+{
+  "_comment": [
+    "Снимок настоящего ответа OZON за 2026-04-11: три операции, собранные из реальных",
+    "ответов за апрель 2026. Дата выбрана свободной, чтобы заведомо ничего не пересекалось.",
+    "",
+    "Состав подобраан так, чтобы покрыть три разных случая, которые нельзя смешивать:",
+    "  1. продажа двух единиц одной позиции — sale_price приходит за всю позицию,",
+    "     а quantity равен двум;",
+    "  2. удержание без комиссии — commission равен null, quantity равен единице, и это",
+    "     не продажа;",
+    "  3. возврат — sale_price отрицателен, но quantity положителен.",
+    "",
+    "Без пункта 2 тест прошёл бы и с неверной логикой: лишних единиц просто не было бы",
+    "в данных, а ошибочный подсчёт заметил бы только пользователь с возвратами и штрафами.",
+    "",
+    "Суммы сверены с тождеством: sale_price + sale_commission + bonus + coinvestment +",
+    "логистика = total_amount операции."
+  ],
+  "accruals": [
+    {
+      "accrual_id": 48347950506,
+      "date": "2026-04-11",
+      "total_amount": { "amount": "1616.16", "currency": "RUB" },
+      "unit_number": "49499988-0462-1",
+      "accrued_category": "POSTING",
+      "posting": {
+        "delivery_schema": "Fbs",
+        "products": [
+          {
+            "sku": 1720912969,
+            "quantity": 2,
+            "commission": {
+              "seller_price": { "amount": "1732", "currency": "RUB" },
+              "sale_price": { "amount": "1398.1", "currency": "RUB" },
+              "sale_commission": { "amount": "-1593.44", "currency": "RUB" },
+              "commission": { "amount": "-1593.44", "currency": "RUB" },
+              "commission_ratio": "value:\"0.460000\"",
+              "sale_amount": { "amount": "3464", "currency": "RUB" },
+              "coinvestment": { "amount": "13.98", "currency": "RUB" },
+              "bonus": { "amount": "2051.92", "currency": "RUB" }
+            },
+            "delivery": {
+              "total_accrued": { "amount": "-254.4", "currency": "RUB" },
+              "services": [
+                { "type_id": 16, "accrued": { "amount": "-10", "currency": "RUB" } },
+                { "type_id": 17, "accrued": { "amount": "-20", "currency": "RUB" } },
+                { "type_id": 29, "accrued": { "amount": "-25.12", "currency": "RUB" } },
+                { "type_id": 32, "accrued": { "amount": "-199.28", "currency": "RUB" } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "accrual_id": 48324454527,
+      "date": "2026-04-11",
+      "total_amount": { "amount": "-129.64", "currency": "RUB" },
+      "unit_number": "0212085058-0787-1",
+      "accrued_category": "POSTING",
+      "posting": {
+        "delivery_schema": "Fbs",
+        "products": [
+          {
+            "sku": 1720912969,
+            "quantity": 1,
+            "commission": null,
+            "delivery": {
+              "total_accrued": { "amount": "-129.64", "currency": "RUB" },
+              "services": [
+                { "type_id": 16, "accrued": { "amount": "-10", "currency": "RUB" } },
+                { "type_id": 17, "accrued": { "amount": "-20", "currency": "RUB" } },
+                { "type_id": 32, "accrued": { "amount": "-99.64", "currency": "RUB" } }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "accrual_id": 48796065352,
+      "date": "2026-04-11",
+      "total_amount": { "amount": "-1051.64", "currency": "RUB" },
+      "unit_number": "40946473-0590-5",
+      "accrued_category": "POSTING",
+      "posting": {
+        "delivery_schema": "Fbs",
+        "products": [
+          {
+            "sku": 1973850522,
+            "quantity": 1,
+            "commission": {
+              "seller_price": { "amount": "-1724", "currency": "RUB" },
+              "sale_price": { "amount": "-1039.05", "currency": "RUB" },
+              "sale_commission": { "amount": "672.36", "currency": "RUB" },
+              "commission": { "amount": "672.36", "currency": "RUB" },
+              "commission_ratio": "value:\"0.390000\"",
+              "sale_amount": { "amount": "-1724", "currency": "RUB" },
+              "coinvestment": { "amount": "-10.39", "currency": "RUB" },
+              "bonus": { "amount": "-674.56", "currency": "RUB" }
+            },
+            "delivery": {
+              "total_accrued": { "amount": "0", "currency": "RUB" },
+              "services": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

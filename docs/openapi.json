@@ -162,6 +162,14 @@
           },
           "payout" : {
             "type" : "number"
+          },
+          "returnedQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "soldQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -194,11 +202,19 @@
           "reconciles" : {
             "type" : "boolean"
           },
+          "returnedQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "returns" : {
             "type" : "number"
           },
           "sales" : {
             "type" : "number"
+          },
+          "soldQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -480,12 +496,16 @@
           "primaryImage" : {
             "type" : "string"
           },
-          "quantity" : {
+          "returnedQuantity" : {
             "format" : "int32",
             "type" : "integer"
           },
           "sku" : {
             "format" : "int64",
+            "type" : "integer"
+          },
+          "soldQuantity" : {
+            "format" : "int32",
             "type" : "integer"
           },
           "typeId" : {
@@ -526,11 +546,19 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "returnedQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "returns" : {
             "type" : "number"
           },
           "sales" : {
             "type" : "number"
+          },
+          "soldQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"

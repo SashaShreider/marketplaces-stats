@@ -13,6 +13,22 @@ import java.util.Map;
  * <p>Класс чистый — ни запросов, ни обращений к базе. Все правила собраны здесь, и их
  * можно проверить на реальных выгрузках без Spring.
  *
+ * <h2>Что считается продажей</h2>
+ * <p>Продажа — это строка операции POSTING, у которой OZON прислал {@code sale_price}.
+ * Три случая различаются, и их нельзя смешивать:
+ * <ul>
+ *   <li><b>{@code sale_price > 0}</b> — продажа. Единиц столько, сколько в
+ *       {@code quantity}; при количестве больше единицы {@code sale_price} приходит за
+ *       всю позицию, а не за штуку.</li>
+ *   <li><b>{@code sale_price < 0}</b> — возврат. Считается отдельно и в проданные не
+ *       входит. {@code quantity} у возврата положителен: уменьшение несут деньги, а не
+ *       количество.</li>
+ *   <li><b>{@code sale_price} отсутствует</b> — не продажа вовсе. Такие строки у OZON
+ *       приходят для удержаний и штрафов за доставку: {@code commission} у них равен
+ *       {@code null}, а вся отрицательная сумма операции равна логистике. Их количество
+ *       равно единице, поэтому включение в счёт дало бы фиктивные продажи.</li>
+ * </ul>
+ *
  * <h2>Правила</h2>
  * <ul>
  *   <li><b>Продажи</b> — {@code posting_product.sale_price &gt; 0}.</li>
@@ -56,18 +72,37 @@ public final class FinancialModel {
         BigDecimal commission = BigDecimal.ZERO;
         BigDecimal logistics = BigDecimal.ZERO;
         BigDecimal otherExpenses = BigDecimal.ZERO;
+        int soldQuantity = 0;
+        int returnedQuantity = 0;
 
         for (ProductFact product : products) {
-            BigDecimal salePrice = n(product.salePrice());
-            if (salePrice.signum() > 0) {
-                sales = sales.add(salePrice);
-            } else {
-                returns = returns.add(salePrice);
-            }
+            BigDecimal salePrice = product.salePrice();
+            // Бонусы и комиссия считаются по всем строкам: у строки без sale_price они
+            // всё равно нулевые, но полагаться на это — значит связать корректность
+            // денег с тем, придёт ли OZON лишнее поле.
             partnerProgramme = partnerProgramme
                     .add(n(product.bonus()))
                     .add(n(product.coinvestment()));
             commission = commission.add(n(product.saleCommission()));
+
+            // sale_price отсутствует там, где OZON не прислал commission вовсе. Это не
+            // ноль и не продажа за ноль: строки такого вида — удержания и штрафы за
+            // доставку. Их количество равно единице, и включение в счёт дало бы
+            // завышение примерно на двадцать процентов.
+            if (salePrice == null) {
+                continue;
+            }
+
+            if (salePrice.signum() > 0) {
+                sales = sales.add(salePrice);
+                soldQuantity += n(product.quantity());
+            } else {
+                // Знак количества у возврата остаётся положительным: OZON присылает
+                // quantity = 1 и для возврата, уменьшение несут деньги. Возвраты считаются
+                // отдельно и в soldQuantity не входят.
+                returns = returns.add(salePrice);
+                returnedQuantity += n(product.quantity());
+            }
         }
 
         for (FeeFact fee : fees) {
@@ -85,7 +120,11 @@ public final class FinancialModel {
                 : payouts.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new FinancialSummary(dateFrom, dateTo, sales, returns, partnerProgramme,
-                commission, logistics, otherExpenses, payout);
+                commission, logistics, otherExpenses, payout, soldQuantity, returnedQuantity);
+    }
+
+    private static int n(Integer value) {
+        return value == null ? 0 : value;
     }
 
     /**

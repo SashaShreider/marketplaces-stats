@@ -1537,7 +1537,7 @@
                   "console.log('sku=' + r.sku + ' | ' + r.name);",
                   "console.log('авторы: ' + r.authors.map(function (a) {",
                   "  return a.raw + ' [' + a.source + ']'; }).join(', '));",
-                  "console.log('isbn=' + r.isbn + ' количество=' + r.quantity);"
+                  "console.log('isbn=' + r.isbn + ' продано=' + r.soldQuantity + ' возвращено=' + r.returnedQuantity);"
                 ]
               }
             }

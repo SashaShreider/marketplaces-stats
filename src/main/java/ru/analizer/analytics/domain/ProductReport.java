@@ -61,6 +61,8 @@ public record ProductReport(
             BigDecimal commission,
             BigDecimal logistics,
             BigDecimal itemExpenses,
+            int soldQuantity,
+            int returnedQuantity,
             int productsInCatalog,
             int productsWithSales
     ) {
@@ -75,7 +77,8 @@ public record ProductReport(
             String isbn,
             Long typeId,
             List<CatalogFacts.ProductAuthorView> authors,
-            int quantity,
+            int soldQuantity,
+            int returnedQuantity,
             int accrualCount,
             FinancialSummary financial
     ) {

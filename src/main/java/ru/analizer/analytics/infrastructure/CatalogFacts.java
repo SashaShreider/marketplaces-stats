@@ -246,24 +246,49 @@ public class CatalogFacts {
         return fees;
     }
 
-    /** Количество проданных единиц по SKU за период. */
-    public Map<Long, Integer> quantities(Long accountId, LocalDate from, LocalDate to) {
-        Map<Long, Integer> result = new LinkedHashMap<>();
+    /**
+     * Количество проданных и возвращённых единиц по SKU за период.
+     *
+     <p>Продажи и возвраты считаются разными запросами внутри одного SQL — фильтрами по
+     знаку {@code sale_price}. Разделять в Java пришлось бы двумя проходами с разной
+     агрегацией, а здесь всё выражается прямо в терминах базы.
+ *
+     <p>Строки без {@code sale_price} не попадают ни в одну из сумм: у них {@code commission}
+     равен {@code null}, это удержания и штрафы за доставку, и их {@code quantity} равен
+     единице. Включение дало бы фиктивные продажи — на реальных данных сентября 2026 это
+     119 единиц против 555 настоящих.
+     *
+     <p>Знак количества у возврата сохраняется положительным: OZON присылает
+     {@code quantity = 1} и для возврата, уменьшение несут деньги.
+     */
+    public Map<Long, Quantities> quantities(Long accountId, LocalDate from, LocalDate to) {
+        Map<Long, Quantities> result = new LinkedHashMap<>();
         jdbc.query("""
-                select p.sku, sum(p.quantity)
+                select p.sku,
+                       coalesce(sum(p.quantity) filter (where p.sale_price > 0), 0),
+                       coalesce(sum(p.quantity) filter (where p.sale_price < 0), 0)
                 from finance_accrual a
                 join posting po on po.finance_accrual_id = a.id
                 join posting_product p on p.posting_id = po.id
                 where a.seller_account_id = ? and a.accrual_date between ? and ?
+                  and p.sale_price is not null
                 group by p.sku
                 """, rs -> {
             // sum() в PostgreSQL возвращает bigint, поэтому приводить через
             // (Integer) нельзя — будет ClassCastException на Long.
-            Object value = rs.getObject(2);
-            int quantity = value == null ? 0 : ((Number) value).intValue();
-            result.merge(rs.getLong("sku"), quantity, Integer::sum);
+            result.merge(rs.getLong("sku"),
+                    new Quantities(number(rs.getObject(2)), number(rs.getObject(3))),
+                    (a, b) -> new Quantities(a.sold() + b.sold(), a.returned() + b.returned()));
         }, accountId, from, to);
         return result;
+    }
+
+    private static int number(Object value) {
+        return value == null ? 0 : ((Number) value).intValue();
+    }
+
+    /** Единиц по SKU: продано и возвращено за период. */
+    public record Quantities(int sold, int returned) {
     }
 
     /** Сколько операций затронуло SKU — чтобы отличать одну крупную продажу от многих мелких. */

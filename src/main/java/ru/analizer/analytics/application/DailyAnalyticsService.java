@@ -75,24 +75,22 @@ public class DailyAnalyticsService {
         fees.addAll(facts.containerFees(account, from, to));
         Map<LocalDate, BigDecimal> payouts = facts.payoutsByDate(account, from, to);
 
-        Map<LocalDate, FinancialSummary> byDate = new LinkedHashMap<>();
+        // Дни периода в порядке возрастания: порядок строк в отчёте совпадает с календарём,
+        // а не с тем, в каком порядке пришли начисления.
+        Map<LocalDate, BigDecimal> payoutByDate = new LinkedHashMap<>();
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
-            byDate.put(date, FinancialSummary.empty(date, date));
+            payoutByDate.put(date, BigDecimal.ZERO);
         }
-        for (Map.Entry<LocalDate, BigDecimal> entry : payouts.entrySet()) {
-            BigDecimal payout = entry.getValue() == null ? BigDecimal.ZERO : entry.getValue();
-            byDate.put(entry.getKey(), new FinancialSummary(entry.getKey(), entry.getKey(),
-                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, payout));
-        }
+        payouts.forEach((date, amount) ->
+                payoutByDate.put(date, amount == null ? BigDecimal.ZERO : amount));
 
         // Товары и расходы приходят одним списком за весь период, поэтому на каждый
         // день отбираем свою часть.
-        for (LocalDate date : byDate.keySet()) {
-            BigDecimal payout = n(byDate.get(date).payout());
-            List<ProductFact> dayProducts = filterByDate(products, date);
-            List<FeeFact> dayFees = filterFeesByDate(fees, date);
-            byDate.put(date, FinancialModel.summarize(date, date, dayProducts, dayFees, Map.of(date, payout)));
+        Map<LocalDate, FinancialSummary> byDate = new LinkedHashMap<>();
+        for (Map.Entry<LocalDate, BigDecimal> entry : payoutByDate.entrySet()) {
+            LocalDate date = entry.getKey();
+            byDate.put(date, FinancialModel.summarize(date, date, filterByDate(products, date),
+                    filterFeesByDate(fees, date), Map.of(date, entry.getValue())));
         }
 
         List<DailyRow> rows = new ArrayList<>();

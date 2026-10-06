@@ -96,7 +96,7 @@ public class ProductAnalyticsService {
         List<Long> skus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
 
         Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(account, skus);
-        Map<Long, Integer> quantities = catalogFacts.quantities(account, from, to);
+        Map<Long, CatalogFacts.Quantities> quantities = catalogFacts.quantities(account, from, to);
         Map<Long, Integer> accrualCounts = catalogFacts.accrualCounts(account, from, to);
 
         // Финансы считаем по всем товарам периода, а не по текущей странице: иначе
@@ -108,10 +108,15 @@ public class ProductAnalyticsService {
                 .map(v -> v == null ? BigDecimal.ZERO : v)
                 .reduce(BigDecimal.ZERO, BigDecimal::add).abs();
 
-        List<ProductReport.ProductRow> rows = new ArrayList<>();
+List<ProductReport.ProductRow> rows = new ArrayList<>();
         for (CatalogFacts.ProductCatalogRow row : pageRows) {
             FinancialSummary financial = bySku.getOrDefault(row.sku(),
                     FinancialSummary.empty(from, to));
+            // Количества берём из готовой карты, а не из financial: в сводке они уже
+            // посчитаны по всем SKU периода, и складывать их здесь значило бы
+            // получить то же самое вторым способом.
+            CatalogFacts.Quantities quantity = quantities.getOrDefault(row.sku(),
+                    new CatalogFacts.Quantities(0, 0));
             rows.add(new ProductReport.ProductRow(
                     row.sku(),
                     row.offerId(),
@@ -120,7 +125,8 @@ public class ProductAnalyticsService {
                     row.isbn(),
                     row.typeId(),
                     authors.getOrDefault(row.sku(), List.of()),
-                    quantities.getOrDefault(row.sku(), 0),
+                    quantity.sold(),
+                    quantity.returned(),
                     accrualCounts.getOrDefault(row.sku(), 0),
                     financial));
         }
@@ -143,6 +149,7 @@ public class ProductAnalyticsService {
                 all.income(), all.expenses(), payout,
                 all.sales(), all.returns(), all.partnerProgramme(),
                 all.commission(), all.logistics(), all.otherExpenses(),
+                all.soldQuantity(), all.returnedQuantity(),
                 (int) catalogProducts, withSales);
 
         return new ProductReport(marketplaceCode, from, to,
@@ -201,7 +208,7 @@ public class ProductAnalyticsService {
                 new ProductReport.ProductTotals(
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                        BigDecimal.ZERO, 0, 0),
+                        BigDecimal.ZERO, 0, 0, 0, 0),
                 List.of(), pageIndex, pageSize, 0, 1, BigDecimal.ZERO, List.of());
     }
 
