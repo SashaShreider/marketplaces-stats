@@ -18,8 +18,8 @@ function Row({
   return (
     <div className={cn('flex items-center justify-between py-[5px]', className)}>
       <span className="text-[12.5px] font-medium text-slate-500">{label}</span>
-      <span className={cn('tnum text-[13px] font-bold', negative ? 'text-rose-500' : 'text-slate-800')}>
-        {negative && '−'}
+      <span className={cn('tnum text-[13px] font-bold')}>
+        {negative && value != 0 && '−'}
         <AnimatedNumber value={Math.abs(value)} />
       </span>
     </div>
@@ -32,7 +32,6 @@ function Card({
   iconBg,
   icon,
   title,
-  hint,
   amount,
   children,
 }: {
@@ -55,9 +54,6 @@ function Card({
       <div className="flex items-center gap-2.5">
         <span className={cn('flex h-9 w-9 items-center justify-center rounded-xl', iconBg)}>{icon}</span>
         <span className="text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{title}</span>
-        <span title={hint} className="cursor-help text-slate-400 transition-colors hover:text-slate-500">
-          <HelpCircle size={13} />
-        </span>
       </div>
       <div className="mt-3.5 text-[30px] font-extrabold leading-none tracking-tight text-slate-900">
         <AnimatedNumber value={amount} />
@@ -86,7 +82,6 @@ export default function SummaryCards({ totals }: { totals: FinanceTotals }) {
       <Card
         index={1}
         title="Расходы"
-        hint="Комиссия маркетплейса, логистика и прочие расходы"
         amount={totals.expenses}
         tint="border-rose-200/60 bg-gradient-to-b from-rose-50/90 to-rose-50/40"
         iconBg="bg-rose-500/15 text-rose-500"
@@ -100,7 +95,6 @@ export default function SummaryCards({ totals }: { totals: FinanceTotals }) {
       <Card
         index={2}
         title="Прибыль"
-        hint="Доходы минус все расходы маркетплейса"
         amount={totals.profit}
         tint="border-brand-200/60 bg-gradient-to-b from-brand-50/90 to-brand-50/40"
         iconBg="bg-brand-500/15 text-brand-600"
@@ -110,7 +104,7 @@ export default function SummaryCards({ totals }: { totals: FinanceTotals }) {
         <Row label="Расходы" value={totals.expenses} negative />
         <div className="mt-1.5 flex items-center gap-1.5 border-t border-slate-200/50 pt-2.5 text-[11px] font-medium text-slate-400">
           <Info size={12} />
-          Себестоимость товаров и налог не учтены
+          Себестоимость товаров не учтена
         </div>
       </Card>
     </div>
