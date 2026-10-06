@@ -609,43 +609,51 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
   "days": [
     {
       "date": "2026-09-26",
-      "income": 25280.0000,
-      "expenses": 16662.0300,
-      "payout": 8617.9700,
+      "income": 25280.0,
+      "expenses": 16662.03,
+      "payout": 8617.97,
+      "soldQuantity": 13,
+      "returnedQuantity": 0,
       "breakdown": {
-        "sales": 11687.2700,
+        "sales": 11687.27,
         "returns": 0,
-        "partnerProgramme": 13592.7300,
-        "commission": -11326.7700,
-        "logistics": -1449.5100,
-        "otherExpenses": -3885.7500
+        "partnerProgramme": 13592.73,
+        "commission": -11326.77,
+        "logistics": -1449.51,
+        "otherExpenses": -3885.75
       },
       "expensesByType": [
-        { "typeId": 41, "name": "PayPerClick", "description": "Оплата за клик", "amount": -1845.1500 },
-        { "typeId": 54, "name": "Promotion", "description": "Продвижение товара", "amount": -727.0500 },
-        { "typeId": 46, "name": "Placements", "description": "Размещение товаров на складах Ozon", "amount": -588.0600 }
+        { "typeId": 41, "name": "PayPerClick", "description": "Оплата за клик", "amount": -1845.15 },
+        { "typeId": 54, "name": "Promotion", "description": "Продвижение товара", "amount": -727.05 },
+        { "typeId": 46, "name": "Placements", "description": "Размещение товаров на складах Ozon", "amount": -588.06 }
       ]
     }
   ],
-  "income": 25280.0000,
-  "expenses": 16662.0300,
-  "payout": 8617.9700,
+  "income": 25280.0,
+  "expenses": 16662.03,
+  "payout": 8617.97,
   "total": {
     "dateFrom": "2026-09-26",
     "dateTo": "2026-09-26",
-    "sales": 11687.2700,
+    "sales": 11687.27,
     "returns": 0,
-    "partnerProgramme": 13592.7300,
-    "commission": -11326.7700,
-    "logistics": -1449.5100,
-    "otherExpenses": -3885.7500,
-    "payout": 8617.9700,
+    "partnerProgramme": 13592.73,
+    "commission": -11326.77,
+    "logistics": -1449.51,
+    "otherExpenses": -3885.75,
+    "payout": 8617.97,
+    "soldQuantity": 13,
+    "returnedQuantity": 0,
     "reconciles": true
   },
   "reconciled": true,
   "final": true
 }
 ```
+
+> `expensesByType` в примере сокращён до трёх статей из семи: на настоящих данных за этот
+> день их было 7, сумма — те же `-3885.75`. Полный ответ короче не становится принципиально,
+> а таблица полей ниже перечисляет все ключи.
 
 **Верхний уровень:**
 
@@ -659,9 +667,15 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
 | `income` | число | Доходы за период, положительное число |
 | `expenses` | число | Расходы за период, **положительное** число (модуль) |
 | `payout` | число | К выплате по данным OZON |
-| `total` | объект | Раскладка по статьям |
+| `total` | объект | Раскладка по статьям, **включая количество за период** |
 | `reconciled` | булево | **`income − expenses = payout` по каждому дню** |
 | `final` | булево | Все дни окончательные, можно печатать как итог |
+
+> **Где искать количество за период.** Только в `total.soldQuantity` и
+> `total.returnedQuantity` — на верхнем уровне их нет, в отличие от денег. Это известная
+> непоследовательность формы ответа, помечена `TODO(#response-duplication)` в коде.
+> Суммировать `days[].soldQuantity` не нужно: результат тот же, а лишний проход по
+> массиву.
 
 **Значения `status`:**
 
@@ -745,26 +759,26 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
   "dateTo": "2026-09-26",
   "status": "READY",
   "coverage": { "...": "то же, что в отчёте по дням" },
-  "catalog": {
+"catalog": {
     "products": 108,
-    "lastSyncedAt": "2026-10-05T04:00:38.501167Z",
+    "lastSyncedAt": "2026-10-06T08:44:43.810765Z",
     "loaded": true
   },
   "totals": {
-    "income": 25280.0000,
-    "expenses": 13308.4500,
-    "payout": 8617.9700,
-    "sales": 11687.2700,
+    "income": 25280.0,
+    "expenses": 13308.45,
+    "payout": 8617.97,
+    "sales": 11687.27,
     "returns": 0,
-    "partnerProgramme": 13592.7300,
-    "commission": -11326.7700,
-    "logistics": -1449.5100,
-"itemExpenses": -3885.7500,
-      "soldQuantity": 13,
-      "returnedQuantity": 0,
-      "productsInCatalog": 108,
-      "productsWithSales": 9
-    },
+    "partnerProgramme": 13592.73,
+    "commission": -11326.77,
+    "logistics": -1449.51,
+    "itemExpenses": -532.17,
+    "soldQuantity": 13,
+    "returnedQuantity": 0,
+    "productsInCatalog": 108,
+    "productsWithSales": 9
+  },
   "rows": [
     {
       "sku": 277810334,
@@ -776,9 +790,9 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
       "authors": [
         { "raw": "Анатолий Маркуша", "source": "DECLARED", "primary": true }
       ],
-"soldQuantity": 2,
-        "returnedQuantity": 0,
-        "accrualCount": 4,
+      "soldQuantity": 2,
+      "returnedQuantity": 0,
+      "accrualCount": 4,
       "financial": {
         "dateFrom": "2026-09-26",
         "dateTo": "2026-09-26",
@@ -789,9 +803,11 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
         "logistics": -225.29,
         "otherExpenses": -107.76,
         "payout": 0,
+        "soldQuantity": 2,
+        "returnedQuantity": 0,
         "reconciles": false
       },
-      "income": 7184.00,
+      "income": 7184.0,
       "expenses": 3565.85
     }
   ],
@@ -843,7 +859,8 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
 | `payout` | К выплате по данным OZON |
 | `sales` / `returns` | Продажи и возвраты |
 | `partnerProgramme` | Бонусы и ковейст |
-| `commission` / `logistics` / `itemExpenses` | Расходные статьи со знаком |
+| `commission` / `logistics` / `itemExpenses` | Расходные статьи со знаком. `itemExpenses` — расходы, привязанные к товарам, и потому меньше дневных `expenses` |
+| `soldQuantity` / `returnedQuantity` | Единиц продано и возвращено за период |
 | `productsInCatalog` | Товаров в каталоге |
 | `productsWithSales` | **Сколько товаров реально продавались.** Остальные — честные нули |
 
@@ -858,9 +875,10 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
 | `isbn` | строка \| null | ISBN, если продавец заполнил |
 | `typeId` | число \| null | Тип товара в OZON |
 | `authors` | массив | Авторы, исходными значениями продавца |
-| `quantity` | число | Проданных единиц за период |
+| `soldQuantity` | число | Единиц продано за период. Возвраты не вычтены |
+| `returnedQuantity` | число | Единиц возвращено за период |
 | `accrualCount` | число | Сколько операций затронуло товар |
-| `financial` | объект | Раскладка по статьям со знаком |
+| `financial` | объект | Раскладка по статьям со знаком. Свои `soldQuantity` и `returnedQuantity` того же товара |
 | `income` | число | Доход товара, положительное число |
 | `expenses` | число | Расходы товара, положительное число |
 
@@ -919,8 +937,13 @@ income − expenses − payout = unallocatedExpenses
 | `author=Сурцуков А.` | те же 4 |
 | `author=Сурцуков Анатолий` | те же 4 |
 
-Возможные совпадения: `Вам взлёт` и `Вам взлет` найдутся оба; разные регистр и
-пробелы игнорируются.
+Регистр игнорируется: `вАМ ВзлЁт`, `Вам взлёт` и `Вам` находят то же самое — проверено на
+сентябре 2026: один, один и три товара.
+
+А вот «ё» и «е» — **разные буквы**: `Вам взлет` не находит ничего, хотя в каталоге есть
+«Вам взлёт». Совпадение по ним не делается намеренно: автоматическая замена букв превращала
+бы поиск в непредсказуемый, и по запросу «взлет» нашлось бы то, о чём продавец не
+спрашивал.
 
 ### 4. Количество продаж — не всё, у чего есть `quantity`
 
