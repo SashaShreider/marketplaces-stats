@@ -37,18 +37,28 @@ function smoothPath(pts: { x: number; y: number }[]): string {
   return d
 }
 
+/**
+ * Строка детализации в тултипе.
+ *
+ * Знак берётся из самого числа, а не из отдельного флага. Флаг означал бы, что
+ * правильность показания зависит от того, не забыл ли его поставить вызывающий:
+ * `Math.abs` проглатывал настоящий знак, и убыток в −5 000 ₽ выводился как
+ * «5 000 ₽». Нулевой расход с флагом давал «−0 ₽».
+ *
+ * Отрицательное число показывается с минусом и красным, положительное — тёмным.
+ * Что считать расходом, решает вызывающий, передавая число со знаком.
+ */
 function TipRow({
   label,
   value,
   bold,
   color,
-  neg,
 }: {
   label: string
   value: number
   bold?: boolean
+  /** Явный цвет: для прибыли он зависит от знака, но задаётся снаружи */
   color?: string
-  neg?: boolean
 }) {
   return (
     <div className="flex items-center justify-between gap-6 py-[2.5px]">
@@ -56,11 +66,10 @@ function TipRow({
         {label}
       </span>
       <span
-        className={`tnum text-[12px] ${bold ? 'font-extrabold' : 'font-bold'}`}
-        style={{ color: color ?? (neg ? '#f43f5e' : '#1e293b') }}
+        className={`tnum text-[12px] ${bold ? 'font-extrabold' : 'font-medium text-slate-500'}`}
+        style={{ color: color ?? undefined }}
       >
-        {neg ? '−' : ''}
-        {fmtMoney(Math.abs(value))}
+        {fmtMoney(value)}
       </span>
     </div>
   )
@@ -292,17 +301,27 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
                   : 'Данные ещё могут уточниться'}
             </div>
           )}
+          {/* Расходные строки передаются со знаком минус: в DayFinance они хранятся
+              положительными, потому что так их удобнее складывать, а показать надо
+              именно расход. Знак ставится здесь, а не флагом в TipRow. */}
           <TipRow label="Продажи" value={hovered.sales} />
-          <TipRow label="Возвраты" value={hovered.returns} neg />
+          {hovered.returns !== 0 && <TipRow label="Возвраты" value={-hovered.returns} />}
           <TipRow label="Партнёры" value={hovered.partners} />
-          <div className="my-1.5 border-t border-slate-100" />
           <TipRow label="Доходы" value={hovered.income} bold />
-          <TipRow label="Комиссия" value={hovered.commission} neg />
-          <TipRow label="Логистика" value={hovered.logistics} neg />
-          <TipRow label="Прочие расходы" value={hovered.other} neg />
-          <TipRow label="Расходы" value={hovered.expenses} neg bold />
           <div className="my-1.5 border-t border-slate-100" />
-          <TipRow label="Прибыль" value={hovered.profit} bold color={hovered.profit >= 0 ? '#059669' : '#f43f5e'} />
+          <TipRow label="Комиссия" value={-hovered.commission} />
+          <TipRow label="Логистика" value={-hovered.logistics} />
+          <TipRow label="Прочие расходы" value={-hovered.other} />
+          <TipRow label="Расходы" value={-hovered.expenses} bold />
+          <div className="my-1.5 border-t border-slate-100" />
+          {/* Прибыль приходит со своим знаком: убыток должен показываться убытком,
+              а не положительной суммой красным цветом. */}
+          <TipRow
+            label="Прибыль"
+            value={hovered.profit}
+            bold
+            color={hovered.profit >= 0 ? '#059669' : '#f43f5e'}
+          />
           {(hovered.soldQty > 0 || hovered.returnedQty > 0) && (
             <div className="mt-1.5 flex justify-between border-t border-slate-100 pt-1.5 text-[11.5px] font-semibold text-slate-400">
               <span>Продано: {hovered.soldQty} шт</span>

@@ -73,7 +73,6 @@ export default function SummaryCards({ totals }: { totals: FinanceTotals }) {
       <Card
         index={0}
         title="Доходы"
-        hint="Продажи минус возвраты плюс программы партнёров"
         amount={totals.income}
         tint="border-emerald-200/60 bg-gradient-to-b from-emerald-50/90 to-emerald-50/40"
         iconBg="bg-emerald-500/15 text-emerald-600"

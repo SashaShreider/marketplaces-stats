@@ -261,8 +261,7 @@ export default function ProductsPage({
               Каталог товаров ещё не загружен
             </h3>
             <p className="mt-2 max-w-[440px] text-[13px] leading-relaxed text-slate-500">
-              Загрузите каталог, чтобы увидеть названия, авторов, ISBN и обложки. Это один запрос к
-              маркетплейсу — квота почти не тратится.
+              Загрузите каталог, чтобы увидеть названия, авторов, ISBN и обложки. Это делается один раз.
             </p>
             <button
               disabled={runner.busy}

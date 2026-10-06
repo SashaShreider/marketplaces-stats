@@ -81,12 +81,12 @@ export default function OverviewPage({
     const toLoad = cov
       ? cov.missingDays.length + cov.failedDates.length + cov.provisionalDays.length
       : 0
-    if (toLoad > BIG_IMPORT_DAYS) {
+    /**if (toLoad > BIG_IMPORT_DAYS) {
       const ok = window.confirm(
         `Для загрузки потребуется около ${toLoad} запросов к API маркетплейса, это расходует квоту. Продолжить?`,
       )
       if (!ok) return
-    }
+    }**/
     runner.startFinance(range.from, range.to)
   }
 

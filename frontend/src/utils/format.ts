@@ -4,14 +4,41 @@ import type { DayFinance, FinanceTotals } from '../types'
 
 const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
 
-/** 1248560 → "1 248 560 ₽" */
+/**
+ * Типографский минус U+2212 вместо дефиса, который ставит Intl.
+ *
+ * Дефис по длине равен цифре и визуально короче, чем знак вычитания, поэтому в
+ * колонке чисел минусы выглядят неровно. Раньше знак подставлялся вручную и был
+ * правильным, а числа без знака проходили через модуль — из-за чего убыток
+ * показывался как положительная сумма.
+ */
+const MINUS = '\u2212'
+
+/**
+ * Округляет, не оставляя отрицательного нуля.
+ *
+ * Вычитание даёт `-0`, и `Intl` печатает его как «-0»: строка расходов показывала
+ * «−0 ₽» там, где расходов не было. Знак у нуля не несёт смысла, поэтому ноль —
+ * всегда ноль. Заодно уходит «-0» из чисел вида −0.4, которые округляются в ноль.
+ */
+function safeRound(n: number): number {
+  const rounded = Math.round(n)
+  return rounded === 0 ? 0 : rounded
+}
+
+/** Ставит перед знаком типографский минус там, где Intl дал дефис. */
+function withTypographicMinus(s: string): string {
+  return s.replace(/^-/, MINUS)
+}
+
+/** 1248560 → "1 248 560 ₽", -5000 → "−5 000 ₽" */
 export function fmtMoney(n: number): string {
-  return `${nf.format(Math.round(n))} ₽`
+  return `${withTypographicMinus(nf.format(safeRound(n)))} ₽`
 }
 
 /** 1248560 → "1 248 560" (без знака валюты, для узких мест) */
 export function fmtNum(n: number): string {
-  return nf.format(Math.round(n))
+  return withTypographicMinus(nf.format(safeRound(n)))
 }
 
 /** Компактный формат для оси графика: 300 000 ₽ */
