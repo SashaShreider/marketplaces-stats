@@ -72,7 +72,14 @@ export interface ApiDay {
   breakdown: DailyBreakdown
   soldQuantity?: number | null
   returnedQuantity?: number | null
-  expensesByType: { typeId: number; name: string; amount: number }[]
+  expensesByType: {
+      typeId: number
+      /** служебное название типа начисления, например PayPerClick */
+      name: string
+      /** человеческое описание из справочника маркетплейса, например «Оплата за клик» */
+      description?: string | null
+      amount: number
+    }[]
 }
 
 export interface DailyReport {
@@ -171,7 +178,7 @@ export interface DayFinance {
   logistics: number
   other: number
   /** расшифровка расходов по типам начислений (положительные числа) */
-  otherByType: { name: string; amount: number }[]
+  otherByType: { name: string; description?: string | null; amount: number }[]
   expenses: number
   profit: number
   soldQty: number

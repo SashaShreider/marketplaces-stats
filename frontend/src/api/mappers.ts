@@ -26,7 +26,11 @@ export function mapDaily(report: DailyReport): DayFinance[] {
       commission: -b.commission,
       logistics: -b.logistics,
       other: -b.otherExpenses,
-      otherByType: (d.expensesByType ?? []).map((t) => ({ name: t.name, amount: -t.amount })),
+      otherByType: (d.expensesByType ?? []).map((t) => ({
+      name: t.name,
+      description: t.description ?? null,
+      amount: -t.amount,
+    })),
       expenses: d.expenses,
       profit: d.income - d.expenses,
       soldQty: d.soldQuantity ?? 0,

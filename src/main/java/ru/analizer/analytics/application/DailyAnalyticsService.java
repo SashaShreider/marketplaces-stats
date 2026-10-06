@@ -65,7 +65,7 @@ public class DailyAnalyticsService {
             return emptyReport(marketplaceCode, from, to, coverage, periodCoverage);
         }
 
-        Map<Integer, String> typeNames = facts.accrualTypeNames();
+        Map<Integer, FinancialModel.TypeLabels> typeLabels = facts.accrualTypeLabels();
 
         List<ProductFact> products = facts.products(account, from, to);
         List<FeeFact> fees = new ArrayList<>();
@@ -96,7 +96,7 @@ public class DailyAnalyticsService {
         List<DailyRow> rows = new ArrayList<>();
         for (FinancialSummary day : byDate.values()) {
             List<FeeFact> dayFees = filterFeesByDate(fees, day.dateFrom());
-            rows.add(DailyRow.of(day, FinancialModel.expensesByType(dayFees, typeNames)));
+            rows.add(DailyRow.of(day, FinancialModel.expensesByType(dayFees, typeLabels)));
         }
 
         FinancialSummary total = FinancialSummary.empty(from, to);

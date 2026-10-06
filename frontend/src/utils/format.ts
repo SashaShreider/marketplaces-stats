@@ -115,11 +115,21 @@ export function sumDays(days: DayFinance[]): FinanceTotals {
     otherByType: [],
     expenses: 0, profit: 0, soldQty: 0, returnedQty: 0,
   }
-  const byType = new Map<string, number>()
-  for (const d of days) {
-    t.soldQty += d.soldQty
-    t.returnedQty += d.returnedQty
-    for (const o of d.otherByType) byType.set(o.name, (byType.get(o.name) ?? 0) + o.amount)
+// Описание типа начисления берётся из первого дня, где оно встретилось. Оно
+// приходит из справочника маркетплейса и от дня к дню не меняется, поэтому
+// разница возможна только если маркетплейс пополнил справочник — и тогда версии
+// одинаковы по смыслу.
+const byType = new Map<string, { amount: number; description: string | null }>()
+for (const d of days) {
+      t.soldQty += d.soldQty
+      t.returnedQty += d.returnedQty
+      for (const o of d.otherByType) {
+        const prev = byType.get(o.name)
+        byType.set(o.name, {
+          amount: (prev?.amount ?? 0) + o.amount,
+          description: o.description || prev?.description || null,
+        })
+      }
     t.sales += d.sales
     t.returns += d.returns
     t.partners += d.partners
@@ -130,9 +140,9 @@ export function sumDays(days: DayFinance[]): FinanceTotals {
     t.expenses += d.expenses
     t.profit += d.profit
   }
-  t.otherByType = [...byType.entries()]
-    .map(([name, amount]) => ({ name, amount }))
-    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+t.otherByType = [...byType.entries()]
+      .map(([name, v]) => ({ name, description: v.description, amount: v.amount }))
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
   return t
 }
 

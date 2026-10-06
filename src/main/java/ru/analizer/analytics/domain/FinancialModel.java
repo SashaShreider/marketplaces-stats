@@ -132,9 +132,17 @@ public final class FinancialModel {
      * комиссией маркетплейса и не относятся к строке товара, — то есть ITEM, NON_ITEM
      * и CONTAINER_FEES. Именно их клиенту и полезно видеть отдельно: по ним видно,
      * из чего складываются прочие расходы.
+     *
+     * <p>Подписи берутся из справочника маркетплейса целиком, вместе с описанием.
+     * Одного имени мало: {@code PayPerClick} или {@code StarsMembers} — служебные
+     * идентификаторы, по которым продавец не поймёт, за что он платит.
+     *
+     * <p>Тип, которого нет в справочнике, не теряется, а подписывается своим
+     * номером: показать «тип 12345» честнее, чем не показать расход вовсе.
      */
-    public static FinancialSummary.ExpenseByType expensesByType(List<FeeFact> fees,
-                                                                Map<Integer, String> typeNames) {
+    public static FinancialSummary.ExpenseByType expensesByType(
+            List<FeeFact> fees,
+            Map<Integer, TypeLabels> typeLabels) {
         Map<Integer, BigDecimal> byType = new LinkedHashMap<>();
         for (FeeFact fee : fees) {
             if (fee.kind() == FeeFact.FeeKind.DELIVERY) {
@@ -150,9 +158,24 @@ public final class FinancialModel {
         // Сортируем по возрастанию, чтобы в отчёте первыми шли главные статьи.
         byType.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
-                .forEach(e -> items.add(new FinancialSummary.TypeAmount(
-                        e.getKey(), typeNames.get(e.getKey()), e.getValue())));
+                .forEach(e -> {
+                    TypeLabels labels = typeLabels.get(e.getKey());
+                    items.add(new FinancialSummary.TypeAmount(
+                            e.getKey(),
+                            labels == null ? "Тип " + e.getKey() : labels.name(),
+                            labels == null ? null : labels.description(),
+                            e.getValue()));
+                });
         return new FinancialSummary.ExpenseByType(items);
+    }
+
+    /**
+     * Подписи типа начисления из справочника маркетплейса.
+     *
+     * @param name        служебное название, например {@code PayPerClick}
+     * @param description человеческое описание, например «Оплата за показы»
+     */
+    public record TypeLabels(String name, String description) {
     }
 
     private static BigDecimal n(BigDecimal value) {

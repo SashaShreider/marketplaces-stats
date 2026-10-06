@@ -71,7 +71,10 @@ function ringSectorPath(outer: number, inner: number, from: number, to: number):
 
 /** Одна строка разбивки: категория прочих расходов и её доля. */
 interface Slice {
+  /** что показываем: описание из справочника, а при его отсутствии — служебное имя */
   label: string
+  /** служебное название типа начисления: в подсказке, чтобы можно было найти его в OZON */
+  serviceName: string
   value: number
   color: string
 }
@@ -109,11 +112,17 @@ function useOtherSlices(totals: FinanceTotals): Slice[] {
     const rest = typedSum - shownSum + unexplained
 
     const slices: Slice[] = top.map((t, i) => ({
-      label: t.name,
+      // Показывается описание из справочника маркетплейса: «Оплата за клик»
+      // понятно продавцу, служебное имя PayPerClick — нет. Подпись без описания
+      // остаётся служебной, иначе статья расходов стала бы безымянной.
+      label: t.description?.trim() || t.name,
+      serviceName: t.name,
       value: t.amount,
       color: SUBSECTOR_COLORS[i % SUBSECTOR_COLORS.length],
     }))
-    if (rest > 0.5) slices.push({ label: 'Другие', value: rest, color: REST_COLOR })
+    if (rest > 0.5) {
+      slices.push({ label: 'Другие', serviceName: 'Другие', value: rest, color: REST_COLOR })
+    }
     return slices
   }, [totals])
 }
@@ -326,8 +335,8 @@ const groupOutline = (progress: number) => {
                       style={{ background: it.color }}
                     />
                     <span
-                      className="w-[112px] shrink-0 truncate text-[13px] font-semibold text-slate-600"
-                      title={it.label}
+                      className="w-[150px] shrink-0 truncate text-[13px] font-semibold text-slate-600"
+                      title={it.label === it.serviceName ? it.label : `${it.label} (${it.serviceName})`}
                     >
                       {it.label}
                     </span>

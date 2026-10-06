@@ -121,22 +121,27 @@ class FinancialModelTest {
     @Test
     @DisplayName("Прочие расходы детализируются по типам начислений, крупные сверху")
     void otherExpensesAreBrokenDownByType() {
-        Map<Integer, String> names = Map.of(
-                41, "PayPerClick",
-                54, "Promotion",
-                46, "Placements",
-                12, "CrossDock",
-                1, "Acquiring",
-                74, "StarsMembership",
-                48, "PremiumCashbackIndividualPoints",
-                39, "PackingFee",
-                38, "PackageCost");
+        // Подписи настоящие, из справочника OZON: имена служебные, описания —
+        // человеческие. На статье расходов видно описание, поэтому проверяем и его.
+        Map<Integer, FinancialModel.TypeLabels> labels = Map.of(
+                41, labels("PayPerClick", "Оплата за показы"),
+                54, labels("Promotion", "Продвижение в поиске"),
+                46, labels("Placements", "Баннеры на страницах"),
+                12, labels("CrossDock", "Кросс-докинг"),
+                1, labels("Acquiring", "Эквайринг"),
+                74, labels("StarsMembership", "Баллы Stars"),
+                48, labels("PremiumCashbackIndividualPoints", "Кэшбэк баллами"),
+                39, labels("PackingFee", "Стоимость упаковки"),
+                38, labels("PackageCost", "Стоимость пакета"));
 
         FinancialSummary.ExpenseByType breakdown = FinancialModel.expensesByType(
-                feesFrom(DAY_2026_04_10, D1), names);
+                feesFrom(DAY_2026_04_10, D1), labels);
 
         assertThat(breakdown.items()).hasSize(9);
         assertThat(breakdown.items().getFirst().name()).isEqualTo("PayPerClick");
+        assertThat(breakdown.items().getFirst().description())
+                .as("описание нужно показывать пользователю вместо служебного имени")
+                .isEqualTo("Оплата за показы");
         assertThat(breakdown.items().getFirst().amount()).isEqualByComparingTo("-2267.09");
         assertThat(breakdown.items().get(1).amount()).isEqualByComparingTo("-627.85");
         assertThat(breakdown.items().get(8).amount()).isEqualByComparingTo("-5");
@@ -146,6 +151,25 @@ class FinancialModelTest {
                 .map(FinancialSummary.TypeAmount::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         assertThat(sum).isEqualByComparingTo(D1_OTHER);
+    }
+
+    @Test
+    @DisplayName("Тип начисления без справочника показывается номером, а не пропадает")
+    void typeMissingFromDictionaryFallsBackToItsId() {
+        // Расход без подписи нельзя выбросить: иначе сумма статей разошлась бы с
+        // итогом, и это выглядело бы как ошибка расчёта.
+        FinancialSummary.ExpenseByType breakdown = FinancialModel.expensesByType(
+                feesFrom(DAY_2026_04_10, D1), Map.of());
+
+        assertThat(breakdown.items()).hasSize(9);
+        assertThat(breakdown.items()).allSatisfy(item -> {
+            assertThat(item.name()).startsWith("Тип ");
+            assertThat(item.description()).as("описания нет — и выдумывать его нельзя").isNull();
+        });
+    }
+
+    private static FinancialModel.TypeLabels labels(String name, String description) {
+        return new FinancialModel.TypeLabels(name, description);
     }
 
     @Test
