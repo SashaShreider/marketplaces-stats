@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '../utils/cn'
 import {
-  addDaysISO, fmtRange, fromISO, isToday, MONTHS_NOM, todayISO, toISO,
+  addDaysISO, fmtDateLong, fmtRange, fromISO, isToday, MONTHS_NOM, todayISO, toISO,
 } from '../utils/format'
 
 interface Preset {
@@ -19,6 +19,7 @@ function buildPresets(): Preset[] {
     { label: '7 дней', get: () => ({ from: addDaysISO(t, -6), to: t }) },
     { label: '30 дней', get: () => ({ from: addDaysISO(t, -29), to: t }) },
     { label: '90 дней', get: () => ({ from: addDaysISO(t, -89), to: t }) },
+    { label: 'Пол года', get: () => ({ from: addDaysISO(t, -179), to: t }) },
     {
       label: 'Этот месяц',
       get: () => {
@@ -95,7 +96,15 @@ function MonthView({
           </div>
         ))}
         {weeks.flat().map((iso) => {
-          const inMonth = iso.startsWith(monthPrefix)
+          // Дни соседних месяцев не рисуются вовсе. Раньше они показывались серым
+          // и оставались наводимыми: наведение на чужую дату меняло превью диапазона
+          // так, будто оно относится к этому месяцу, хотя выбрать её было можно.
+          // Пустая ячейка сохраняет высоту сетки — оба месяца в ряд остаются
+          // одинаковой высоты, даже если в одном из них пять недель, а в другом шесть.
+          if (!iso.startsWith(monthPrefix)) {
+            return <div key={iso} className="h-8" aria-hidden="true" />
+          }
+
           const isEdgeS = iso === edgeStart
           const isEdgeE = iso === edgeEnd
           const inRange = lo && hi && iso > lo && iso < hi
@@ -118,8 +127,7 @@ function MonthView({
                 onMouseEnter={() => onDayHover(iso)}
                 className={cn(
                   'relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent',
-                  !inMonth && 'text-slate-300',
-                  inMonth && 'text-slate-600 hover:bg-slate-100',
+                  'text-slate-600 hover:bg-slate-100',
                   (isEdgeS || isEdgeE) && 'bg-brand-600 !text-white shadow-md shadow-brand-600/40 hover:!bg-brand-700',
                   today && !isEdgeS && !isEdgeE && 'ring-1 ring-inset ring-brand-400',
                 )}
@@ -288,11 +296,19 @@ export default function DateRangePicker({
 
                 {/* Футер */}
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                  {/* После первой даты показывается сама дата, а не только просьба доделать
+                      выбор. Подсказка про окончание уходит в подпись меньшим
+                      шрифтом: дата главная, а подсказка не должна занимать её место. */}
                   <div className="text-[12px] font-semibold text-slate-500">
                     {complete ? (
                       <span className="text-slate-800">{fmtRange(tempFrom!, tempTo!)}</span>
                     ) : tempFrom ? (
-                      'Выберите дату окончания'
+                      <span className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="font-bold text-slate-800">{fmtDateLong(tempFrom)}</span>
+                        <span className="text-[11px] font-medium text-slate-400">
+                          выберите дату окончания
+                        </span>
+                      </span>
                     ) : (
                       'Выберите период'
                     )}
