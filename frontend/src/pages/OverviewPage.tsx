@@ -8,7 +8,6 @@ import { DataStatusBanner, NotLoadedHero } from '../components/DataStatus'
 import EmptyState from '../components/EmptyState'
 import ExpenseDonut from '../components/ExpenseDonut'
 import FinanceSection from '../components/FinanceSection'
-import OtherExpenses from '../components/OtherExpenses'
 import ProgressBar from '../components/ProgressBar'
 import SummaryCards from '../components/SummaryCards'
 import { MarketplaceLogo, PageHeader } from '../components/ui'
@@ -157,10 +156,7 @@ export default function OverviewPage({
           <div className="space-y-4">
             <SummaryCards totals={totals} />
             <FinanceSection days={days} />
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ExpenseDonut totals={totals} />
-              <OtherExpenses totals={totals} />
-            </div>
+            <ExpenseDonut totals={totals} />
           </div>
         </div>
       )}
