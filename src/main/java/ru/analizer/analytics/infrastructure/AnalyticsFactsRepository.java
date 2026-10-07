@@ -145,15 +145,27 @@ public class AnalyticsFactsRepository {
                 sellerAccountId, from, to);
     }
 
-    /** Названия типов начислений для расшифровки расходов. */
-    public Map<Integer, String> accrualTypeNames() {
-        Map<Integer, String> names = new LinkedHashMap<>();
+    /**
+     * Подписи типов начислений для расшифровки расходов: название и описание.
+     *
+     * <p>Берутся оба поля. Одного названия мало: маркетплейс отдаёт служебные имена
+     * вроде {@code PayPerClick}, а продавцу нужно понимать, за что он платит.
+     *
+     * <p>Ключ — только внешний идентификатор, без маркетплейса. Сейчас это верно:
+     * справочник заполнен для одного маркетплейса, и внешние идентификаторы уникальны.
+     * При подключении второго идентификаторы начнут пересекаться, и ключ придётся
+     * сделать составным — тогда здесь же, а не в разборе отчёта, где его не видно.
+     */
+    public Map<Integer, FinancialModel.TypeLabels> accrualTypeLabels() {
+        Map<Integer, FinancialModel.TypeLabels> labels = new LinkedHashMap<>();
         jdbc.query("""
-                select external_type_id, name from accrual_type
+                select external_type_id, name, description from accrual_type
+                order by marketplace_id
                 """, rs -> {
-            names.put(rs.getInt(1), rs.getString(2));
+            labels.put(rs.getInt(1),
+                    new FinancialModel.TypeLabels(rs.getString(2), rs.getString(3)));
         });
-        return names;
+        return labels;
     }
 
     /** Сумма комиссии по периоду — знаком, как отдаёт OZON. */

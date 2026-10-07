@@ -125,6 +125,15 @@ public static FinancialSummary empty(LocalDate from, LocalDate to) {
     public record ExpenseByType(List<TypeAmount> items) {
     }
 
-    public record TypeAmount(Integer typeId, String name, BigDecimal amount) {
+    /**
+ * Одна статья прочих расходов.
+ *
+ * @param name        название типа начисления, как его вернул маркетплейс
+ * @param description описание типа начисления из того же справочника. Это то, что
+ *                    показывать пользователю: {@code PayPerClick} читается как
+ *                    служебное имя, а «Оплата за показы» — как статья расходов
+ * @param amount      сумма с тем же знаком, что отдал маркетплейс: расход отрицателен
+ */
+public record TypeAmount(Integer typeId, String name, String description, BigDecimal amount) {
     }
 }

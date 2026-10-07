@@ -83,6 +83,12 @@ public record ProductReport(
             FinancialSummary financial
     ) {
 
+    // TODO(#response-duplication): income и expenses ниже повторяют значения из
+        // financial, но soldQuantity и returnedQuantity внутри financial — нет. Клиенту
+        // приходится знать, где лежит какое число, а это ровно то, чего он знать не должен.
+        // Разбор отложен вместе с таким же случаем в DailyReport: менять надо оба сразу,
+        // иначе один отчёт станет последовательнее другого.
+
         /** Доход товара. */
         @com.fasterxml.jackson.annotation.JsonProperty
         public BigDecimal income() {
