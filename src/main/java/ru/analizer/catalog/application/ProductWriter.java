@@ -15,9 +15,7 @@ import ru.analizer.integration.ozon.OzonProductAttributes;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Запись товаров каталога — по одному товару в своей транзакции.
@@ -63,7 +61,6 @@ public class ProductWriter {
                 entry.attributeValue(OzonProductAttributes.ISBN),
                 entry.weightGrams(), entry.widthMm(), entry.heightMm(), entry.depthMm(),
                 entry.modelId(), entry.rawJson(), now);
-        product.applyAuthors(authorKeys(authors), authorSurnames(authors));
         productRepository.save(product);
         productRepository.flush();
 
@@ -92,29 +89,21 @@ public class ProductWriter {
      * подхватывается, только если в карточке автора нет — иначе отчёт показывал бы одно
      * и то же лицо дважды, из двух разных строк.
      *
+     * <p>Берутся <b>все</b> значения атрибута, а не первое: «Автор на обложке» у части
+     * товаров приходит массивом, где каждый автор отдельным элементом, и взятие одного
+     * значения молча потеряло бы остальных.
+     *
      * <p>Товаров без автора в выгрузке 9 из 108 (бумага, календари, папки), и для них
      * просто не создаётся ни одной строки — товар остаётся видимым в отчёте, но без
      * автора.
      */
     private List<Author> extractAuthors(ProductEntry entry) {
-        String declared = entry.attributeValue(OzonProductAttributes.AUTHOR);
+        List<String> declared = entry.attributeValues(OzonProductAttributes.AUTHOR);
         List<Author> result = new ArrayList<>(AuthorExtractor.extract(declared, true));
-        if (declared == null || declared.isBlank()) {
+        if (declared.isEmpty()) {
             result.addAll(AuthorExtractor.extract(
-                    entry.attributeValue(OzonProductAttributes.COVER_AUTHOR), true));
+                    entry.attributeValues(OzonProductAttributes.COVER_AUTHOR), true));
         }
         return result;
-    }
-
-    private static String[] authorKeys(List<Author> authors) {
-        return authors.stream().map(Author::key).distinct().toArray(String[]::new);
-    }
-
-    private static String[] authorSurnames(List<Author> authors) {
-        Set<String> surnames = new LinkedHashSet<>();
-        for (Author author : authors) {
-            surnames.add(AuthorNormalizer.toSurname(author.raw()));
-        }
-        return surnames.toArray(String[]::new);
     }
 }

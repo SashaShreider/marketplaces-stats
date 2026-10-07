@@ -102,6 +102,27 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    @DisplayName("«Автор на обложке» не подмешивается, если автор есть в карточке")
+    void coverAuthorIsIgnoredWhenDeclaredExists() {
+        catalogImportService.importProducts(accountId(), null);
+
+        // У SKU 174269875 в карточке 4182 стоит «Умнова-Конюхова И.А.», а «Автор на
+        // обложке» (105) приходит тремя отдельными значениями массива: «Умнова Ирина
+        // Анатольевна», «Конюхова Ирина Анатольевна», «Умнова-Конюхова Ирина
+        // Анатольевна». Это один и тот же человек, и три строки автора в отчёте были бы
+        // враньём: в карточке у него одно имя.
+        //
+        // Проверяем ровно это — что лишние значения обложки не попали в базу. Того,
+        // что само разбиение массива работает, юнит-тест не покрывает: в этой выгрузке
+        // товаров с 105, но без 4182, нет вовсе, и интеграционный тест был бы заведомо
+        // пустым.
+        List<String> rows = jdbc.queryForList("""
+                select author_raw from product_author where sku = 174269875 order by position
+                """, String.class);
+        assertThat(rows).containsExactly("Умнова-Конюхова И.А.");
+    }
+
+    @Test
     @DisplayName("У товара без автора не появляется ни одной строки автора")
     void productWithoutAuthorGetsNoRows() {
         catalogImportService.importProducts(accountId(), null);
@@ -115,37 +136,40 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Сведённые имена убирают повтор между карточкой и обложкой")
-    void normalizedKeysDeduplicateAcrossSources() {
+    @DisplayName("Одно и то же имя в разных полях не схлопывается в одного автора")
+    void sameNameInBothSourcesStaysOneRow() {
         catalogImportService.importProducts(accountId(), null);
 
-        // «Сурцуков А.» (карточка) и «Сурцуков Анатолий» (обложка) — один человек,
-        // значит в author_keys он должен лежать один раз.
-        List<String> keys = jdbc.queryForList("""
-                select unnest(author_keys) from ozon_product where sku = 174269706
+        // «Сурцуков А.» в карточке и «Сурцуков Анатолий» на обложке — это одно и то же
+        // лицо, но под двумя разными именами. Раньше сведение склеивало их в один ключ,
+        // и одинаковые строки не отличались ничем. Теперь видно, что в полях написано
+        // разное, а товар остаётся один: строки автора для него всё равно одна, потому
+        // что приоритет у карточки 4182, а на обложке её подменяют, только когда в
+        // карточке автора нет.
+        List<String> rows = jdbc.queryForList("""
+                select author_raw from product_author where sku = 174269706
                 """, String.class);
-        assertThat(keys).containsExactly("сурцуков а.");
-
-        // Обложка при этом сохраняется как отдельная строка: видно, откуда взялось имя.
+        assertThat(rows).containsExactly("Сурцуков А.");
         assertThat(jdbc.queryForObject("""
                 select count(*) from product_author where sku = 174269706
                 """, Integer.class)).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("Одно поле автора может дать три разных ключа — это известное ограничение")
-    void onePersonCanYieldSeveralKeys() {
+    @DisplayName("Разные написания одного автора остаются разными авторами")
+    void differentSpellingsAreNotMerged() {
         catalogImportService.importProducts(accountId(), null);
 
-        List<String> keys = jdbc.queryForList("""
-                select distinct unnest(author_keys) from ozon_product
-                where sku in (select sku from product_author where source = 'DECLARED')
-                  and exists (select 1 from product_author where sku = ozon_product.sku)
+        // Четыре написания Сурцукова в выгрузке. Склеивать их автоматикой нельзя:
+        // значило бы стереть у продавца то, как он сам назвал автора в своих карточках.
+        List<String> spellings = jdbc.queryForList("""
+                select distinct author_raw from product_author
+                where author_raw like 'Сурцуков%' or author_raw like 'А.В. Сурцуков'
+                   or author_raw like 'Анатолий Васильевич Сурцуков'
+                order by author_raw
                 """, String.class);
-        // Известное ограничение сведения: разные написания одного человека остаются
-        // разными ключами. Проверяем, что это правда, а не забытый баг.
-        assertThat(keys).isNotEmpty();
-        assertThat(keys.stream().distinct().count()).isEqualTo(keys.size());
+        assertThat(spellings).contains(
+                "Сурцуков А.", "Сурцуков Анатолий", "А.В. Сурцуков", "Анатолий Васильевич Сурцуков");
     }
 
     @Test
@@ -282,8 +306,8 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Фильтр по автору находит оба написания одного человека")
-    void authorFilterMatchesBothForms() {
+    @DisplayName("Фильтр по автору находит товары с точным совпадением")
+    void authorFilterMatchesExactValue() {
         catalogImportService.importProducts(accountId(), null);
 
         ProductReport report = productAnalytics.productReport(
@@ -291,21 +315,127 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
 
         assertThat(report.totalRows()).isPositive();
         assertThat(report.rows()).allSatisfy(row ->
-                assertThat(row.authors()).isNotEmpty());
+                assertThat(row.authors()).extracting("raw").contains("Сурцуков Анатолий"));
     }
 
     @Test
-    @DisplayName("Фильтр по фамилии находит товары, а полное имя — тоже")
-    void surnameFilterWorks() {
+    @DisplayName("Похожее, но другое написание автора не подходит")
+    void authorFilterIsStrict() {
         catalogImportService.importProducts(accountId(), null);
 
+        // «Сурцуков Анатолий» и «Сурцуков А.» — это два написания одного человека в
+        // разных карточках. Строгий поиск обязан их различать: иначе фильтр показывал бы
+        // лишние товары, а в отчёте о продажах лишний товар — это лишние деньги.
+        //
+        // Берём SKU из базы, а не из фикстуры: так проверка не привязана к конкретной
+        // выгрузке и остаётся осмысленной, если продавец переименует товар.
+        Long longForm = jdbc.queryForObject("""
+                select sku from product_author
+                where author_raw = 'Сурцуков Анатолий' and source = 'DECLARED'
+                order by sku limit 1
+                """, Long.class);
+        Long shortForm = jdbc.queryForObject("""
+                select sku from product_author
+                where author_raw = 'Сурцуков А.' and source = 'DECLARED'
+                order by sku limit 1
+                """, Long.class);
+        // Два разных товара подтверждают, что в базе действительно есть оба написания.
+        assertThat(longForm).isNotNull().isNotEqualTo(shortForm);
+
+        assertThat(rowsOf(filterByAuthor("Сурцуков Анатолий"))).contains(longForm);
+        assertThat(rowsOf(filterByAuthor("Сурцуков А."))).contains(shortForm);
+
+        // И главное: одно написание не подходит под другое.
+        assertThat(rowsOf(filterByAuthor("Сурцуков А."))).doesNotContain(longForm);
+        assertThat(rowsOf(filterByAuthor("Сурцуков Анатолий"))).doesNotContain(shortForm);
+    }
+
+    private ProductReport filterByAuthor(String author) {
+        return productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, author, null, "SKU", 0, 500);
+    }
+
+    @Test
+    @DisplayName("Поиск по фамилии без имени не находит товары")
+    void surnameAloneFindsNothing() {
+        catalogImportService.importProducts(accountId(), null);
+
+        // Раньше по фамилии находилось всё, что на неё похоже. Теперь «Сурцуков» —
+        // это просто строка, которой нет ни в одной карточке, и фильтр честно
+        // возвращает пусто.
         ProductReport bySurname = productAnalytics.productReport(
                 MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков", null, "SKU", 0, 500);
-        ProductReport byFullName = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков А.", null, "SKU", 0, 500);
 
-        assertThat(bySurname.totalRows()).isEqualTo(byFullName.totalRows());
-        assertThat(bySurname.totalRows()).isPositive();
+        assertThat(bySurname.totalRows()).isZero();
+    }
+
+    @Test
+    @DisplayName("Регистр значения значения не прощает")
+    void authorFilterIsCaseSensitive() {
+        catalogImportService.importProducts(accountId(), null);
+
+        // В выгрузке есть «асилий Калязин» с маленькой буквы — это опечатка продавца.
+        // Искать надо ровно так, как написано; приводить регистр автоматически нельзя,
+        // иначе значение из подсказки перестало бы совпадать с тем, что в базе.
+        ProductReport lower = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "асилий Калязин", null, "SKU", 0, 500);
+        ProductReport upper = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Асилий Калязин", null, "SKU", 0, 500);
+
+        assertThat(lower.totalRows()).isPositive();
+        assertThat(upper.totalRows()).isZero();
+    }
+
+    @Test
+    @DisplayName("Неизвестный автор даёт пустой отчёт, а не ошибку")
+    void unknownAuthorGivesEmptyReport() {
+        catalogImportService.importProducts(accountId(), null);
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Такого Автора Не существует", null, "SKU", 0, 500);
+
+        assertThat(report.totalRows()).isZero();
+        assertThat(report.rows()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("В перечислении авторов находит любой из перечисленных")
+    void findsAnyOfEnumeratedAuthors() {
+        catalogImportService.importProducts(accountId(), null);
+
+        // «Черняев А. Ю., Ланде А. А.» — два автора в одной карточке. Исключение из
+        // строгого правила: искать надо любое из перечисленных имён, а не всю строку.
+        ProductReport first = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Черняев А. Ю.", null, "SKU", 0, 500);
+        ProductReport second = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Ланде А. А.", null, "SKU", 0, 500);
+
+        assertThat(first.totalRows()).isPositive();
+        assertThat(second.totalRows()).isPositive();
+        assertThat(rowsOf(first)).isEqualTo(rowsOf(second));
+    }
+
+    @Test
+    @DisplayName("Значение из подсказки находит те же товары, что и введённое руками")
+    void suggestionValueMatchesTypedValue() {
+        catalogImportService.importProducts(accountId(), null);
+
+        // Подсказка отдаёт ровно те строки, которые лежат в базе. Если бы она отдавала
+        // что-то другое — например, приведённое к нижнему регистру, — выбор из списка
+        // молча перестал бы работать.
+        List<String> suggestions = jdbc.queryForList("""
+                select distinct author_raw from product_author
+                where author_raw = 'Ланде А. А.'
+                """, String.class);
+        assertThat(suggestions).containsExactly("Ланде А. А.");
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, suggestions.getFirst(), null, "SKU", 0, 500);
+        assertThat(report.totalRows()).isPositive();
+    }
+
+    private static List<Long> rowsOf(ProductReport report) {
+        return report.rows().stream().map(ProductReport.ProductRow::sku).toList();
     }
 
     @Test
@@ -325,8 +455,10 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     void authorsAreShownAsGiven() {
         catalogImportService.importProducts(accountId(), null);
 
+        // Фильтр строгий, значит и вводить надо точное значение: «Умнова-Конюхова» без
+        // инициалов не найдёт ничего.
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, "Умнова-Конюхова", null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Умнова-Конюхова И.А.", null, "SKU", 0, 500);
 
         assertThat(report.rows()).isNotEmpty();
         assertThat(report.rows().getFirst().authors()).extracting("raw")

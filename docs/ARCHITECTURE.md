@@ -139,11 +139,17 @@ Java, пакет `ru.analizer.import` не компилируется. Имя `s
 catalog/
 ├── api/         CatalogController
 ├── application/ CatalogImportProgressListener, CatalogImportService, ProductWriter
-├── domain/      AuthorExtractor, AuthorNormalizer, CatalogImportReport,
+├── domain/      AuthorExtractor, CatalogImportReport,
 │                OzonProduct, OzonProductAttribute, ProductAuthor
 └── repository/  OzonProductAttributeRepository, OzonProductRepository,
                  ProductAuthorRepository
 ```
+
+Имена авторов хранятся ровно так, как их написал продавец, — отдельной строкой на
+автора в `product_author`. Разбор приводит только к одному: запятая внутри значения
+делит список авторов, пробелы по краям убираются. Ни приведения регистра, ни сведения
+к инициалам здесь нет сознательно — склейка разных написаний одного человека угадывала
+бы, а в отчёте о продажах лишний товар обходится дороже неудобного фильтра.
 
 ## analytics — отчёты по нашим данным
 
@@ -155,7 +161,12 @@ analytics/
 │                    FinancialSummary, ProductFact, ProductReport,
 │                    ReportCoverage, ReportStatus
 └── infrastructure/  AnalyticsFactsRepository, CatalogFacts
+│   └── filter/      ProductAttributeFilter, ProductAuthorFilter
 ```
+
+Отбор товаров по признакам вынесен в `filter`: фильтр отдаёт кусок SQL-условия и свои
+параметры, а запрос складывает условия сам. Сейчас реализация одна — по автору, но
+описание устроено так, чтобы добавление признака не требовало правок в выборках.
 
 Отчёты читают базу через `infrastructure`, а не через JPA-сущности. Для этого есть
 причина: отчёт считает за месяц по нескольким таблицам, и выразить это на JPQL

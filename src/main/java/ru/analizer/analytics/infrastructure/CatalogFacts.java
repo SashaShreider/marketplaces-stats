@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 import ru.analizer.analytics.domain.FeeFact;
 import ru.analizer.analytics.domain.FinancialModel;
+import ru.analizer.analytics.infrastructure.filter.ProductAttributeFilter;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -18,10 +19,11 @@ import java.util.Map;
 /**
  * Выборки каталога товаров для отчёта и подсказок фильтра.
  *
- * <p>Запросы написаны на SQL, а не на JPQL, намеренно: фильтр по автору идёт по
- * массивам {@code author_keys} и {@code author_surnames}, а выражение с {@code unnest}
- * на JPQL не выражается. Финансовые правила при этом не дублируются — агрегаты
- * считает {@link FinancialModel}, те же самые, что и в дневном отчёте.
+ * <p>Запросы написаны на SQL, а не на JPQL, намеренно: условия фильтров собирают
+ * {@link ru.analizer.analytics.infrastructure.filter.ProductAttributeFilter}, а
+ * подзапросы и массивы на JPQL не выражаются. Финансовые правила при этом не
+ * дублируются — агрегаты считает {@link FinancialModel}, те же самые, что и в
+ * дневном отчёте.
  *
  * <p>Именованные параметры требуют именно {@link NamedParameterJdbcTemplate}: обычный
  * {@code JdbcTemplate} передал бы {@code Map} как один параметр, и PostgreSQL ответил бы
@@ -56,18 +58,12 @@ public class CatalogFacts {
      * числа в ответе по-прежнему считает {@link FinancialModel}, и тест сверяет, что
      * порядок из SQL совпадает с порядком по этим числам.
      *
-     * <p>Условие по автору одно, а не два: срабатывает ЛИБО совпадение по полному ключу,
-     * ЛИБО по фамилии. Иначе ввод «Сурцуков» не нашёл бы ничего — ключ из одного слова
-     * это «сурцуков», а в {@code author_keys} лежит «сурцуков а.», и при проверке обоих
-     * условий сразу не сходилось бы ни то, ни другое.
-     *
-     * @param authorKey сведённое имя «фамилия инициалы»; пустая строка — без фильтра
-     * @param authorSurname фамилия; пустая строка — без фильтра
-     * @param query подстрока названия, артикула или ISBN; пустая строка — без фильтра
-     * @param sort {@code INCOME}, {@code NAME} или {@code SKU}
+     * @param filters фильтры по атрибутам; незаданные ничего не ограничивают
+     * @param query   подстрока названия, артикула или ISBN; пустая строка — без фильтра
+     * @param sort    {@code INCOME}, {@code NAME} или {@code SKU}
      */
-    public List<ProductCatalogRow> productsPage(Long accountId, String authorKey,
-                                                String authorSurname, String query,
+    public List<ProductCatalogRow> productsPage(Long accountId, List<ProductAttributeFilter> filters,
+                                                String query,
                                                 LocalDate from, LocalDate to,
                                                 String sort, int offset, int limit) {
         RowMapper<ProductCatalogRow> mapper = (rs, i) -> new ProductCatalogRow(
@@ -98,22 +94,45 @@ public class CatalogFacts {
                 from ozon_product pr
                 left join income i on i.sku = pr.sku
                 where pr.seller_account_id = :account
-                  and (cast(:authorKey as text) = ''
-                       or :authorKey = any(pr.author_keys)
-                       or :authorSurname = any(pr.author_surnames))
                   and (cast(:queryText as text) = ''
                        or lower(pr.name) like lower('%' || :queryText || '%')
                        or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
                        or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+                /*FILTERS*/
                 /*ORDER_BY*/
                 offset :offset limit :limit
-                """.replace("/*ORDER_BY*/", orderBy(sort));
+                """
+                .replace("/*FILTERS*/", filterSql(filters, "pr"))
+                .replace("/*ORDER_BY*/", orderBy(sort));
 
-        return namedJdbc.query(sql, filterParams(accountId, authorKey, authorSurname, query)
+        return namedJdbc.query(sql, filterParams(accountId, filters, query)
                         .addValue("from", from)
                         .addValue("to", to)
                         .addValue("offset", offset)
                         .addValue("limit", limit), mapper);
+    }
+
+    /**
+     * Складывает условия фильтров в одну строку {@code and …}.
+     *
+     * <p>Условия соединяются через AND, а не OR: фильтр по издательству и фильтр по
+     * автору должны сужать выборку, а не расширять её.
+     *
+     * @return пустая строка, если ни один фильтр ничего не ограничивает
+     */
+    private static String filterSql(List<ProductAttributeFilter> filters, String alias) {
+        if (filters == null || filters.isEmpty()) {
+            return "";
+        }
+        StringBuilder sql = new StringBuilder();
+        for (ProductAttributeFilter filter : filters) {
+            String predicate = filter.predicate(alias);
+            if (predicate == null || predicate.isBlank()) {
+                continue;
+            }
+            sql.append("\n  and ").append(predicate);
+        }
+        return sql.toString();
     }
 
     /**
@@ -136,27 +155,29 @@ public class CatalogFacts {
     }
 
     /** Сколько товаров подходит под фильтры — чтобы клиент знал число страниц. */
-    public long productsCount(Long accountId, String authorKey, String authorSurname, String query) {
+    public long productsCount(Long accountId, List<ProductAttributeFilter> filters, String query) {
         Long count = namedJdbc.queryForObject("""
-                select count(*) from ozon_product
-                where seller_account_id = :account
-                  and (cast(:authorKey as text) = ''
-                       or :authorKey = any(author_keys)
-                       or :authorSurname = any(author_surnames))
+                select count(*) from ozon_product pr
+                where pr.seller_account_id = :account
                   and (cast(:queryText as text) = ''
-                       or lower(name) like lower('%' || :queryText || '%')
-                       or lower(coalesce(offer_id, '')) like lower('%' || :queryText || '%')
-                       or lower(coalesce(isbn, '')) like lower('%' || :queryText || '%'))
-                """, filterParams(accountId, authorKey, authorSurname, query), Long.class);
+                       or lower(pr.name) like lower('%' || :queryText || '%')
+                       or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
+                       or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+                /*FILTERS*/
+                """.replace("/*FILTERS*/", filterSql(filters, "pr")),
+                filterParams(accountId, filters, query), Long.class);
         return count == null ? 0 : count;
     }
 
-    private static MapSqlParameterSource filterParams(Long accountId, String authorKey,
-                                                      String authorSurname, String query) {
-        return new MapSqlParameterSource("account", accountId)
-                .addValue("authorKey", nullToEmpty(authorKey))
-                .addValue("authorSurname", nullToEmpty(authorSurname))
+    private static MapSqlParameterSource filterParams(Long accountId,
+                                                      List<ProductAttributeFilter> filters,
+                                                      String query) {
+        MapSqlParameterSource params = new MapSqlParameterSource("account", accountId)
                 .addValue("queryText", nullToEmpty(query));
+        for (ProductAttributeFilter filter : filters == null ? List.<ProductAttributeFilter>of() : filters) {
+            params.addValues(filter.parameters());
+        }
+        return params;
     }
 
     /**
@@ -186,23 +207,21 @@ public class CatalogFacts {
         return result;
     }
 
-    /** Варианты авторов для подсказки фильтра — из данных продавца, а не из догадок. */
-    public List<String> authorKeys(Long accountId) {
+    /**
+     * Варианты авторов для подсказки фильтра — из данных продавца, а не из догадок.
+     *
+     * <p>Отдаём {@code author_raw}: те же строки, по которым и ищем. Если привести их
+     * к другому виду, значение из подсказки не совпало бы с тем, что лежит в базе, и
+     * фильтр молча вернул бы пустой список. Поэтому список может содержать «Сурцуков
+     * А.», «Сурцуков Анатолий» и «А.В. Сурцуков» рядом — это три разных написания
+     * одного продавца, и привести их к одному может только он сам, в карточках.
+     */
+    public List<String> authorValues(Long accountId) {
         return jdbc.query("""
-                select distinct k
-                from ozon_product, unnest(author_keys) as k
+                select distinct author_raw
+                from product_author
                 where seller_account_id = ?
-                order by k
-                """, (rs, i) -> rs.getString(1), accountId);
-    }
-
-    /** Фамилии авторов — для широкого фильтра по одной фамилии. */
-    public List<String> authorSurnames(Long accountId) {
-        return jdbc.query("""
-                select distinct s
-                from ozon_product, unnest(author_surnames) as s
-                where seller_account_id = ?
-                order by s
+                order by author_raw
                 """, (rs, i) -> rs.getString(1), accountId);
     }
 

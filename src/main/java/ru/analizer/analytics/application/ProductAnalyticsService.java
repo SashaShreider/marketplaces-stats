@@ -6,7 +6,8 @@ import ru.analizer.analytics.domain.*;
 import ru.analizer.analytics.infrastructure.AnalyticsFactsRepository;
 import ru.analizer.analytics.infrastructure.CatalogFacts;
 import ru.analizer.analytics.infrastructure.CatalogFacts.ProductAuthorView;
-import ru.analizer.catalog.domain.AuthorNormalizer;
+import ru.analizer.analytics.infrastructure.filter.ProductAttributeFilter;
+import ru.analizer.analytics.infrastructure.filter.ProductAuthorFilter;
 import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.domain.PeriodCoverage;
 
@@ -49,8 +50,9 @@ public class ProductAnalyticsService {
     /**
      * Отчёт по товарам.
      *
-     * @param author что ввёл пользователь в фильтр по автору; сравнивается со сведёнными
-     *               ключами, поэтому «Сурцуков А.» находит и «Сурцуков Анатолий»
+     * @param author что ввёл пользователь в фильтр по автору; сравнивается точным
+     *               совпадением с тем, как автор назван в карточке товара, поэтому
+     *               «Сурцуков А.» не найдёт «Сурцуков Анатолий»
      * @param sort как упорядочить: {@code INCOME}, {@code NAME}, {@code SKU}
      */
     @Transactional(readOnly = true)
@@ -78,10 +80,12 @@ public class ProductAnalyticsService {
         PeriodCoverage periodCoverage = dayStateService.coverage(account, from, to);
         ReportCoverage coverage = ReportCoverage.from(periodCoverage);
 
-        String authorKey = AuthorNormalizer.toKey(author);
-        String authorSurname = AuthorNormalizer.toSurname(author);
+// Фильтры собираются в одном месте: добавить признак — значит добавить сюда
+        // ещё одну реализацию ProductAttributeFilter, а не править SQL в выборках.
+        List<ProductAttributeFilter> filters =
+                List.of(ProductAuthorFilter.byValue(author));
 
-        long totalRows = catalogFacts.productsCount(account, authorKey, authorSurname, query);
+        long totalRows = catalogFacts.productsCount(account, filters, query);
         int totalPages = (int) Math.max(1, Math.ceil(totalRows / (double) pageSize));
         if (pageIndex >= totalPages) {
             pageIndex = Math.max(0, totalPages - 1);
@@ -91,7 +95,7 @@ public class ProductAnalyticsService {
         // одним шагом, иначе «по доходу» покажет лучшие товары той страницы, на
         // которой они случайно оказались.
         List<CatalogFacts.ProductCatalogRow> pageRows = catalogFacts.productsPage(
-                account, authorKey, authorSurname, query, from, to,
+                account, filters, query, from, to,
                 sort, pageIndex * pageSize, pageSize);
         List<Long> skus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
 
@@ -143,7 +147,10 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
                 withSales++;
             }
         }
-        long catalogProducts = catalogFacts.productsCount(account, "", "", "");
+        // Все товары аккаунта, без фильтров: это состояние каталога, а не результат
+        // отбора. Отфильтрованных строк здесь было бы меньше, и клиент принял бы
+        // число за размер каталога.
+        long catalogProducts = catalogFacts.productsCount(account, List.of(), null);
 
         ProductReport.ProductTotals totals = new ProductReport.ProductTotals(
                 all.income(), all.expenses(), payout,

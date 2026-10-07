@@ -159,13 +159,16 @@ public final class CatalogFixtureAdapter implements ProductCatalogAdapter {
         return in;
     }
 
-    /** Сколько уникальных id авторов встречается в фикстуре — для проверок ожиданий. */
+    /** Сколько авторов разбирается у каждого товара — для проверок ожиданий. */
     static Map<Long, Integer> declaredAuthorCounts() {
         Map<Long, Integer> counts = new java.util.HashMap<>();
         for (ProductEntry product : products()) {
-            String author = product.attributeValue(4182L);
-            counts.merge(product.sku(), author == null ? 0 : ru.analizer.catalog.domain.AuthorExtractor
-                    .extract(author, true).size(), Integer::sum);
+            // Все значения атрибута, а не первое: «Автор на обложке» приходит массивом,
+            // и взятие одного значения занизило бы ожидаемое число авторов.
+            counts.merge(product.sku(),
+                    ru.analizer.catalog.domain.AuthorExtractor
+                            .extract(product.attributeValues(4182L), true).size(),
+                    Integer::sum);
         }
         return counts;
     }

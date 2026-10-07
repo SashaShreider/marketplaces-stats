@@ -13,11 +13,13 @@ import java.time.Instant;
  * <p>Хранит и общие поля товара, и характеристики в общем виде
  * ({@link OzonProductAttribute}), и авторов ({@link ProductAuthor}). Последние два
  * вынесены в отдельные таблицы не для красоты, а по двум причинам: у товара их
- * произвольное число, а множество авторов нужно фильтровать по индексу.
+ * произвольное число, а авторов нужно искать точной строкой по индексу.
  *
- * <p>{@code authorKeys} и {@code authorSurnames} — производные множества для фильтра.
- * Источник истины — строки в {@link ProductAuthor}; эти массивы можно пересчитать
- * в любой момент, ничего не теряя.
+ * <p>Фильтр по автору идёт прямо по строкам {@link ProductAuthor}: это и источник
+ * истины, и единственное место, где хранится написание имени. Дублировать его в
+ * производные массивы на товаре незачем — раньше такие массивы были и
+ * складывались из сведённых ключей, но при строгом поиске они стали бы второй
+ * копией одних и тех же данных, которую придётся синхронизировать.
  */
 @Entity
 @Table(name = "ozon_product")
@@ -84,22 +86,6 @@ public class OzonProduct {
     @Column(name = "last_synced_at", nullable = false)
     private Instant lastSyncedAt;
 
-    /**
-     * Сведённые имена авторов для фильтра: GIN-индекс по массиву.
-     *
-     * <p>Указан именно {@code SqlTypes.ARRAY}: без него Hibernate отправил бы в колонку
-     * обычную строку, и PostgreSQL ответил бы «column author_keys is of type text[] but
-     * expression is of type character varying».
-     */
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "author_keys", nullable = false, columnDefinition = "text[]")
-    private String[] authorKeys = new String[0];
-
-    /** Фамилии авторов — для широкого фильтра по одной фамилии. */
-    @JdbcTypeCode(SqlTypes.ARRAY)
-    @Column(name = "author_surnames", nullable = false, columnDefinition = "text[]")
-    private String[] authorSurnames = new String[0];
-
     protected OzonProduct() {
     }
 
@@ -135,11 +121,6 @@ public class OzonProduct {
         this.modelId = modelId;
         this.rawData = rawData;
         this.lastSyncedAt = now;
-    }
-
-    public void applyAuthors(String[] keys, String[] surnames) {
-        this.authorKeys = keys == null ? new String[0] : keys.clone();
-        this.authorSurnames = surnames == null ? new String[0] : surnames.clone();
     }
 
     public Long getId() {
@@ -216,13 +197,5 @@ public class OzonProduct {
 
     public Instant getLastSyncedAt() {
         return lastSyncedAt;
-    }
-
-    public String[] getAuthorKeys() {
-        return authorKeys;
-    }
-
-    public String[] getAuthorSurnames() {
-        return authorSurnames;
     }
 }

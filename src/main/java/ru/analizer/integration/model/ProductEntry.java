@@ -33,6 +33,10 @@ public record ProductEntry(
     /**
      * Первое непустое значение атрибута.
      *
+     * <p>Годится для признаков, где значение одно: ISBN, тип товара. Для перечислений
+     * вроде автора нужен {@link #attributeValues(long)} — иначе молча теряются все
+     * значения, кроме первого.
+     *
      * @return значение или {@code null}, если такого атрибута нет
      */
     public String attributeValue(long attributeId) {
@@ -42,5 +46,24 @@ public record ProductEntry(
                 .filter(v -> v != null && !v.isBlank())
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Все непустые значения атрибута в том порядке, в каком их вернул OZON.
+     *
+     * <p>Нужно там, где атрибут перечисляет несколько сущностей. Реальный пример —
+     * «Автор на обложке» (105): у части товаров OZON присылает не одну строку, а
+     * массив, где каждый автор отдельным элементом. Взять отсюда первое значение —
+     * значит потерять остальных молча: товар покажется с одним автором вместо трёх,
+     * и отчёт по продажам этого продавца разойдётся с его же карточкой.
+     *
+     * @return значения в порядке появления; пустой список, если атрибута нет
+     */
+    public List<String> attributeValues(long attributeId) {
+        return attributes.stream()
+                .filter(a -> a.attributeId() == attributeId)
+                .map(ProductAttributeEntry::value)
+                .filter(v -> v != null && !v.isBlank())
+                .toList();
     }
 }

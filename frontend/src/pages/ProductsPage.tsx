@@ -352,6 +352,10 @@ export default function ProductsPage({
                   value={author}
                   onChange={(e) => setAuthor(e.target.value)}
                   placeholder="Автор"
+                  // Поиск строгий: ищется ровно то, что введено. Подсказки справа
+                  // подставляют значение, которое гарантированно что-то найдёт, —
+                  // вводить руками имеет смысл только точным написанием из карточки.
+                  title="Ищется точное совпадение с тем, как автор указан в карточке товара. Начните вводить, чтобы выбрать из списка."
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pr-9 text-[13px] font-semibold text-slate-800 outline-none transition-all placeholder:font-medium placeholder:text-slate-300 focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
                 />
                 <datalist id="authors-list">
