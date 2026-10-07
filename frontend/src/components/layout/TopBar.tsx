@@ -3,9 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   Check, CheckCircle2, ChevronDown, CircleAlert, Loader2, LogOut, Plus, Trash2, User as UserIcon,
 } from 'lucide-react'
-import { cn } from '../utils/cn'
-import { MarketplaceLogo } from './ui'
-import type { MarketplaceInfo, User } from '../types'
+import { cn } from '@/utils/cn'
+import { MarketplaceLogo } from '@/components/ui'
+import type { MarketplaceInfo, User } from '@/types'
 
 // ─── Универсальный поповер ───────────────────────────────────────────────────
 

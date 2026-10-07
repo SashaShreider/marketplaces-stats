@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Loader2, X } from 'lucide-react'
-import type { ImportRunner } from '../hooks/useImportRunner'
-import { fmtDayShort, fmtRange } from '../utils/format'
+import type { ImportRunner } from '@/features/imports/useImportRunner'
+import { fmtDayShort, fmtRange } from '@/utils/format'
 
 /**
  * Сообщение о неудаче импорта и, опционально, полоса прогресса.

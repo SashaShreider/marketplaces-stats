@@ -44,3 +44,6 @@ replay_pid*.log
 
 # Tooling artifacts
 .playwright-mcp/
+.opencode/
+opencode.jsonc
+.qodo/

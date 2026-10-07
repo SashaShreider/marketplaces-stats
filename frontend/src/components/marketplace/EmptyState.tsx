@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { KeyRound, PlugZap } from 'lucide-react'
-import type { MarketplaceInfo } from '../types'
-import { MarketplaceLogo } from './ui'
+import type { MarketplaceInfo } from '@/types'
+import { MarketplaceLogo } from '@/components/ui'
 
 export default function EmptyState({
   mp,

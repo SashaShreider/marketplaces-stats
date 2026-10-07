@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import type { DayFinance } from '../types'
-import { clamp, fmtAxis, fmtDateLong, fmtDayShort, fmtMoney, niceMax } from '../utils/format'
+import type { DayFinance } from '@/types'
+import { clamp, fmtAxis, fmtDateLong, fmtDayShort, fmtMoney, niceMax } from '@/utils/format'
 
 export type MetricKey = 'income' | 'expenses' | 'profit'
 

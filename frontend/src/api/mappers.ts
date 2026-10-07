@@ -1,4 +1,4 @@
-import type { DailyReport, DayFinance, DayState } from '../types'
+import type { DailyReport, DayFinance, DayState } from '@/types'
 
 /** Преобразует ответ analytics/daily в модель интерфейса (расходы → положительные числа) */
 export function mapDaily(report: DailyReport): DayFinance[] {

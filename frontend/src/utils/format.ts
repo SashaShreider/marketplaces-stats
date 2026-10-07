@@ -1,4 +1,4 @@
-import type { DayFinance, FinanceTotals } from '../types'
+import type { DayFinance, FinanceTotals } from '@/types'
 
 // ─── Деньги ──────────────────────────────────────────────────────────────────
 

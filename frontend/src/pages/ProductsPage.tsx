@@ -3,17 +3,17 @@ import { motion } from 'framer-motion'
 import {
   AlertTriangle, ChevronLeft, ChevronRight, CloudDownload, Info, Package, RefreshCw, Search, X,
 } from 'lucide-react'
-import { getAuthors, getProducts } from '../api/client'
-import { describeError } from '../api/http'
-import DateRangePicker from '../components/DateRangePicker'
-import EmptyState from '../components/EmptyState'
-import ProgressBar from '../components/ProgressBar'
-import SyncIndicator, { syncStateOf } from '../components/SyncIndicator'
-import { AnimatedNumber, MarketplaceLogo, PageHeader } from '../components/ui'
-import type { ImportRunner } from '../hooks/useImportRunner'
-import type { DateRange, MarketplaceInfo, ProductRow, ProductSort, ProductsReport } from '../types'
-import { cn } from '../utils/cn'
-import { fmtDateTime, fmtMoney, fmtNum } from '../utils/format'
+import { getAuthors, getProducts } from '@/api/client'
+import { describeError } from '@/api/http'
+import DateRangePicker from '@/components/common/DateRangePicker'
+import EmptyState from '@/components/marketplace/EmptyState'
+import ProgressBar from '@/components/sync/ProgressBar'
+import SyncIndicator, { syncStateOf } from '@/components/sync/SyncIndicator'
+import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
+import type { ImportRunner } from '@/features/imports/useImportRunner'
+import type { DateRange, MarketplaceInfo, ProductRow, ProductSort, ProductsReport } from '@/types'
+import { cn } from '@/utils/cn'
+import { fmtDateTime, fmtMoney, fmtNum } from '@/utils/format'
 
 const PAGE_SIZE = 25
 

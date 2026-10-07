@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DailyReport, DateRange } from '../types'
-import { addDaysISO, todayISO } from '../utils/format'
-import type { ImportRunner } from './useImportRunner'
-import { syncStateOf, type SyncState } from '../components/SyncIndicator'
+import type { DailyReport, DateRange } from '@/types'
+import { addDaysISO, todayISO } from '@/utils/format'
+import type { ImportRunner } from '@/features/imports/useImportRunner'
+import { syncStateOf, type SyncState } from '@/components/sync/SyncIndicator'
 
 /**
  * Автоматическая загрузка данных.

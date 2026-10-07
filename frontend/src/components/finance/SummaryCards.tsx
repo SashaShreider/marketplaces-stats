@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
-import { HelpCircle, Info, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
-import { cn } from '../utils/cn'
-import type { FinanceTotals } from '../types'
-import { AnimatedNumber } from './ui'
+import { Info, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { cn } from '@/utils/cn'
+import type { FinanceTotals } from '@/types'
+import { AnimatedNumber } from '@/components/ui'
 
 function Row({
   label,

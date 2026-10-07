@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getImport, listImports, startCatalogImport, startFinanceImport } from '../api/client'
-import { ApiError, describeError } from '../api/http'
-import type { ImportProgress } from '../types'
+import { getImport, listImports, startCatalogImport, startFinanceImport } from '@/api/client'
+import { ApiError, describeError } from '@/api/http'
+import type { ImportProgress } from '@/types'
 
 export interface ImportRunner {
   /** Последний известный прогон (идущий или только что завершённый) */

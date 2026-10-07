@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '../utils/cn'
+import { cn } from '@/utils/cn'
 import {
   addDaysISO, fmtDateLong, fmtRange, fromISO, isToday, MONTHS_NOM, todayISO, toISO,
-} from '../utils/format'
+} from '@/utils/format'
 
 interface Preset {
   label: string

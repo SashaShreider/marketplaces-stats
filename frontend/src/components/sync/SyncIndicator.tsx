@@ -1,5 +1,5 @@
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
-import type { ImportProgress } from '../types'
+import type { ImportProgress } from '@/types'
 
 /**
  * Состояние загрузки для индикатора рядом с календарём.

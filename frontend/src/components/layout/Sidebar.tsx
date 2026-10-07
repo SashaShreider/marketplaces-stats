@@ -1,5 +1,5 @@
 import { BarChart3, Package } from 'lucide-react'
-import { cn } from '../utils/cn'
+import { cn } from '@/utils/cn'
 
 export type PageId = 'overview' | 'products'
 

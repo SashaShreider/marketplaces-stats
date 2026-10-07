@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, ChevronDown, Loader2, Lock, Server, User as UserIcon } from 'lucide-react'
-import { login, register } from '../api/client'
-import { API_BASE, ApiError, describeError, resetApiBase, saveApiBase } from '../api/http'
-import { cn } from '../utils/cn'
-import type { User } from '../types'
+import { login, register } from '@/api/client'
+import { API_BASE, ApiError, describeError, resetApiBase, saveApiBase } from '@/api/http'
+import { cn } from '@/utils/cn'
+import type { User } from '@/types'
 
 type Mode = 'login' | 'register'
 

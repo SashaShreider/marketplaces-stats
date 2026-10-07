@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2, X } from 'lucide-react'
-import { putCredentials } from '../api/client'
-import { describeError } from '../api/http'
-import type { MarketplaceInfo } from '../types'
-import { MarketplaceLogo } from './ui'
+import { putCredentials } from '@/api/client'
+import { describeError } from '@/api/http'
+import type { MarketplaceInfo } from '@/types'
+import { MarketplaceLogo } from '@/components/ui'
 
 type Phase = 'form' | 'loading' | 'success'
 

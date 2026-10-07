@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import type { FinanceTotals } from '../types'
-import { AnimatedNumber } from './ui'
+import type { FinanceTotals } from '@/types'
+import { AnimatedNumber } from '@/components/ui'
 
 /** Главные статьи расходов: большие сектора круга и три строки легенды. */
 const MAIN_COLORS = {

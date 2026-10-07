@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BarChart3, Table2 } from 'lucide-react'
-import { cn } from '../utils/cn'
-import type { DayFinance } from '../types'
-import FinanceChart, { METRIC_CONFIG, type MetricKey } from './FinanceChart'
-import FinanceTable from './FinanceTable'
+import { cn } from '@/utils/cn'
+import type { DayFinance } from '@/types'
+import FinanceChart, { METRIC_CONFIG, type MetricKey } from '@/components/finance/FinanceChart'
+import FinanceTable from '@/components/finance/FinanceTable'
 
 type View = 'chart' | 'table'
 

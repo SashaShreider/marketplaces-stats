@@ -7,7 +7,7 @@
 //   /api/marketplaces/{mp}/analytics/*   — отчёты (бесплатно)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { forgetCsrf, refreshCsrf, request } from './http'
+import { forgetCsrf, refreshCsrf, request } from '@/api/http'
 import type {
   CatalogState,
   Coverage,
@@ -17,7 +17,7 @@ import type {
   ProductSort,
   ProductsReport,
   User,
-} from '../types'
+} from '@/types'
 
 const mpPath = (code: string) => `/api/marketplaces/${encodeURIComponent(code.toLowerCase())}`
 

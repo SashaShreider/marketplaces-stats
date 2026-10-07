@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '../utils/cn'
-import type { DayFinance, DayState, FinanceTotals } from '../types'
-import { fmtDayShort, fmtMoney, fmtNum, sumDays, weekdayShort } from '../utils/format'
+import { cn } from '@/utils/cn'
+import type { DayFinance, DayState, FinanceTotals } from '@/types'
+import { fmtDayShort, fmtMoney, fmtNum, sumDays, weekdayShort } from '@/utils/format'
 
 const PAGE_SIZE = 15
 
