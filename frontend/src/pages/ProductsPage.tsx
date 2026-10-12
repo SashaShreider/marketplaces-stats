@@ -287,13 +287,6 @@ export default function ProductsPage({
                 <AnimatedNumber value={totals.income} />
               </Stat>
               <Stat
-                label="Выручка"
-                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
-                delay={0.1}
-              >
-                <AnimatedNumber value={gross} />
-              </Stat>
-              <Stat
                 label="Расходы по товарам"
                 hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
@@ -305,6 +298,13 @@ export default function ProductsPage({
                 }
               >
                 <AnimatedNumber value={totals.expenses} />
+              </Stat>
+              <Stat
+                label="Выручка"
+                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+                delay={0.1}
+              >
+                <AnimatedNumber value={gross} />
               </Stat>
               <Stat
                 label="Товаров с продажами"
