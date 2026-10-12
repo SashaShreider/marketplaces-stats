@@ -1,0 +1,16 @@
+
+{
+  "version": "0.2.0",
+  "configurations": [
+    
+    {
+      "name": "Dev: весь проект",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/frontend",
+      "preLaunchTask": "docker: база и backend",
+      "postDebugTask": "docker: остановить всё"
+    }
+  ]
+}

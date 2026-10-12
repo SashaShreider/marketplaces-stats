@@ -1,0 +1,142 @@
+{
+  // Задачи запуска рабочего окружения одной кнопкой: Terminal → Run Task… или
+  // Ctrl+Shift+B (F5 работает только для отладки).
+  //
+  // Основной сценарий — «dev: всё сразу». Поднимает базу и backend в Docker и
+  // запускает интерфейс на Vite, чтобы правки применялись без пересборки образа.
+  // Подробности режима разработки: frontend/README.md, раздел «Быстрый старт».
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev: всё сразу",
+      "detail": "БД и backend в Docker + интерфейс на Vite с горячей перезагрузкой. Открывайте http://localhost:5173",
+      "dependsOn": ["docker: база и backend", "frontend: dev-сервер"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "docker: база и backend",
+      "detail": "Поднимает PostgreSQL и собранный образ приложения. Первый запуск занимает несколько минут, последующие — секунды.",
+      "type": "shell",
+      "command": "docker compose up -d app postgres",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      // Без problemMatcher с фоновым шаблоном задача считается «просто выполненной»,
+      // когда docker вернётся, и не держит терминал открытым зря.
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "docker: база и backend с пересборкой",
+      "detail": "То же, но с пересборкой образа. Нужно после правок Dockerfile, frontend/package.json или vite.config.ts — не после правок кода.",
+      "type": "shell",
+      "command": "docker compose up -d --build app postgres",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "frontend: dev-сервер",
+      "detail": "Vite на http://localhost:5173. Правки в файлах применяются без перезапуска.",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "проверить: приложение отвечает",
+      "detail": "Запрашивает /actuator/health. Если UP — backend готов и можно открывать сайт.",
+      "type": "shell",
+      "command": "curl -fsS http://localhost:8080/actuator/health",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "docker: логи приложения",
+      "type": "shell",
+      "command": "docker compose logs -f app",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "docker: остановить всё",
+      "detail": "Останавливает контейнеры. Данные в томе analizer-pgdata сохраняются.",
+      "type": "shell",
+      "command": "docker compose down",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "проверка: тесты backend (быстро)",
+      "detail": "Модульные тесты без базы — несколько секунд.",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["test", "-Pfast"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      // gradlew без расширения на Windows не запускается: PowerShell ищет
+      // gradlew.bat. Поэтому команда задана отдельно для каждой системы.
+      "windows": {
+        "command": "gradlew.bat"
+      },
+      "group": "test",
+      "problemMatcher": []
+    },
+
+    {
+      "label": "проверка: тесты frontend",
+      "detail": "Проверка типов и сборка интерфейса — как это делает CI.",
+      "type": "shell",
+      "command": "npm run check",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}
