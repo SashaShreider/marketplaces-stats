@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Package } from 'lucide-react'
-import type { ProductRow } from '@/types'
+import type { ProductRow, SelectionTotals } from '@/types'
 import { cn } from '@/utils/cn'
 import { fmtMoney, fmtNum, revenue } from '@/utils/format'
 
@@ -103,6 +103,7 @@ const HEAD = [
 
 export default function ProductsTable({
   rows,
+  selectionTotals,
   page,
   size,
   totalRows,
@@ -111,6 +112,8 @@ export default function ProductsTable({
   onPageChange,
 }: {
   rows: ProductRow[]
+  /** Итог по всему отбору: приходит с сервера, а не считается по rows */
+  selectionTotals: SelectionTotals
   /** Номер страницы с нуля */
   page: number
   size: number
@@ -123,23 +126,13 @@ export default function ProductsTable({
   const firstShown = rows.length ? page * size + 1 : 0
   const lastShown = page * size + rows.length
 
-  // Итог по видимым строкам, а не по всему отчёту: бэкенд отдаёт только текущую
-  // страницу, и суммировать нечего. Подпись «Итого» поэтому означает «итог этой
-  // страницы» — иначе число молча бы расходилось с «из N» в подвале.
-  const totals = rows.reduce(
-    (acc, r) => ({
-      sold: acc.sold + (r.soldQuantity ?? r.quantity ?? 0),
-      income: acc.income + (r.income ?? 0),
-      expenses: acc.expenses + Math.abs(r.expenses ?? 0),
-    }),
-    { sold: 0, income: 0, expenses: 0 },
-  )
-  // Выручка — из уже посчитанных сумм, а не новым проходом по строкам: иначе на
-  // дробных копейках итог по колонкам разошёлся бы с числом в строке «Итого».
-  const gross = revenue(totals.income, totals.expenses)
-  // Ноль расходов показываем нулём, а не «−0 ₽»: у строк этот случай уже
-  // разобран выше, и в итоге он выглядел бы иначе при тех же данных.
-  const hasExpenses = Math.round(totals.expenses) !== 0
+  // Итог приходит с сервера: бэкенд считает его по всем товарам отбора, а строк
+  // отдаёт только текущую страницу. Складывать показанное — значит показать
+  // 25 товаров и подписать это «Итого».
+  const gross = revenue(selectionTotals.income, selectionTotals.expenses)
+  // Ноль расходов показываем нулём, а не «−0 ₽»: иначе итог выглядел бы
+  // вычетом, которого не было.
+  const hasExpenses = Math.round(selectionTotals.expenses) !== 0
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-slate-200/80">
@@ -182,13 +175,13 @@ export default function ProductsTable({
                   Итого
                 </td>
                 <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-800">
-                  {fmtNum(totals.sold)}
+                  {fmtNum(selectionTotals.soldQuantity)}
                 </td>
                 <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-900">
-                  {fmtMoney(totals.income)}
+                  {fmtMoney(selectionTotals.income)}
                 </td>
 <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-700">
-                      {hasExpenses ? `−${fmtMoney(totals.expenses)}` : '0 ₽'}
+                      {hasExpenses ? `−${fmtMoney(selectionTotals.expenses)}` : '0 ₽'}
                     </td>
                 <td
                   className={cn(

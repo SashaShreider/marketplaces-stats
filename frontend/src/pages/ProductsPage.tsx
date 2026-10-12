@@ -361,6 +361,7 @@ const totals = report?.totals
 
             <ProductsTable
               rows={report.rows}
+              selectionTotals={report.selectionTotals}
               page={report.page}
               size={report.size}
               totalRows={report.totalRows}

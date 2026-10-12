@@ -11,6 +11,7 @@ import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
 import ru.analizer.sync.domain.RunState;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -217,6 +218,70 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         // Товаров с продажами за день намного меньше, чем товаров в каталоге:
         // именно эти строки с нулями и должны быть видны.
         assertThat(report.totals().productsWithSales()).isLessThan(108);
+    }
+
+    @Test
+    @DisplayName("Строка «Итого» считается по отбору, а не по текущей странице")
+    void selectionTotalsCoverWholeSelectionNotOnePage() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        // Берём первую страницу маленькими кусками: если бы «Итого» считался по
+        // строкам на экране, сумма зависела бы от размера страницы. Здесь этого
+        // происходить не должно — отбор один и тот же.
+        ProductReport firstPage = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 10);
+        ProductReport secondPage = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 1, 10);
+        ProductReport whole = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+
+        assertThat(firstPage.rows()).hasSize(10);
+        assertThat(secondPage.rows()).hasSize(10);
+
+        BigDecimal pageSum = firstPage.rows().stream()
+                .map(r -> r.income())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal wholeSum = whole.rows().stream()
+                .map(r -> r.income())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Сумма десяти показанных строк заведомо меньше всего отбора: значит,
+        // равенство «Итого» этой сумме было бы настоящей ошибкой, а не совпадением.
+        assertThat(pageSum).isLessThan(wholeSum);
+        assertThat(firstPage.selectionTotals().income())
+                .isEqualByComparingTo(wholeSum)
+                .isGreaterThan(pageSum);
+        // Страница не влияет на сумму: тот же отбор, те же числа.
+        assertThat(secondPage.selectionTotals().income())
+                .isEqualByComparingTo(firstPage.selectionTotals().income());
+        assertThat(firstPage.selectionTotals().expenses())
+                .isEqualByComparingTo(whole.totals().expenses());
+        assertThat(firstPage.selectionTotals().soldQuantity())
+                .isEqualTo(whole.totals().soldQuantity());
+    }
+
+    @Test
+    @DisplayName("Фильтр по автору меняет «Итого», но не итоги за период")
+    void selectionTotalsFollowFilterWhilePeriodTotalsStay() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        ProductReport all = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+        ProductReport author = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null, "SKU", 0, 500);
+
+        // Карточки наверху отвечают на вопрос «сколько за период», поэтому фильтр
+        // их не двигает: иначе выбрал автора — и весь отчёт за месяц исчез.
+        assertThat(author.totals().income()).isEqualByComparingTo(all.totals().income());
+        // А «Итого» под таблицей отвечает на другой вопрос и обязан меняться.
+        assertThat(author.selectionTotals().income()).isPositive();
+        assertThat(author.selectionTotals().income())
+                .isLessThan(all.selectionTotals().income());
+        assertThat(author.selectionTotals().soldQuantity())
+                .isLessThan(all.selectionTotals().soldQuantity());
     }
 
     @Test
