@@ -1,11 +1,18 @@
-import { BarChart3, Package } from 'lucide-react'
+import { BarChart3, Package, Table2, Boxes } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
-export type PageId = 'overview' | 'products'
+export type PageId = 'overview' | 'products' | 'preview-table' | 'preview-products'
 
 const NAV: { id: PageId; label: string; icon: typeof BarChart3 }[] = [
   { id: 'overview', label: 'Обзор', icon: BarChart3 },
   { id: 'products', label: 'Товары', icon: Package },
+]
+
+// Временный раздел: компоненты из другого проекта для оценки вида. Удалится вместе
+// с папкой frontend/src/preview и страницами из pages/preview.
+const PREVIEW_NAV: { id: PageId; label: string; icon: typeof BarChart3 }[] = [
+  { id: 'preview-table', label: 'Таблица (из другого)', icon: Table2 },
+  { id: 'preview-products', label: 'Список товаров (из другого)', icon: Boxes },
 ]
 
 export default function Sidebar({
@@ -82,6 +89,42 @@ export default function Sidebar({
         </div>
       </div> **/}
 
+      {/* Временный раздел предпросмотра: удалится вместе с папкой preview */}
+      {PREVIEW_NAV.length > 0 && (
+        <nav className="flex flex-col gap-1 px-3 pt-6">
+          <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-500">
+            Предпросмотр
+          </div>
+          {PREVIEW_NAV.map(({ id, label, icon: Icon }) => {
+            const active = page === id
+            return (
+              <button
+                key={id}
+                onClick={() => onNavigate(id)}
+                className={cn(
+                  'group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold transition-all duration-200',
+                  active
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-800',
+                )}
+              >
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-amber-500" />
+                )}
+                <Icon
+                  size={18}
+                  strokeWidth={active ? 2.4 : 2}
+                  className={cn(
+                    'transition-colors',
+                    active ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600',
+                  )}
+                />
+                {label}
+              </button>
+            )
+          })}
+        </nav>
+      )}
     </aside>
   )
 }

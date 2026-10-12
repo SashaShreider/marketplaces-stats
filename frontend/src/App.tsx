@@ -12,6 +12,8 @@ import TopBar from '@/components/layout/TopBar'
 import { useImportRunner } from '@/features/imports/useImportRunner'
 import OverviewPage from '@/pages/OverviewPage'
 import ProductsPage from '@/pages/ProductsPage'
+import PreviewFinanceTablePage from '@/pages/preview/PreviewFinanceTablePage'
+import PreviewProductsPage from '@/pages/preview/PreviewProductsPage'
 import type { DateRange, MarketplaceInfo, User } from '@/types'
 import { cn } from '@/utils/cn'
 import { lastNDays } from '@/utils/format'
@@ -126,7 +128,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                       runner={runner}
                       onConnect={() => setModal(current.code)}
                     />
-                  ) : (
+                  ) : page === 'products' ? (
                     <ProductsPage
                       key={current.code}
                       mp={current}
@@ -134,6 +136,21 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                       onRangeChange={setRange}
                       runner={runner}
                       onConnect={() => setModal(current.code)}
+                    />
+                  ) : page === 'preview-table' ? (
+                    // Временные страницы предпросмотра: удаляются вместе с папкой preview
+                    <PreviewFinanceTablePage
+                      key={current.code}
+                      mp={current}
+                      range={range}
+                      onRangeChange={setRange}
+                    />
+                  ) : (
+                    <PreviewProductsPage
+                      key={current.code}
+                      mp={current}
+                      range={range}
+                      onRangeChange={setRange}
                     />
                   )}
                 </motion.div>
