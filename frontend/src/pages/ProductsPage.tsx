@@ -31,14 +31,41 @@ function useDebounced<T>(value: T, ms = 350): T {
   return v
 }
 
+/**
+ * Значок с подсказкой при наведении.
+ *
+ * <p>Подсказка на CSS, а не на состоянии: наведение мыши не должно вызывать
+ * перерисовку страницы, а появление и скрытие подсказки не должно требовать
+ * обработчиков, которые нужно не забыть снять.
+ */
+function Hint({ text }: { text: string }) {
+  return (
+    <span className="group/hint relative inline-flex align-middle">
+      <Info
+        size={13}
+        className="cursor-help text-slate-400 transition-colors group-hover/hint:text-slate-600"
+      />
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[12px] font-medium normal-case leading-relaxed tracking-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/hint:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
 function Stat({
   label,
+  hint,
   children,
   sub,
   tone,
   delay,
 }: {
   label: string
+  /** Объяснение подписи, если её нельзя прочитать буквально */
+  hint?: string
   children: React.ReactNode
   sub?: React.ReactNode
   tone: string
@@ -51,7 +78,10 @@ function Stat({
       transition={{ duration: 0.4, delay }}
       className={cn('rounded-2xl border p-4', tone)}
     >
-      <div className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
+        {label}
+        {hint && <Hint text={hint} />}
+      </div>
       <div className="mt-2 text-[24px] font-extrabold leading-none tracking-tight text-slate-900">{children}</div>
       {sub && <div className="mt-2 text-[12px] font-medium text-slate-500">{sub}</div>}
     </motion.div>
@@ -172,6 +202,15 @@ export default function ProductsPage({
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
   const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
   const hasFilter = Boolean(dq || da)
+  // Подсказка объясняет, почему расходы по товарам меньше, чем в «Обзоре».
+  // Раньше это был абзац под таблицей: он висел на странице постоянно и описывал
+  // ситуацию, заметную только при сравнении двух экранов. По наведению он
+  // появляется ровно тогда, когда человек смотрит на само число.
+  const unallocated = report?.unallocatedExpenses ?? 0
+  const unallocatedHint =
+    unallocated > 0
+      ? `Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU. Сейчас таких расходов ${fmtMoney(unallocated)}.`
+      : 'Часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU — они не попадают в расходы по товарам. Сейчас таких расходов нет.'
 
   return (
     <>
@@ -249,6 +288,7 @@ export default function ProductsPage({
               </Stat>
               <Stat
                 label="Расходы по товарам"
+                hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
                 delay={0.1}
                 sub={
@@ -371,13 +411,6 @@ export default function ProductsPage({
               onPageChange={setPage}
             />
 
-            {report.unallocatedExpenses > 0 && (
-              <div className="mt-3 flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-slate-400">
-                <Info size={13} className="mt-0.5 shrink-0" />
-                Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги)
-                маркетплейс присылает без привязки к SKU.
-              </div>
-            )}
             {report.skusMissingFromCatalog.length > 0 && (
               <div className="mt-2 flex items-start gap-2 text-[11.5px] font-semibold leading-relaxed text-amber-600">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
