@@ -75,7 +75,7 @@ export default function SummaryCards({ totals }: { totals: FinanceTotals }) {
       >
         <Row label="Продажи" value={totals.sales} />
         <Row label="Возвраты" value={totals.returns} negative />
-        <Row label="Программы партнёров" value={totals.partners} />
+        <Row label="Бонусы" value={totals.partners} />
       </Card>
 
       <Card
