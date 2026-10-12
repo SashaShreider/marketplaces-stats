@@ -452,7 +452,29 @@ export default function ProductsPage({
 
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2">
                 <span className="text-[12px] font-medium text-slate-400">
-                  Найдено: <span className="tnum font-bold text-slate-600">{fmtNum(report.totalRows)}</span>
+                  {report.rows.length > 0 ? (
+                    <>
+                      Показано{' '}
+                      <span className="tnum font-bold text-slate-600">
+                        {report.page * report.size + 1}
+                      </span>
+                      –{' '}
+                      <span className="tnum font-bold text-slate-600">
+                        {report.page * report.size + report.rows.length}
+                      </span>{' '}
+                      из{' '}
+                      <span className="tnum font-bold text-slate-600">
+                        {fmtNum(report.totalRows)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Ничего не найдено из{' '}
+                      <span className="tnum font-bold text-slate-600">
+                        {fmtNum(report.totalRows)}
+                      </span>
+                    </>
+                  )}
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="text-[12px] font-semibold text-slate-500">
