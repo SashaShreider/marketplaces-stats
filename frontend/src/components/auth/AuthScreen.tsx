@@ -227,6 +227,7 @@ export default function AuthScreen({
           </form>
 
           {/* Настройки сервера */}
+          {/**  
           <div className="mt-8 border-t border-slate-200/70 pt-4">
             <button
               onClick={() => setShowServer(!showServer)}
@@ -273,6 +274,7 @@ export default function AuthScreen({
               )}
             </AnimatePresence>
           </div>
+          */}
         </motion.div>
       </div>
     </div>
