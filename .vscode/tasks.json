@@ -18,37 +18,28 @@
       "problemMatcher": []
     },
 
-    {
-      "label": "docker: база и backend",
-      "detail": "Поднимает PostgreSQL и собранный образ приложения. Первый запуск занимает несколько минут, последующие — секунды.",
-      "type": "shell",
-      "command": "docker compose up -d app postgres",
-      "options": {
-        "cwd": "${workspaceFolder}"
+      {
+        "label": "docker: база и backend",
+        "detail": "Поднимает PostgreSQL и backend в Docker, пересобирая образ под текущий код. Первый запуск занимает минуты, последующие — секунды.",
+        "type": "shell",
+        "command": "docker compose up -d --build app postgres",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        // --build обязателен, а не ускорение: без него docker берёт ранее собранный
+        // образ, и правки бэкенда просто не попадают в контейнер. Из-за этого
+        // случалось, что интерфейс уже ждал новое поле в ответе API, а бэкенд его
+        // ещё не отдавал. Docker пересобирает только изменившиеся слои, а кэш
+        // Gradle лежит в томе, поэтому лишние минуты — только у первой сборки.
+        // Без problemMatcher с фоновым шаблоном задача считается «просто выполненной»,
+        // когда docker вернётся, и не держит терминал открытым зря.
+        "presentation": {
+          "reveal": "always",
+          "panel": "dedicated"
+        },
+        "problemMatcher": []
       },
-      // Без problemMatcher с фоновым шаблоном задача считается «просто выполненной»,
-      // когда docker вернётся, и не держит терминал открытым зря.
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated"
-      },
-      "problemMatcher": []
-    },
 
-    {
-      "label": "docker: база и backend с пересборкой",
-      "detail": "То же, но с пересборкой образа. Нужно после правок Dockerfile, frontend/package.json или vite.config.ts — не после правок кода.",
-      "type": "shell",
-      "command": "docker compose up -d --build app postgres",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated"
-      },
-      "problemMatcher": []
-    },
 
     {
       "label": "frontend: dev-сервер",

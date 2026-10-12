@@ -1,8 +1,6 @@
-
 {
   "version": "0.2.0",
   "configurations": [
-    
     {
       "name": "Dev: весь проект",
       "type": "node-terminal",
@@ -10,7 +8,14 @@
       "command": "npm run dev",
       "cwd": "${workspaceFolder}/frontend",
       "preLaunchTask": "docker: база и backend",
-      "postDebugTask": "docker: остановить всё"
+      // postDebugTask здесь намеренно нет. Он выполнял бы `docker compose down`,
+      // и база гасла бы каждый раз при остановке отладки — вместе с ней и все
+      // загруженные каталоги. Останавливать окружение лучше явно, задачей
+      // «docker: остановить всё», когда это действительно нужно.
+      //
+      // Открывайте http://localhost:5173, а не 8080: порт 8080 отдаёт статику,
+      // запечатанную в образ при последней сборке, и правки туда не попадают.
+      "console": "integratedTerminal"
     }
   ]
 }
