@@ -6,6 +6,7 @@ import {
 import { cn } from '@/utils/cn'
 import { MarketplaceLogo } from '@/components/ui'
 import type { MarketplaceInfo, User } from '@/types'
+import { shopName } from '@/utils/marketplace'
 
 // ─── Универсальный поповер ───────────────────────────────────────────────────
 
@@ -45,9 +46,14 @@ function PopoverPanel({ children, className }: { children: ReactNode; className?
   )
 }
 
+/**
+ * Состояние подключения.
+ *
+ * <p>Название магазина сюда намеренно не входит: его и так показывает строка выше, и в
+ * переключателе повторялось бы дважды подряд — «OZON 1154» и «Подключён · OZON 1154».
+ */
 function statusText(m: MarketplaceInfo): string {
-  if (!m.connected) return 'Не подключён'
-  return `Подключён${m.accountName ? ` · ${m.accountName}` : m.clientId ? ` · ${m.clientId}` : ''}`
+  return m.connected ? 'Подключён' : 'Не подключён'
 }
 
 function StatusDot({ connected }: { connected: boolean }) {
@@ -87,7 +93,7 @@ function MarketplaceSelector({
         )}
       >
         <MarketplaceLogo code={current.code} size="sm" />
-        {current.name}
+        {shopName(current)}
         <ChevronDown size={15} className={cn('text-slate-400 transition-transform', open && 'rotate-180')} />
       </button>
 
@@ -112,7 +118,7 @@ function MarketplaceSelector({
                     <MarketplaceLogo code={m.code} size="md" />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2 text-[13px] font-bold text-slate-800">
-                        {m.name}
+                        {shopName(m)}
                         {active && <Check size={14} className="text-brand-600" />}
                       </span>
                       <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
@@ -218,7 +224,7 @@ function ProfileMenu({
                     <div className="flex items-center gap-3">
                       <MarketplaceLogo code={m.code} size="md" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-bold text-slate-800">{m.name}</div>
+                        <div className="text-[12.5px] font-bold text-slate-800">{shopName(m)}</div>
                         <div
                           className={cn(
                             'mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold',
