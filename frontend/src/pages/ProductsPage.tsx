@@ -167,11 +167,11 @@ export default function ProductsPage({
   }
 
   const catalogMissing = report ? !report.catalog.loaded : false
-const totals = report?.totals
-    // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
-    // чтобы карточка не показывала «NaN» между загрузкой и данными.
-    const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
-    const hasFilter = Boolean(dq || da)
+  const totals = report?.totals
+  // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
+  // чтобы карточка не показывала «NaN» между загрузкой и данными.
+  const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
+  const hasFilter = Boolean(dq || da)
 
   return (
     <>
@@ -224,18 +224,29 @@ const totals = report?.totals
       ) : (
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           {totals && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-<Stat label="Доходы" tone="border-emerald-200/60 bg-emerald-50/60" delay={0.05}>
-            <AnimatedNumber value={totals.income} />
-          </Stat>
-          <Stat
-            label="Выручка"
-            tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
-            delay={0.1}
-            sub="доход за вычетом расходов"
-          >
-            <AnimatedNumber value={gross} />
-          </Stat>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat
+                label="Доходы"
+                tone="border-emerald-200/60 bg-emerald-50/60"
+                delay={0.05}
+                sub={
+                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                    <span>продано {fmtNum(totals.soldQuantity ?? 0)} шт</span>
+                    {(totals.returnedQuantity ?? 0) > 0 && (
+                      <span>возвращено {fmtNum(totals.returnedQuantity ?? 0)} шт</span>
+                    )}
+                  </span>
+                }
+              >
+                <AnimatedNumber value={totals.income} />
+              </Stat>
+              <Stat
+                label="Выручка"
+                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+                delay={0.1}
+              >
+                <AnimatedNumber value={gross} />
+              </Stat>
               <Stat
                 label="Расходы по товарам"
                 tone="border-rose-200/60 bg-rose-50/60"
@@ -247,16 +258,6 @@ const totals = report?.totals
                 }
               >
                 <AnimatedNumber value={totals.expenses} />
-              </Stat>
-              <Stat
-                label="Продано"
-                tone="border-brand-200/60 bg-brand-50/60"
-                delay={0.15}
-                sub={
-                  (totals.returnedQuantity ?? 0) > 0 ? `возвращено ${fmtNum(totals.returnedQuantity ?? 0)} шт` : undefined
-                }
-              >
-                <AnimatedNumber value={totals.soldQuantity ?? 0} suffix=" шт" />
               </Stat>
               <Stat
                 label="Товаров с продажами"
