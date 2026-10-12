@@ -23,6 +23,7 @@
 | [docs/API.md](docs/API.md) | Все методы API с примерами ответов |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Устройство backend: слои, сущности, решения |
 | [frontend/README.md](frontend/README.md) | Устройство интерфейса: структура, автозагрузка, сборка |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | Пайплайн: работа с git, CI/CD, аренда сервера, домен, публикация |
 | [docs/VERIFY.md](docs/VERIFY.md) | Проверка сходимости на настоящих данных |
 
 ---

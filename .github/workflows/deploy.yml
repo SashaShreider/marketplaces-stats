@@ -1,0 +1,69 @@
+name: Deploy
+
+# Публикация: коммит попал в main — сайт обновился.
+#
+# Сборка образа идёт на сервере, а не здесь. Для одного сервера это проще и надёжнее
+# передачи готового образа: не нужен реестр образов, не нужны логины в него, а кэш
+# Gradle и npm живёт в томах на самом сервере и переиспользуется между деплоями.
+# Плата — две-четыре минуты сборки на каждый деплой.
+#
+# Если серверов станет несколько или деплои станут чаще, сборку переносят в реестр
+# образов (GitHub Container Registry), и здесь остаётся только docker pull.
+
+on:
+  push:
+    branches: [main]
+  # Ручной запуск: вкладка Actions → Deploy → Run workflow.
+  workflow_dispatch:
+
+# Один деплой за раз. Параллельные деплои на одном сервере стали бы драться за один
+# и тот же каталог, и второй докончил бы работу поверх первого.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Обновить сайт на сервере
+    runs-on: ubuntu-latest
+    steps:
+      - name: Подключение к сервере
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script: |
+            set -euo pipefail
+
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            # Собираем ровно то состояние, которое проверено в main, а не то, что
+            # было пять минут назад. reset --hard вместо pull: рабочий каталог сервера
+            # не должен хранить правки, иначе следующий деплой применит чужие.
+            git fetch --prune origin
+            git checkout main
+            git reset --hard origin/main
+
+            # Миграции Flyway применяются сами при старте приложения — отдельного
+            # шага для них не нужно. Отдельной базы для проверки миграций на сервере
+            # тоже не нужно: их применимость проверяет задание integration в ci.yml.
+            docker compose up -d --build app
+
+            # Проверка живости. Без неё деплой считался бы успешным и при упавшем
+            # приложении, а заметить это можно было бы только по жалобам.
+            echo "Ждём, пока приложение ответит…"
+            for i in $(seq 1 40); do
+              if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+                echo "Приложение поднялось за $((i * 5)) секунд"
+                echo "Интерфейс отвечает: $(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)"
+                echo "Готово: $(git rev-parse --short HEAD)"
+                exit 0
+              fi
+              sleep 5
+            done
+
+            echo "Приложение не поднялось за 200 секунд. Логи:"
+            docker compose logs --tail 100 app
+            exit 1
