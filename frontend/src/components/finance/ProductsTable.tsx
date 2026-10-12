@@ -33,7 +33,8 @@ function Thumb({ src, name }: { src: string | null; name: string }) {
   )
 }
 
-function Row({ r }: { r: ProductRow }) {
+/** Порядковый номер строки на текущей странице: нужен, чтобы о ссылку на позицию можно было сказать вслух. */
+function Row({ r, n }: { r: ProductRow; n: number }) {
   const sold = r.soldQuantity ?? r.quantity ?? 0
   const returned = r.returnedQuantity ?? 0
   const authors = r.authors.map((a) => a.raw)
@@ -46,6 +47,9 @@ function Row({ r }: { r: ProductRow }) {
   const hasExpenses = Math.round(expenses) !== 0
   return (
     <tr className="group transition-colors hover:bg-brand-50/50">
+      <td className="tnum w-10 border-b border-slate-100 px-2 py-3 text-right align-top text-[11.5px] font-semibold text-slate-300 group-hover:border-brand-100 group-hover:text-slate-400">
+        {n}
+      </td>
       <td className="border-b border-slate-100 px-4 py-3 group-hover:border-brand-100">
         <div className="flex items-center gap-3">
           <Thumb src={r.primaryImage} name={r.name} />
@@ -93,6 +97,7 @@ function Row({ r }: { r: ProductRow }) {
 }
 
 const HEAD = [
+  ['№', 'text-right'],
   ['Товар', 'text-left'],
   ['SKU / артикул', 'text-left'],
   ['Продано', 'text-right'],
@@ -126,9 +131,14 @@ export default function ProductsTable({
   const firstShown = rows.length ? page * size + 1 : 0
   const lastShown = page * size + rows.length
 
+  // Подвал с кнопками страниц нужен, только когда есть куда листать. Когда всё
+  // поместилось, он показывал бы «Страница 1 из 1» и две нерабочие кнопки —
+  // шум вместо счётчика строк, который в этом случае единственное, что полезно.
+  const showPager = totalRows > size
+
   // Итог приходит с сервера: бэкенд считает его по всем товарам отбора, а строк
   // отдаёт только текущую страницу. Складывать показанное — значит показать
-  // 25 товаров и подписать это «Итого».
+  // товары одной страницы и подписать это «Итого».
   const gross = revenue(selectionTotals.income, selectionTotals.expenses)
   // Ноль расходов показываем нулём, а не «−0 ₽»: иначе итог выглядел бы
   // вычетом, которого не было.
@@ -154,12 +164,12 @@ export default function ProductsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <Row key={r.sku} r={r} />
+            {rows.map((r, i) => (
+              <Row key={r.sku} r={r} n={firstShown + i} />
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-14 text-center text-[13px] font-medium text-slate-400">
+                <td colSpan={7} className="px-4 py-14 text-center text-[13px] font-medium text-slate-400">
                   {filtered ? 'По вашему запросу ничего не найдено' : 'Товаров нет'}
                 </td>
               </tr>
@@ -169,7 +179,7 @@ export default function ProductsTable({
             <tfoot className="sticky bottom-0 z-10 bg-slate-50/95 backdrop-blur">
               <tr className="shadow-[0_-1px_0_0_rgb(226_232_240)]">
                 <td
-                  colSpan={2}
+                  colSpan={3}
                   className="border-t border-slate-200 px-4 py-2.5 text-left text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-slate-500"
                 >
                   Итого
@@ -197,22 +207,24 @@ export default function ProductsTable({
         </table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2">
-        <span className="text-[12px] font-medium text-slate-400">
-          {rows.length > 0 ? (
-            <>
-              Показано <span className="tnum font-bold text-slate-600">{firstShown}</span>–
-              <span className="tnum font-bold text-slate-600">{lastShown}</span> из{' '}
-              <span className="tnum font-bold text-slate-600">{fmtNum(totalRows)}</span>
-            </>
-          ) : (
-            <>
-              Ничего не найдено из{' '}
-              <span className="tnum font-bold text-slate-600">{fmtNum(totalRows)}</span>
-            </>
-          )}
-        </span>
-        <div className="flex items-center gap-3">
+      {(showPager || rows.length === 0) && (
+        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2">
+          <span className="text-[12px] font-medium text-slate-400">
+            {rows.length > 0 ? (
+              <>
+                Показано <span className="tnum font-bold text-slate-600">{firstShown}</span>–
+                <span className="tnum font-bold text-slate-600">{lastShown}</span> из{' '}
+                <span className="tnum font-bold text-slate-600">{fmtNum(totalRows)}</span>
+              </>
+            ) : (
+              <>
+                Ничего не найдено из{' '}
+                <span className="tnum font-bold text-slate-600">{fmtNum(totalRows)}</span>
+              </>
+            )}
+          </span>
+          {showPager && (
+          <div className="flex items-center gap-3">
           <span className="text-[12px] font-semibold text-slate-500">
             Страница <span className="tnum font-extrabold text-slate-800">{page + 1}</span> из{' '}
             <span className="tnum font-extrabold text-slate-800">{Math.max(1, totalPages)}</span>
@@ -235,8 +247,10 @@ export default function ProductsTable({
               <ChevronRight size={15} />
             </button>
           </div>
+          </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   )
 }
