@@ -362,7 +362,7 @@ export default function ProductsPage({
               <div className="mt-3 flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-slate-400">
                 <Info size={13} className="mt-0.5 shrink-0" />
                 Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги)
-                маркетплейс присылает без привязки к SKU — {fmtMoney(report.unallocatedExpenses)} за период.
+                маркетплейс присылает без привязки к SKU.
               </div>
             )}
             {report.skusMissingFromCatalog.length > 0 && (
