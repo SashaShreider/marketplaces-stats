@@ -7,6 +7,7 @@ import ru.analizer.analytics.domain.ProductReport;
 import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.CatalogAdapterConfig;
+import ru.analizer.support.CatalogFixtureAdapter;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
 import ru.analizer.sync.domain.RunState;
@@ -683,26 +684,44 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Архивный товар догружается по SKU из начислений и помечается")
-    void archivedProductIsFetchedBySkuAndMarked() {
+    @DisplayName("При первой загрузке обычные товары не помечаются архивными")
+    void firstImportDoesNotMarkRegularProductsArchived() {
         FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
-        // SKU, который продаётся в этот день. Он есть в фикстуре каталога, поэтому
-        // догрузка его найдёт, — но в основной обход он не попадает: там visibility=ALL,
-        // а это «все товары, кроме архивных».
-        long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
-
+        // Каталога в базе ещё нет, поэтому запрос «что есть в начислениях, но нет в
+        // каталоге» возвращает все SKU начислений — включая те, что обход уже принёс.
+        // Без фильтра они сочлись бы архивными и перезаписали бы обычные товары.
         catalogImportService.importProducts(accountId(), null);
 
-        // Импорт находит SKU в начислениях, которых нет в каталоге, и спрашивает их
-        // отдельно. Без этого товар с продажами просто исчез бы из отчёта.
-        Boolean archived = jdbc.queryForObject(
-                "select archived from ozon_product where sku = ?", Boolean.class, sku);
-        assertThat(archived).isTrue();
-        String name = jdbc.queryForObject(
-                "select name from ozon_product where sku = ?", String.class, sku);
-        assertThat(name).isNotBlank();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from ozon_product where archived", Long.class))
+                .as("ни один товар обычного обхода не должен попасть в архивные")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("Товар, которого нет в обходе, догружается и помечается архивным")
+    void productMissingFromTraversalIsFetchedAsArchived() {
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+        long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+
+        // Прячем товар из обхода: так ведёт себя OZON с товаром в архиве — при
+        // visibility=ALL его нет, а по точному SKU он находится.
+        CatalogFixtureAdapter.hideSku(sku);
+        try {
+            catalogImportService.importProducts(accountId(), null);
+
+            Boolean archived = jdbc.queryForObject(
+                    "select archived from ozon_product where sku = ?", Boolean.class, sku);
+            assertThat(archived).as("товар вне обхода должен попасть в каталог архивным").isTrue();
+            String name = jdbc.queryForObject(
+                    "select name from ozon_product where sku = ?", String.class, sku);
+            assertThat(name).as("карточка догружается, а не остаётся пустой").isNotBlank();
+        } finally {
+            CatalogFixtureAdapter.showAll();
+        }
     }
 
     @Test

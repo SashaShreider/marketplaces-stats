@@ -14,6 +14,8 @@ import ru.analizer.integration.model.ProductEntry;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Загрузка каталога товаров.
@@ -65,7 +67,10 @@ public class CatalogImportService {
 
         // Архивные догружаем до подсчёта итогов, иначе они учитывались бы дважды:
         // обход их не видит, а в total уже вошли бы отдельной строкой ниже.
-        List<ProductEntry> archived = archivedProducts(account);
+        Set<Long> fetched = products.stream()
+                .map(ProductEntry::sku)
+                .collect(Collectors.toSet());
+        List<ProductEntry> archived = archivedProducts(account, fetched);
         products.addAll(archived);
 
         int total = products.size();
@@ -106,16 +111,27 @@ public class CatalogImportService {
      * просто не показывались, и суммы отчёта по товарам расходились с дневным на всю
      * сумму их продаж — без единого слова о том, откуда взялась разница.
      *
-     * <p>Список берётся после основного обхода и до записи: пока товары в базу не
-     * легли, запрос «что есть в начислениях, но нет в каталоге» возвращает и те SKU,
-     * которые обход уже принёс. После записи он вернул бы пустоту.
+     * <p>Список берётся после основного обхода и до записи, и поэтому требует фильтра.
+     * Пока товары в базу не легли, запрос «что есть в начислениях, но нет в каталоге»
+     * возвращает <b>все</b> SKU из начислений — включая те, что обход уже принёс: они
+     * ещё не записаны, а запрос смотрит в таблицу. Без фильтра они сочлись бы
+     * архивными, и, будучи дописаны в конец списка, перезаписали бы только что
+     * сохранённые обычные товары. Заметнее всего это при первой загрузке, когда
+     * каталога в базе нет вовсе; при повторной плашки лишние не появляются, потому
+     * что товары уже на месте и в запрос не попадают.
      *
      * <p>Пустой результат — обычное дело, а не сбой: у аккаунта просто нет таких
      * товаров. Именно поэтому догрузка не является отдельной задачей и не влияет на
      * счётчики прогресса.
+     *
+     * @param fetched SKU, уже принесённые обходом каталога; они точно не архивные
      */
-    private List<ProductEntry> archivedProducts(SellerAccount account) {
-        List<Long> missing = productRepository.skusMissingFromCatalog(account.getId());
+    private List<ProductEntry> archivedProducts(SellerAccount account, Set<Long> fetched) {
+        List<Long> missing = productRepository.skusMissingFromCatalog(account.getId()).stream()
+                // Обход принёс товар — значит он доступен к продаже, иначе его не было бы
+                // среди «всех, кроме архивных». Помечать его архивным нельзя.
+                .filter(sku -> !fetched.contains(sku))
+                .toList();
         if (missing.isEmpty()) {
             return List.of();
         }
