@@ -15,8 +15,9 @@ import type {
   ImportProgress,
   MarketplaceInfo,
   ProductSort,
-  ProductsReport,
-  User,
+    ProductsReport,
+    SalesDynamics,
+    User,
 } from '@/types'
 
 const mpPath = (code: string) => `/api/marketplaces/${encodeURIComponent(code.toLowerCase())}`
@@ -103,5 +104,20 @@ export interface ProductsQuery {
 
 export const getProducts = (code: string, q: ProductsQuery) =>
   request<ProductsReport>('GET', `${mpPath(code)}/analytics/products`, {
+    query: { ...q },
+  })
+
+/**
+ * Динамика продаж по дням.
+ *
+ * author и sku несовместимы: это два разных отбора, и бэкенд при заданном sku
+ * игнорирует автора. Передача обоих сразу означала бы искать товар сразу у двух
+ * продавцов, а задача у пользователя одна.
+ */
+export const getSalesDynamics = (
+  code: string,
+  q: { dateFrom: string; dateTo: string; author?: string; sku?: number },
+) =>
+  request<SalesDynamics>('GET', `${mpPath(code)}/analytics/products/dynamics`, {
     query: { ...q },
   })

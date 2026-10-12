@@ -6,6 +6,7 @@ import { describeError } from '@/api/http'
 import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import EmptyState from '@/components/marketplace/EmptyState'
+import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SyncIndicator from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
@@ -417,6 +418,8 @@ export default function ProductsPage({
               filtered={hasFilter}
               onPageChange={setPage}
             />
+
+            <ProductSalesDynamics mp={mp.code} range={range} authors={authors} />
 
             {report.skusMissingFromCatalog.length > 0 && (
               <div className="mt-2 flex items-start gap-2 text-[11.5px] font-semibold leading-relaxed text-amber-600">
