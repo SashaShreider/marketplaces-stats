@@ -25,7 +25,7 @@ concurrency:
 jobs:
   deploy:
     name: Обновить сайт на сервере
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Подключение к сервере
         uses: appleboy/ssh-action@v1

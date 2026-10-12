@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, ChevronDown, Loader2, Lock, Server, User as UserIcon } from 'lucide-react'
+import { AlertTriangle, Loader2, Lock, User as UserIcon } from 'lucide-react'
 import { login, register } from '@/api/client'
-import { API_BASE, ApiError, describeError, resetApiBase, saveApiBase } from '@/api/http'
+import { ApiError, describeError } from '@/api/http'
 import { cn } from '@/utils/cn'
 import type { User } from '@/types'
 
@@ -21,8 +21,6 @@ export default function AuthScreen({
   const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(initialError ?? null)
-  const [showServer, setShowServer] = useState(Boolean(initialError))
-  const [serverUrl, setServerUrl] = useState(API_BASE)
 
   const switchMode = (m: Mode) => {
     setMode(m)
@@ -58,12 +56,6 @@ export default function AuthScreen({
     } finally {
       setBusy(false)
     }
-  }
-
-  const saveServer = () => {
-    if (serverUrl.trim()) saveApiBase(serverUrl)
-    else resetApiBase()
-    window.location.reload()
   }
 
   const input =
