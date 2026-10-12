@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import ru.analizer.analytics.domain.ProductReport;
+import ru.analizer.analytics.domain.SalesDynamicsReport;
 import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.CatalogAdapterConfig;
@@ -298,6 +299,96 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         long soldSkus = new java.util.HashSet<>(FixtureAdapters.soldSkus(FINANCE_FIXTURE)).size();
         assertThat(soldSkus).isGreaterThan(0);
         assertThat(report.rows()).filteredOn(r -> r.income().signum() == 0).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("Сумма продаж в динамике равна итогу отчёта по товарам")
+    void dynamicsTotalsMatchProductReport() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        SalesDynamicsReport dynamics = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null);
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+
+        int sumSold = dynamics.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum();
+        int sumReturned = dynamics.days().stream()
+                .mapToInt(SalesDynamicsReport.SalesDay::returned).sum();
+
+        // Главное свойство динамики: сумма под графиком обязана совпадать с итогом.
+        // Расхождение означало бы, что график показывает не то, что таблица.
+        assertThat(sumSold).isEqualTo(report.selectionTotals().soldQuantity());
+        assertThat(sumReturned).isEqualTo(report.totals().returnedQuantity());
+        assertThat(dynamics.days()).isNotEmpty();
+        assertThat(dynamics.filter()).isEqualTo("Все товары");
+    }
+
+    @Test
+    @DisplayName("Фильтр по автору оставляет в динамике только его товары")
+    void dynamicsRespectAuthorFilter() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        SalesDynamicsReport all = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null);
+        SalesDynamicsReport author = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null);
+
+        int allSold = all.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum();
+        int authorSold = author.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum();
+        assertThat(authorSold).isPositive().isLessThan(allSold);
+        assertThat(author.filter()).isEqualTo("Сурцуков Анатолий");
+
+        // Сумма по автору обязана совпадать с суммой его же товаров в отчёте —
+        // иначе график и таблица считают разное.
+        ProductReport authorReport = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null, "SKU", 0, 500);
+        assertThat(authorSold).isEqualTo(authorReport.selectionTotals().soldQuantity());
+    }
+
+    @Test
+    @DisplayName("По конкретному SKU динамика показывает только его продажи")
+    void dynamicsRespectSkuFilter() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        Long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+        SalesDynamicsReport one = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, sku);
+
+        assertThat(one.days()).isNotEmpty();
+        assertThat(one.filter()).isEqualTo("SKU " + sku);
+        assertThat(one.days()).allSatisfy(d -> assertThat(d.sold()).isPositive());
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+        int expected = report.rows().stream()
+                .filter(r -> r.sku() == sku)
+                .mapToInt(r -> r.soldQuantity())
+                .sum();
+        assertThat(one.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum())
+                .isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("Продажи товара без карточки в каталоге всё равно попадают в динамику")
+    void dynamicsIncludeProductsMissingFromCatalog() {
+        // Каталог не импортируем: SKU из начислений в нём нет, но продажи от этого
+        // не перестают быть продажами. Если бы динамика опиралась на каталог, сумма
+        // под графиком разошлась бы с итогом ровно на сумму таких товаров.
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        SalesDynamicsReport dynamics = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null);
+
+        assertThat(dynamics.days()).isNotEmpty();
+        assertThat(dynamics.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum())
+                .isPositive();
     }
 
     @Test

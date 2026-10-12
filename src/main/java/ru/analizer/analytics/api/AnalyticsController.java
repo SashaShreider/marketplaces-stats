@@ -8,6 +8,7 @@ import ru.analizer.analytics.application.DailyAnalyticsService;
 import ru.analizer.analytics.application.ProductAnalyticsService;
 import ru.analizer.analytics.domain.DailyReport;
 import ru.analizer.analytics.domain.ProductReport;
+import ru.analizer.analytics.domain.SalesDynamicsReport;
 
 import java.time.LocalDate;
 import java.util.Locale;
@@ -101,8 +102,39 @@ public class AnalyticsController {
                 dateFrom, dateTo, author, query, sort, page, size);
     }
 
-    /**
-     * Аккаунт текущего пользователя на маркетплейсе; пусто — не подключён.
+      /**
+       * GET /api/marketplaces/ozon/analytics/products/dynamics?dateFrom=…&dateTo=…
+       *
+       * <p>Продажи и возвраты по дням периода — для графика под таблицей товаров.
+       * Количество в штуках, а не суммы: у отчёта по товарам строки это товары, и
+       * без этого запроса пришлось бы скачивать весь отчёт только ради рисунка.
+       *
+       * <p>Без фильтров показывает все товары. {@code author} и {@code sku} —
+       * два разных отбора, и одновременно они не применяются: при заданном
+       * {@code sku} автор игнорируется, иначе пришлось бы искать товар сразу у двух
+       * продавцов. Задача у пользователя одна.
+       *
+       * <p>Дни без операций в {@code days} не попадают, а состояние периода приходит
+       * в {@code coverage}: без него «день без продаж» и «день не загружен» на графике
+       * выглядели бы одинаково.
+       *
+       * @param author автор ровно в том написании, в каком указан в карточке товара
+       * @param sku    конкретный SKU
+       */
+      @GetMapping("/products/dynamics")
+      public SalesDynamicsReport salesDynamics(
+              @PathVariable String marketplace,
+              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+              @RequestParam(required = false) String author,
+              @RequestParam(required = false) Long sku) {
+
+          return productAnalytics.salesDynamics(marketplaceCode(marketplace), accountId(marketplace),
+                  dateFrom, dateTo, author, sku);
+      }
+
+      /**
+       * Аккаунт текущего пользователя на маркетплейсе; пусто — не подключён.
      *
      * <p>Пусто не ошибка: отчёт обязан ответить {@code NOT_LOADED}, чтобы клиент
      * предложил загрузку, а не показал нули как будто денег не было.
