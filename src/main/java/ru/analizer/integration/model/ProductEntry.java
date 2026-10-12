@@ -7,6 +7,8 @@ import java.util.List;
  *
  * @param sku     идентификатор товара в OZON; связывает каталог с начислениями
  * @param rawJson исходный JSON товара целиком — чтобы ничто не потерялось при смене правил
+ * @param archived товар в архиве OZON: {@code visibility=ALL} его не возвращает, но
+ *                 начисления по нему есть, поэтому в каталог он попадает отдельно
  */
 public record ProductEntry(
         long sku,
@@ -23,8 +25,20 @@ public record ProductEntry(
         Integer depthMm,
         Long modelId,
         List<ProductAttributeEntry> attributes,
-        String rawJson
+        String rawJson,
+        boolean archived
 ) {
+
+    /** Товар обычный: так его отдаёт основной обход каталога. */
+    public ProductEntry(
+            long sku, Long ozonProductId, String offerId, String name, String barcode,
+            Long typeId, Long descriptionCategoryId, String primaryImage,
+            Integer weightGrams, Integer widthMm, Integer heightMm, Integer depthMm,
+            Long modelId, List<ProductAttributeEntry> attributes, String rawJson) {
+        this(sku, ozonProductId, offerId, name, barcode, typeId, descriptionCategoryId,
+                primaryImage, weightGrams, widthMm, heightMm, depthMm, modelId,
+                attributes, rawJson, false);
+    }
 
     public ProductEntry {
         attributes = attributes == null ? List.of() : List.copyOf(attributes);

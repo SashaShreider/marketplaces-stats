@@ -76,6 +76,17 @@ public class OzonProduct {
     @Column(name = "model_id")
     private Long modelId;
 
+    /**
+     * Товар в архиве OZON.
+     *
+     * <p>Не часть характеристик, а состояние: он есть в истории начислений, но
+     * {@code visibility=ALL} его не возвращает. Без отдельного признака отчёт не мог
+     * бы отличить «товара нет» от «товар есть, но снят с продажи» — а это разные
+     * ситуации для продавца.
+     */
+    @Column(name = "archived", nullable = false)
+    private boolean archived;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_data", nullable = false, columnDefinition = "jsonb")
     private String rawData;
@@ -102,10 +113,28 @@ public class OzonProduct {
      * меняет название, цену и характеристики, и каталог должен показывать текущее
      * состояние, иначе фильтр по автору перестал бы работать после правки карточки.
      */
+public void refreshFrom(Long ozonProductId, String offerId, String name, String barcode,
+                              Long typeId, Long descriptionCategoryId, String primaryImage,
+                              String isbn, Integer weightGrams, Integer widthMm, Integer heightMm,
+                              Integer depthMm, Long modelId, String rawData, Instant now) {
+        refreshFrom(ozonProductId, offerId, name, barcode, typeId, descriptionCategoryId,
+                primaryImage, isbn, weightGrams, widthMm, heightMm, depthMm, modelId, rawData,
+                now, false);
+    }
+
+    /**
+     * Обновляет товар из ответа OZON вместе с признаком архивности.
+     *
+     * <p>Признак передаётся именно сюда, а не ставится отдельно после сохранения:
+     * иначе между записью карточки и отметкой состояния был бы момент, в который
+     * товар в базе выглядит обычным, и прерванный импорт оставил бы его таким
+     * навсегда.
+     */
     public void refreshFrom(Long ozonProductId, String offerId, String name, String barcode,
-                            Long typeId, Long descriptionCategoryId, String primaryImage,
-                            String isbn, Integer weightGrams, Integer widthMm, Integer heightMm,
-                            Integer depthMm, Long modelId, String rawData, Instant now) {
+                              Long typeId, Long descriptionCategoryId, String primaryImage,
+                              String isbn, Integer weightGrams, Integer widthMm, Integer heightMm,
+                              Integer depthMm, Long modelId, String rawData, Instant now,
+                              boolean archived) {
         this.ozonProductId = ozonProductId;
         this.offerId = offerId;
         this.name = name;
@@ -118,10 +147,16 @@ public class OzonProduct {
         this.widthMm = widthMm;
         this.heightMm = heightMm;
         this.depthMm = depthMm;
-        this.modelId = modelId;
-        this.rawData = rawData;
-        this.lastSyncedAt = now;
-    }
+          this.modelId = modelId;
+          this.rawData = rawData;
+          this.lastSyncedAt = now;
+          this.archived = archived;
+      }
+
+      /** Товар снят с продажи и убран в архив OZON. */
+      public boolean isArchived() {
+          return archived;
+      }
 
     public Long getId() {
         return id;
@@ -187,9 +222,13 @@ public class OzonProduct {
         return modelId;
     }
 
-    public String getRawData() {
-        return rawData;
-    }
+      public String getRawData() {
+          return rawData;
+      }
+
+      public boolean getArchived() {
+          return archived;
+      }
 
     public Instant getFirstSeenAt() {
         return firstSeenAt;

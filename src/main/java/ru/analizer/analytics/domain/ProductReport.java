@@ -37,6 +37,7 @@ public record ProductReport(
         ReportCoverage coverage,
         CatalogInfo catalog,
         ProductTotals totals,
+        SelectionTotals selectionTotals,
         List<ProductRow> rows,
         int page,
         int size,
@@ -48,6 +49,26 @@ public record ProductReport(
 
     /** Данные каталога: сколько товаров и когда он последний раз обновлялся. */
     public record CatalogInfo(long products, java.time.Instant lastSyncedAt, boolean loaded) {
+    }
+
+    /**
+     * Итоги по текущему отбору — те, что стоят в строке «Итого» под таблицей.
+     *
+     * <p>Отделены от {@link ProductTotals} не избыточностью, а разным вопросом.
+     * Карточки наверху отвечают «сколько заработано за период», и это число не должно
+     * меняться от того, что пользователь выбрал автора. Строка «Итого» отвечает на
+     * другой вопрос — «сколько заработано на том, что сейчас на экране», — и обязана
+     * меняться вместе с фильтром. Одно число на оба ответа означало бы, что либо
+     * карточки, либо итог врут.
+     *
+     * <p>Считается по всем товарам отбора, а не по текущей странице: клиент отдаёт
+     * по 25 позиций, и сумма показанного не равна сумме отбора.
+     */
+    public record SelectionTotals(
+            int soldQuantity,
+            BigDecimal income,
+            BigDecimal expenses
+    ) {
     }
 
     /** Итоги периода. Считаются по всем товарам, а не по текущей странице. */
@@ -80,8 +101,16 @@ public record ProductReport(
             int soldQuantity,
             int returnedQuantity,
             int accrualCount,
-            FinancialSummary financial
-    ) {
+          FinancialSummary financial,
+          /**
+           * Товар снят с продажи и убран в архив OZON.
+           *
+           * <p>Отдельное поле, а не пустое название: у архивного товара карточка есть
+           * и данные верные, отличается только состояние. Помечать его в интерфейсе
+           * нужно, иначе продавец будет искать в кабинете товар, которого там уже нет.
+           */
+          boolean archived
+  ) {
 
     // TODO(#response-duplication): income и expenses ниже повторяют значения из
         // financial, но soldQuantity и returnedQuantity внутри financial — нет. Клиенту

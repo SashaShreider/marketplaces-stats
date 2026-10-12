@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import {
-  AlertTriangle, ChevronLeft, ChevronRight, CloudDownload, Info, Package, RefreshCw, Search, X,
-} from 'lucide-react'
+import { AlertTriangle, CloudDownload, Info, Package, RefreshCw, Search, X } from 'lucide-react'
 import { getAuthors, getProducts } from '@/api/client'
 import { describeError } from '@/api/http'
 import DateRangePicker from '@/components/common/DateRangePicker'
+import ProductsTable from '@/components/finance/ProductsTable'
 import EmptyState from '@/components/marketplace/EmptyState'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SyncIndicator, { syncStateOf } from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
-import type { DateRange, MarketplaceInfo, ProductRow, ProductSort, ProductsReport } from '@/types'
+import type { DateRange, MarketplaceInfo, ProductSort, ProductsReport } from '@/types'
 import { cn } from '@/utils/cn'
-import { fmtDateTime, fmtMoney, fmtNum } from '@/utils/format'
+import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 200
 
 const SORTS: { id: ProductSort; label: string }[] = [
   { id: 'INCOME', label: 'По доходу' },
@@ -32,14 +31,41 @@ function useDebounced<T>(value: T, ms = 350): T {
   return v
 }
 
+/**
+ * Значок с подсказкой при наведении.
+ *
+ * <p>Подсказка на CSS, а не на состоянии: наведение мыши не должно вызывать
+ * перерисовку страницы, а появление и скрытие подсказки не должно требовать
+ * обработчиков, которые нужно не забыть снять.
+ */
+function Hint({ text }: { text: string }) {
+  return (
+    <span className="group/hint relative inline-flex align-middle">
+      <Info
+        size={13}
+        className="cursor-help text-slate-400 transition-colors group-hover/hint:text-slate-600"
+      />
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[12px] font-medium normal-case leading-relaxed tracking-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/hint:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
 function Stat({
   label,
+  hint,
   children,
   sub,
   tone,
   delay,
 }: {
   label: string
+  /** Объяснение подписи, если её нельзя прочитать буквально */
+  hint?: string
   children: React.ReactNode
   sub?: React.ReactNode
   tone: string
@@ -52,74 +78,16 @@ function Stat({
       transition={{ duration: 0.4, delay }}
       className={cn('rounded-2xl border p-4', tone)}
     >
-      <div className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
+        {label}
+        {hint && <Hint text={hint} />}
+      </div>
       <div className="mt-2 text-[24px] font-extrabold leading-none tracking-tight text-slate-900">{children}</div>
       {sub && <div className="mt-2 text-[12px] font-medium text-slate-500">{sub}</div>}
     </motion.div>
   )
 }
 
-function Thumb({ src, name }: { src: string | null; name: string }) {
-  const [failed, setFailed] = useState(false)
-  if (!src || failed) {
-    return (
-      <span className="flex h-12 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-300">
-        <Package size={16} />
-      </span>
-    )
-  }
-  return (
-    <img
-      src={src}
-      alt={name}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className="h-12 w-9 shrink-0 rounded-md bg-slate-100 object-cover ring-1 ring-slate-200/70"
-    />
-  )
-}
-
-function Row({ r }: { r: ProductRow }) {
-  const sold = r.soldQuantity ?? r.quantity ?? 0
-  const returned = r.returnedQuantity ?? 0
-  const authors = r.authors.map((a) => a.raw)
-  return (
-    <tr className="group transition-colors hover:bg-brand-50/50">
-      <td className="border-b border-slate-100 px-4 py-3 group-hover:border-brand-100">
-        <div className="flex items-center gap-3">
-          <Thumb src={r.primaryImage} name={r.name} />
-          <div className="min-w-0 max-w-[420px]">
-            <div className="line-clamp-2 text-[13px] font-bold leading-snug text-slate-800" title={r.name}>
-              {r.name}
-            </div>
-            <div className="mt-0.5 truncate text-[11.5px] font-medium text-slate-400">
-              {authors.length > 0 ? authors.join(', ') : 'Автор не указан'}
-              {r.isbn && <span> · ISBN {r.isbn}</span>}
-            </div>
-          </div>
-        </div>
-      </td>
-      <td className="whitespace-nowrap border-b border-slate-100 px-4 py-3 text-left group-hover:border-brand-100">
-        <div className="tnum text-[12.5px] font-bold text-slate-700">{r.sku}</div>
-        {r.offerId && <div className="text-[11px] font-medium text-slate-400">{r.offerId}</div>}
-      </td>
-      <td className="whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right group-hover:border-brand-100">
-        <span className={cn('tnum text-[13px] font-bold', sold > 0 ? 'text-slate-800' : 'text-slate-300')}>
-          {fmtNum(sold)}
-        </span>
-        {returned > 0 && (
-          <span className="tnum ml-1.5 text-[11px] font-semibold text-rose-500">−{fmtNum(returned)}</span>
-        )}
-      </td>
-      <td className="tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-extrabold text-slate-900 group-hover:border-brand-100">
-        {r.income ? fmtMoney(r.income) : <span className="text-slate-300">0 ₽</span>}
-      </td>
-      <td className="tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-semibold text-rose-500 group-hover:border-brand-100">
-        {r.expenses ? `−${fmtMoney(Math.abs(r.expenses))}` : <span className="text-slate-300">0 ₽</span>}
-      </td>
-    </tr>
-  )
-}
 
 export default function ProductsPage({
   mp,
@@ -230,7 +198,19 @@ export default function ProductsPage({
 
   const catalogMissing = report ? !report.catalog.loaded : false
   const totals = report?.totals
+  // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
+  // чтобы карточка не показывала «NaN» между загрузкой и данными.
+  const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
   const hasFilter = Boolean(dq || da)
+  // Подсказка объясняет, почему расходы по товарам меньше, чем в «Обзоре».
+  // Раньше это был абзац под таблицей: он висел на странице постоянно и описывал
+  // ситуацию, заметную только при сравнении двух экранов. По наведению он
+  // появляется ровно тогда, когда человек смотрит на само число.
+  const unallocated = report?.unallocatedExpenses ?? 0
+  const unallocatedHint =
+    unallocated > 0
+      ? `Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU. Сейчас таких расходов ${fmtMoney(unallocated)}.`
+      : 'Часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU — они не попадают в расходы по товарам. Сейчас таких расходов нет.'
 
   return (
     <>
@@ -284,11 +264,31 @@ export default function ProductsPage({
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           {totals && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat label="Доходы" tone="border-emerald-200/60 bg-emerald-50/60" delay={0.05}>
+              <Stat
+                label="Доходы"
+                tone="border-emerald-200/60 bg-emerald-50/60"
+                delay={0.05}
+                sub={
+                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+                    <span>продано {fmtNum(totals.soldQuantity ?? 0)} шт</span>
+                    {(totals.returnedQuantity ?? 0) > 0 && (
+                      <span>возвращено {fmtNum(totals.returnedQuantity ?? 0)} шт</span>
+                    )}
+                  </span>
+                }
+              >
                 <AnimatedNumber value={totals.income} />
               </Stat>
               <Stat
+                label="Выручка"
+                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+                delay={0.1}
+              >
+                <AnimatedNumber value={gross} />
+              </Stat>
+              <Stat
                 label="Расходы по товарам"
+                hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
                 delay={0.1}
                 sub={
@@ -298,16 +298,6 @@ export default function ProductsPage({
                 }
               >
                 <AnimatedNumber value={totals.expenses} />
-              </Stat>
-              <Stat
-                label="Продано"
-                tone="border-brand-200/60 bg-brand-50/60"
-                delay={0.15}
-                sub={
-                  (totals.returnedQuantity ?? 0) > 0 ? `возвращено ${fmtNum(totals.returnedQuantity ?? 0)} шт` : undefined
-                }
-              >
-                <AnimatedNumber value={totals.soldQuantity ?? 0} suffix=" шт" />
               </Stat>
               <Stat
                 label="Товаров с продажами"
@@ -410,87 +400,35 @@ export default function ProductsPage({
               {report.catalog.lastSyncedAt && <> · обновлён {fmtDateTime(report.catalog.lastSyncedAt)}</>}
             </div>
 
-            {/* Таблица */}
-            <div className="mt-4 overflow-hidden rounded-xl border border-slate-200/80">
-              <div className="scroll-slim max-h-[620px] overflow-auto">
-                <table className="w-full min-w-[820px] border-separate border-spacing-0">
-                  <thead>
-                    <tr>
-                      {[
-                        ['Товар', 'text-left'],
-                        ['SKU / артикул', 'text-left'],
-                        ['Продано', 'text-right'],
-                        ['Доход', 'text-right'],
-                        ['Расходы', 'text-right'],
-                      ].map(([l, a]) => (
-                        <th
-                          key={l}
-                          className={cn(
-                            'sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50/95 px-4 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-slate-400 backdrop-blur',
-                            a,
-                          )}
-                        >
-                          {l}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.rows.map((r) => (
-                      <Row key={r.sku} r={r} />
-                    ))}
-                    {report.rows.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-14 text-center text-[13px] font-medium text-slate-400">
-                          {hasFilter ? 'По вашему запросу ничего не найдено' : 'Товаров нет'}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+            <ProductsTable
+              rows={report.rows}
+              selectionTotals={report.selectionTotals}
+              page={report.page}
+              size={report.size}
+              totalRows={report.totalRows}
+              totalPages={report.totalPages}
+              filtered={hasFilter}
+              onPageChange={setPage}
+            />
 
-              <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-2">
-                <span className="text-[12px] font-medium text-slate-400">
-                  Найдено: <span className="tnum font-bold text-slate-600">{fmtNum(report.totalRows)}</span>
-                </span>
-                <div className="flex items-center gap-3">
-                  <span className="text-[12px] font-semibold text-slate-500">
-                    Страница <span className="tnum font-extrabold text-slate-800">{report.page + 1}</span> из{' '}
-                    <span className="tnum font-extrabold text-slate-800">{Math.max(1, report.totalPages)}</span>
-                  </span>
-                  <div className="flex gap-1">
-                    <button
-                      disabled={page === 0}
-                      onClick={() => setPage(page - 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
-                    >
-                      <ChevronLeft size={15} />
-                    </button>
-                    <button
-                      disabled={page >= report.totalPages - 1}
-                      onClick={() => setPage(page + 1)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
-                    >
-                      <ChevronRight size={15} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {report.unallocatedExpenses > 0 && (
-              <div className="mt-3 flex items-start gap-2 text-[11.5px] font-medium leading-relaxed text-slate-400">
-                <Info size={13} className="mt-0.5 shrink-0" />
-                Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги)
-                маркетплейс присылает без привязки к SKU — {fmtMoney(report.unallocatedExpenses)} за период.
-              </div>
-            )}
             {report.skusMissingFromCatalog.length > 0 && (
               <div className="mt-2 flex items-start gap-2 text-[11.5px] font-semibold leading-relaxed text-amber-600">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                {report.skusMissingFromCatalog.length} SKU из начислений нет в каталоге — их расходы не
-                попали в товары. Обновите каталог.
+                <span>
+                  {report.skusMissingFromCatalog.length} SKU из начислений нет в каталоге — их расходы
+                  не попали в товары.{' '}
+                  {/* Список приходит готовым: показывать конкретные номера позволяет
+                      то, что он уже есть в ответе, — а «обновите каталог» без номера
+                      оставляло человека гадать, к какому именно товару это относится. */}
+                  SKU:{' '}
+                  <span className="tnum font-extrabold">
+                    {report.skusMissingFromCatalog.slice(0, 20).join(', ')}
+                  </span>
+                  {report.skusMissingFromCatalog.length > 20 && (
+                    <> и ещё {report.skusMissingFromCatalog.length - 20}</>
+                  )}
+                  . Обновите каталог.
+                </span>
               </div>
             )}
           </motion.section>

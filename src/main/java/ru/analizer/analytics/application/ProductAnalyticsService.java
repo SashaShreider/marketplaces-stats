@@ -132,7 +132,7 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
                     quantity.sold(),
                     quantity.returned(),
                     accrualCounts.getOrDefault(row.sku(), 0),
-                    financial));
+                    financial, row.archived()));
         }
 
         BigDecimal payout = financeFacts.payoutsByDate(account, from, to).values().stream()
@@ -152,6 +152,22 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
         // число за размер каталога.
         long catalogProducts = catalogFacts.productsCount(account, List.of(), null);
 
+        // Второе число для клиента: итоги по отбору, а не по каталогу. Считаем один раз
+        // и сразу по всем SKU отбора, а не по странице, — иначе «Итого» прыгал бы
+        // при перелистывании. Без фильтра отбор это весь каталог, и тогда числа
+        // совпадают с totals, а не расходятся на пустом месте.
+        Set<Long> selection = filters.isEmpty() && (query == null || query.isBlank())
+                ? null
+                : new HashSet<>(catalogFacts.selectionSkus(account, filters, query));
+
+        FinancialSummary selected = FinancialSummary.empty(from, to);
+        for (Map.Entry<Long, FinancialSummary> entry : bySku.entrySet()) {
+            if (selection != null && !selection.contains(entry.getKey())) {
+                continue;
+            }
+            selected = selected.plus(entry.getValue());
+        }
+
         ProductReport.ProductTotals totals = new ProductReport.ProductTotals(
                 all.income(), all.expenses(), payout,
                 all.sales(), all.returns(), all.partnerProgramme(),
@@ -159,11 +175,14 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
                 all.soldQuantity(), all.returnedQuantity(),
                 (int) catalogProducts, withSales);
 
+        ProductReport.SelectionTotals selectionTotals = new ProductReport.SelectionTotals(
+                selected.soldQuantity(), selected.income(), selected.expenses());
+
         return new ProductReport(marketplaceCode, from, to,
                 DailyAnalyticsService.statusOf(periodCoverage), coverage,
                 new ProductReport.CatalogInfo(catalogProducts,
                         catalogFacts.lastCatalogSync(account), catalogProducts > 0),
-                totals, rows, pageIndex, pageSize, totalRows, totalPages,
+                totals, selectionTotals, rows, pageIndex, pageSize, totalRows, totalPages,
                 unallocatedExpenses,
                 catalogFacts.skusMissingFromCatalog(account, from, to));
     }
@@ -216,6 +235,7 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                         BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                         BigDecimal.ZERO, 0, 0, 0, 0),
+                new ProductReport.SelectionTotals(0, BigDecimal.ZERO, BigDecimal.ZERO),
                 List.of(), pageIndex, pageSize, 0, 1, BigDecimal.ZERO, List.of());
     }
 

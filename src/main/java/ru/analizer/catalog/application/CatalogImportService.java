@@ -7,10 +7,12 @@ import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.account.repository.MarketplaceRepository;
 import ru.analizer.account.repository.SellerAccountRepository;
 import ru.analizer.catalog.domain.CatalogImportReport;
+import ru.analizer.catalog.repository.OzonProductRepository;
 import ru.analizer.integration.MarketplaceAdapter;
 import ru.analizer.integration.ProductCatalogAdapter;
 import ru.analizer.integration.model.ProductEntry;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -33,16 +35,19 @@ public class CatalogImportService {
     private final ProductWriter writer;
     private final MarketplaceRepository marketplaceRepository;
     private final SellerAccountRepository sellerAccountRepository;
+    private final OzonProductRepository productRepository;
 
     public CatalogImportService(ProductCatalogAdapter catalogAdapter,
-                              MarketplaceAdapter financeAdapter,
-                              ProductWriter writer,
-                              MarketplaceRepository marketplaceRepository,
-                              SellerAccountRepository sellerAccountRepository) {
+                                MarketplaceAdapter financeAdapter,
+                                ProductWriter writer,
+                                MarketplaceRepository marketplaceRepository,
+                                SellerAccountRepository sellerAccountRepository,
+                                OzonProductRepository productRepository) {
         this.catalogAdapter = catalogAdapter;
         this.writer = writer;
         this.marketplaceRepository = marketplaceRepository;
         this.sellerAccountRepository = sellerAccountRepository;
+        this.productRepository = productRepository;
     }
 
     /**
@@ -55,7 +60,13 @@ public class CatalogImportService {
      */
     public CatalogImportReport importProducts(Long accountId, CatalogImportProgressListener progress) {
         SellerAccount account = requireAccount(accountId);
-        List<ProductEntry> products = catalogAdapter.fetchAllProducts(account.credentials(), PAGE_LIMIT);
+        List<ProductEntry> products = new ArrayList<>(
+                catalogAdapter.fetchAllProducts(account.credentials(), PAGE_LIMIT));
+
+        // Архивные догружаем до подсчёта итогов, иначе они учитывались бы дважды:
+        // обход их не видит, а в total уже вошли бы отдельной строкой ниже.
+        List<ProductEntry> archived = archivedProducts(account);
+        products.addAll(archived);
 
         int total = products.size();
         if (progress != null) {
@@ -81,8 +92,43 @@ public class CatalogImportService {
                 }
             }
         }
-        log.info("Каталог {}: сохранено {} из {} товаров, с ошибкой {}", account.getId(), saved, total, failed);
+        log.info("Каталог {}: сохранено {} из {} товаров, с ошибкой {}, из них архивных {}",
+                account.getId(), saved, total, failed, archived.size());
         return CatalogImportReport.of(total, saved, failed);
+    }
+
+    /**
+     * Товары, которых не оказалось в основном обходе, но по которым есть начисления.
+     *
+     * <p>Обход идёт с {@code visibility=ALL}, а это по документации OZON «все товары,
+     * кроме архивных». Поэтому обычный товар сюда попасть не может: если SKU нет в
+     * обходе, но есть в начислениях, значит он снят с продажи. Раньше такие товары
+     * просто не показывались, и суммы отчёта по товарам расходились с дневным на всю
+     * сумму их продаж — без единого слова о том, откуда взялась разница.
+     *
+     * <p>Список берётся после основного обхода и до записи: пока товары в базу не
+     * легли, запрос «что есть в начислениях, но нет в каталоге» возвращает и те SKU,
+     * которые обход уже принёс. После записи он вернул бы пустоту.
+     *
+     * <p>Пустой результат — обычное дело, а не сбой: у аккаунта просто нет таких
+     * товаров. Именно поэтому догрузка не является отдельной задачей и не влияет на
+     * счётчики прогресса.
+     */
+    private List<ProductEntry> archivedProducts(SellerAccount account) {
+        List<Long> missing = productRepository.skusMissingFromCatalog(account.getId());
+        if (missing.isEmpty()) {
+            return List.of();
+        }
+        List<String> skus = missing.stream().map(String::valueOf).toList();
+        List<ProductEntry> archived = catalogAdapter.fetchArchivedBySku(account.credentials(), skus);
+        if (archived.size() < missing.size()) {
+            // Не все SKU нашлись даже точечно. Это бывает, когда товар удалён насовсем,
+            // а не убран в архив, и такие SKU в отчёте остаются отдельным списком —
+            // молчать о них нельзя, иначе расхождение сумм необъяснимо.
+            log.info("Каталог {}: из {} отсутствующих SKU архивными оказались {}, остальные не найдены нигде",
+                    account.getId(), missing.size(), archived.size());
+        }
+        return archived;
     }
 
     /**

@@ -124,6 +124,8 @@ export interface ProductRow {
   financial: DailyBreakdown & { payout: number; reconciles: boolean }
   income: number
   expenses: number
+  /** Товар снят с продажи и убран в архив OZON: в кабинете его уже нет, но начисления остались. */
+  archived: boolean
 }
 
 export interface ProductsTotals {
@@ -142,6 +144,19 @@ export interface ProductsTotals {
   productsWithSales: number
 }
 
+/**
+ * Итоги по текущему отбору — их показывает строка «Итого» под таблицей.
+ *
+ * Отличаются от ProductsTotals тем, что считаются по всем товарам, попавшим
+ * под фильтр, а не по всему каталогу за период. Карточки наверху читают
+ * ProductsTotals, эта строка — SelectionTotals: один вопрос — одно число.
+ */
+export interface SelectionTotals {
+  income: number
+  expenses: number
+  soldQuantity: number
+}
+
 export type ProductSort = 'INCOME' | 'NAME' | 'SKU'
 
 export interface ProductsReport {
@@ -152,6 +167,7 @@ export interface ProductsReport {
   coverage: Coverage
   catalog: CatalogState
   totals: ProductsTotals
+  selectionTotals: SelectionTotals
   rows: ProductRow[]
   page: number
   size: number

@@ -431,6 +431,9 @@
             },
             "type" : "array"
           },
+          "selectionTotals" : {
+            "$ref" : "#/components/schemas/SelectionTotals"
+          },
           "size" : {
             "format" : "int32",
             "type" : "integer"
@@ -465,11 +468,14 @@
       },
       "ProductRow" : {
         "properties" : {
-          "accrualCount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "authors" : {
+"accrualCount" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "archived" : {
+              "type" : "boolean"
+            },
+            "authors" : {
             "items" : {
               "$ref" : "#/components/schemas/ProductAuthorView"
             },
@@ -632,7 +638,22 @@
         },
         "type" : "object"
       },
-      "TypeAmount" : {
+      "SelectionTotals" : {
+          "properties" : {
+            "expenses" : {
+              "type" : "number"
+            },
+            "income" : {
+              "type" : "number"
+            },
+            "soldQuantity" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        },
+        "TypeAmount" : {
         "properties" : {
           "amount" : {
             "type" : "number"

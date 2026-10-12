@@ -73,7 +73,8 @@ public class CatalogFacts {
                 rs.getString("name"),
                 rs.getString("primary_image"),
                 rs.getString("isbn"),
-                rs.getLong("type_id"));
+                rs.getLong("type_id"),
+                rs.getBoolean("archived"));
         // ORDER BY подставляется по метке, а не склейкой блоков: склейка text block'ов
         // однажды съела перевод строки и дала «order by …offset».
         String sql = """
@@ -90,7 +91,7 @@ public class CatalogFacts {
                     group by p.sku
                 )
                 select pr.id, pr.sku, pr.offer_id, pr.name, pr.primary_image,
-                       pr.isbn, pr.type_id
+                       pr.isbn, pr.type_id, pr.archived
                 from ozon_product pr
                 left join income i on i.sku = pr.sku
                 where pr.seller_account_id = :account
@@ -169,7 +170,27 @@ public class CatalogFacts {
         return count == null ? 0 : count;
     }
 
-    private static MapSqlParameterSource filterParams(Long accountId,
+    /**
+ * SKU всех товаров, попавших в отбор, — без пагинации.
+ *
+ * <p>Нужен для итогов под фильтром: {@code productsPage} отдаёт только текущую
+ * страницу, а сумма по ней — это 25 товаров, а не весь результат отбора.
+ */
+public List<Long> selectionSkus(Long accountId, List<ProductAttributeFilter> filters, String query) {
+    return namedJdbc.queryForList("""
+            select pr.sku from ozon_product pr
+            where pr.seller_account_id = :account
+              and (cast(:queryText as text) = ''
+                   or lower(pr.name) like lower('%' || :queryText || '%')
+                   or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
+                   or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+            /*FILTERS*/
+            """.replace("/*FILTERS*/", filterSql(filters, "pr")),
+            filterParams(accountId, filters, query),
+            Long.class);
+}
+
+private static MapSqlParameterSource filterParams(Long accountId,
                                                       List<ProductAttributeFilter> filters,
                                                       String query) {
         MapSqlParameterSource params = new MapSqlParameterSource("account", accountId)
@@ -387,11 +408,19 @@ public class CatalogFacts {
             long sku,
             String offerId,
             String name,
-            String primaryImage,
-            String isbn,
-            Long typeId
-    ) {
-    }
+  String primaryImage,
+  String isbn,
+  Long typeId,
+  /**
+   * Товар снят с продажи и убран в архив OZON.
+   *
+   * <p>Показывается в отчёте наравне с обычными: начисления по нему есть, и его
+   * расходы — часть общей картины. Отличать надо только видимым признаком, чтобы
+   * продавец не искал в своём кабинете то, что оттуда уже убрано.
+   */
+  boolean archived
+  ) {
+  }
 
     /**
      * Автор в исходном виде.
