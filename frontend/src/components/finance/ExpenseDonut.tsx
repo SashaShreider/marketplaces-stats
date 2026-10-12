@@ -375,7 +375,7 @@ const groupOutline = (progress: number) => {
                           size={17}
                           strokeWidth={3}
                           className={cn(
-                            'shrink-0 text-slate-300 transition-transform duration-200 group-hover:text-slate-500',
+                            'shrink-0 text-slate-400 transition-transform duration-200 group-hover:text-slate-700',
                             open && 'rotate-90',
                           )}
                         />
