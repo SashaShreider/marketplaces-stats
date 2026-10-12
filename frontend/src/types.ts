@@ -124,6 +124,8 @@ export interface ProductRow {
   financial: DailyBreakdown & { payout: number; reconciles: boolean }
   income: number
   expenses: number
+  /** Товар снят с продажи и убран в архив OZON: в кабинете его уже нет, но начисления остались. */
+  archived: boolean
 }
 
 export interface ProductsTotals {

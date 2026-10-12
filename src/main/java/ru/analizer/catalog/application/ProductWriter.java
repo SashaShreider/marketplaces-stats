@@ -56,11 +56,11 @@ public class ProductWriter {
                 .orElseGet(() -> new OzonProduct(account, entry.sku(), now));
 
         List<Author> authors = extractAuthors(entry);
-        product.refreshFrom(entry.ozonProductId(), entry.offerId(), entry.name(), entry.barcode(),
-                entry.typeId(), entry.descriptionCategoryId(), entry.primaryImage(),
-                entry.attributeValue(OzonProductAttributes.ISBN),
-                entry.weightGrams(), entry.widthMm(), entry.heightMm(), entry.depthMm(),
-                entry.modelId(), entry.rawJson(), now);
+          product.refreshFrom(entry.ozonProductId(), entry.offerId(), entry.name(), entry.barcode(),
+                  entry.typeId(), entry.descriptionCategoryId(), entry.primaryImage(),
+                  entry.attributeValue(OzonProductAttributes.ISBN),
+                  entry.weightGrams(), entry.widthMm(), entry.heightMm(), entry.depthMm(),
+                  entry.modelId(), entry.rawJson(), now, entry.archived());
         productRepository.save(product);
         productRepository.flush();
 

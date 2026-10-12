@@ -132,7 +132,7 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
                     quantity.sold(),
                     quantity.returned(),
                     accrualCounts.getOrDefault(row.sku(), 0),
-                    financial));
+                    financial, row.archived()));
         }
 
         BigDecimal payout = financeFacts.payoutsByDate(account, from, to).values().stream()

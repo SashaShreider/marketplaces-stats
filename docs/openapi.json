@@ -468,11 +468,14 @@
       },
       "ProductRow" : {
         "properties" : {
-          "accrualCount" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "authors" : {
+"accrualCount" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "archived" : {
+              "type" : "boolean"
+            },
+            "authors" : {
             "items" : {
               "$ref" : "#/components/schemas/ProductAuthorView"
             },

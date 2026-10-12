@@ -73,6 +73,34 @@ public final class CatalogFixtureAdapter implements ProductCatalogAdapter {
         return new CatalogPage(filtered, filtered.size(), cursorFor(filtered));
     }
 
+    /**
+     * Архивный товар.
+     *
+     * <p>Настоящий обход при {@code visibility=ALL} его не возвращает, поэтому и в
+     * фикстуре он не попадает в {@link #page}: товар появляется только здесь, по
+     * точному запросу. Иначе тест проходил бы, а рабочая загрузка архивные товары
+     * не догружала бы.
+     */
+    @Override
+    public List<ProductEntry> fetchArchivedBySku(ru.analizer.account.domain.MarketplaceCredentials credentials, List<String> skus) {
+        List<ProductEntry> all = products();
+        if (skus == null || skus.isEmpty()) {
+            return List.of();
+        }
+        List<String> wanted = skus.stream().map(String::valueOf).toList();
+        List<ProductEntry> found = all.stream()
+                .filter(p -> wanted.contains(String.valueOf(p.sku())))
+                .toList();
+        List<ProductEntry> archived = new ArrayList<>(found.size());
+        for (ProductEntry entry : found) {
+            archived.add(new ProductEntry(entry.sku(), entry.ozonProductId(), entry.offerId(),
+                    entry.name(), entry.barcode(), entry.typeId(), entry.descriptionCategoryId(),
+                    entry.primaryImage(), entry.weightGrams(), entry.widthMm(), entry.heightMm(),
+                    entry.depthMm(), entry.modelId(), entry.attributes(), entry.rawJson(), true));
+        }
+        return archived;
+    }
+
     private CatalogPage page(String lastId, int limit) {
         calls++;
         List<ProductEntry> all = products();

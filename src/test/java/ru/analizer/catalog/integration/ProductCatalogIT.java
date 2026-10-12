@@ -683,6 +683,53 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    @DisplayName("Архивный товар догружается по SKU из начислений и помечается")
+    void archivedProductIsFetchedBySkuAndMarked() {
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        // SKU, который продаётся в этот день. Он есть в фикстуре каталога, поэтому
+        // догрузка его найдёт, — но в основной обход он не попадает: там visibility=ALL,
+        // а это «все товары, кроме архивных».
+        long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+
+        catalogImportService.importProducts(accountId(), null);
+
+        // Импорт находит SKU в начислениях, которых нет в каталоге, и спрашивает их
+        // отдельно. Без этого товар с продажами просто исчез бы из отчёта.
+        Boolean archived = jdbc.queryForObject(
+                "select archived from ozon_product where sku = ?", Boolean.class, sku);
+        assertThat(archived).isTrue();
+        String name = jdbc.queryForObject(
+                "select name from ozon_product where sku = ?", String.class, sku);
+        assertThat(name).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("Отчёт помечает архивный товар, а обычные товары архивными не считаются")
+    void reportMarksArchivedProducts() {
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+        catalogImportService.importProducts(accountId(), null);
+
+        long soldSku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+        jdbc.update("update ozon_product set archived = true where sku = ?", soldSku);
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+
+        assertThat(report.rows()).anySatisfy(row -> {
+            assertThat(row.sku()).isEqualTo(soldSku);
+            assertThat(row.archived()).isTrue();
+        });
+        assertThat(report.rows()).anySatisfy(row -> assertThat(row.archived()).isFalse());
+        // Признак состояния, а не «товар ненастоящий»: деньги у архивного товара
+        // остаются в отчёте, иначе суммы разошлись бы с дневным отчётом.
+        assertThat(report.rows()).filteredOn(r -> r.sku() == soldSku).allSatisfy(
+                row -> assertThat(row.income()).isNotNull());
+    }
+
+    @Test
     @DisplayName("Фоновая задача загрузки каталога создаётся и доводит каталог до конца")
     void backgroundCatalogJobCompletes() {
         var status = importService.startCatalogImport(account(), MARKETPLACE);

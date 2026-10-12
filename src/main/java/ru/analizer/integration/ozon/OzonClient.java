@@ -12,6 +12,7 @@ import ru.analizer.integration.model.CatalogPage;
 import ru.analizer.integration.model.ProductEntry;
 import ru.analizer.integration.ozon.dto.catalog.ProductAttributesRequest;
 import ru.analizer.integration.ozon.dto.catalog.ProductInfoV4;
+import ru.analizer.integration.ozon.dto.catalog.ProductListV3Request;
 import ru.analizer.integration.ozon.dto.finance.FinanceAccrual;
 import ru.analizer.integration.ozon.dto.finance.FinanceAccrualByDayRequest;
 import ru.analizer.integration.ozon.dto.finance.FinanceAccrualTypesResponse;
@@ -42,6 +43,14 @@ public class OzonClient {
     private static final String PATH_BY_DAY = "/v1/finance/accrual/by-day";
     private static final String PATH_TYPES = "/v1/finance/accrual/types";
     private static final String PATH_PRODUCT_ATTRIBUTES = "/v4/product/info/attributes";
+    /**
+     * Список товаров методом {@code /v3}. Нужен только для архивных: {@code /v4} при
+     * {@code visibility=ALL} их не возвращает, а сам архив обходить нельзя — он растёт
+     * и обход повторялся бы при каждом обновлении каталога.
+     */
+    private static final String PATH_PRODUCT_LIST = "/v3/product/list";
+    /** Максимум по спецификации метода. */
+    private static final int PRODUCT_LIST_LIMIT = 1000;
 
     private final RestClient.Builder restClientBuilder;
     private final OzonProperties properties;
@@ -156,6 +165,53 @@ public class OzonClient {
         int total = totalNode == null || totalNode.isNull() ? 0 : totalNode.asInt();
         String lastId = lastIdNode == null || lastIdNode.isNull() ? "" : lastIdNode.asString();
         return new CatalogPage(products, total, lastId);
+    }
+
+    /**
+     * Какие из переданных SKU в архиве.
+     *
+     * <p>Единственный способ узнать про архивный товар: основной обход идёт с
+     * {@code visibility=ALL}, а это по документации OZON «все товары, кроме
+     * архивных». Спросить архив можно двумя способами — обойти его целиком или
+     * спросить конкретные SKU. Выбран второй: обход архива растёт со временем и
+     * повторялся бы при каждом обновлении каталога, а точечный запрос стоит ровно
+     * одного обращения и делается только когда SKU действительно не хватает.
+     *
+     * <p>Запрос идёт без фильтра видимости намеренно: по документации при фильтре
+     * по идентификаторам товары возвращаются независимо от видимости, и так мы
+     * получаем в том числе те, которых не было бы при {@code ARCHIVED}.
+     *
+     * <p>Возвращает только SKU: {@code /v3} не отдаёт характеристик, и карточка
+     * такого товара достраивается обычным запросом {@code /v4} по найденным SKU.
+     */
+    public List<Long> skusArchivedOrHidden(MarketplaceCredentials credentials, List<String> skus) {
+        if (skus == null || skus.isEmpty()) {
+            return List.of();
+        }
+        RestClient restClient = clientFor(credentials);
+        ObjectNode root = execute("POST " + PATH_PRODUCT_LIST, () -> restClient.post()
+                .uri(PATH_PRODUCT_LIST)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(ProductListV3Request.bySku(skus, Math.min(skus.size(), PRODUCT_LIST_LIMIT)))
+                .retrieve()
+                .body(ObjectNode.class));
+
+        List<Long> found = new ArrayList<>();
+        JsonNode itemsNode = root.path("result").path("items");
+        if (!itemsNode.isArray()) {
+            // В некоторых ответах items лежит в корне, без обёртки result. Проверка
+            // обязательна: иначе пустой массив молча выглядел бы как «товаров нет».
+            itemsNode = root.path("items");
+        }
+        if (itemsNode.isArray()) {
+            for (JsonNode node : itemsNode) {
+                JsonNode skuNode = node.get("sku");
+                if (skuNode != null && !skuNode.isNull() && skuNode.canConvertToLong()) {
+                    found.add(skuNode.asLong());
+                }
+            }
+        }
+        return found;
     }
 
     private <T> T execute(String operation, Supplier<T> call) {

@@ -54,8 +54,21 @@ function Row({ r, n }: { r: ProductRow; n: number }) {
         <div className="flex items-center gap-3">
           <Thumb src={r.primaryImage} name={r.name} />
           <div className="min-w-0 max-w-[420px]">
-            <div className="line-clamp-2 text-[13px] font-bold leading-snug text-slate-800" title={r.name}>
-              {r.name}
+            <div className="flex items-start gap-2">
+              <div className="line-clamp-2 text-[13px] font-bold leading-snug text-slate-800" title={r.name}>
+                {r.name}
+              </div>
+              {/* Архивный товар выглядит как обычный, пока не сказать иначе: у него
+                  настоящие продажи и расходы, и без отметки продавец искал бы его
+                  в кабинете, где его уже нет. */}
+              {r.archived && (
+                <span
+                  title="Товар снят с продажи и убран в архив OZON — в кабинете его уже нет"
+                  className="mt-px shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 ring-1 ring-slate-200"
+                >
+                  Архив
+                </span>
+              )}
             </div>
             <div className="mt-0.5 truncate text-[11.5px] font-medium text-slate-400">
               {authors.length > 0 ? authors.join(', ') : 'Автор не указан'}

@@ -101,8 +101,16 @@ public record ProductReport(
             int soldQuantity,
             int returnedQuantity,
             int accrualCount,
-            FinancialSummary financial
-    ) {
+          FinancialSummary financial,
+          /**
+           * Товар снят с продажи и убран в архив OZON.
+           *
+           * <p>Отдельное поле, а не пустое название: у архивного товара карточка есть
+           * и данные верные, отличается только состояние. Помечать его в интерфейсе
+           * нужно, иначе продавец будет искать в кабинете товар, которого там уже нет.
+           */
+          boolean archived
+  ) {
 
     // TODO(#response-duplication): income и expenses ниже повторяют значения из
         // financial, но soldQuantity и returnedQuantity внутри financial — нет. Клиенту
