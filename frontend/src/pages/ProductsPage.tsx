@@ -7,8 +7,9 @@ import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import EmptyState from '@/components/marketplace/EmptyState'
 import ProgressBar from '@/components/sync/ProgressBar'
-import SyncIndicator, { syncStateOf } from '@/components/sync/SyncIndicator'
+import SyncIndicator from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
+import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import type { DateRange, MarketplaceInfo, ProductSort, ProductsReport } from '@/types'
 import { cn } from '@/utils/cn'
@@ -166,6 +167,12 @@ export default function ProductsPage({
     reload(true)
   }, [progressKey, reload])
 
+  // Догружаем недостающие дни выбранного периода, как это делает обзор.
+  // Без этого страница товаров молча показывала неполные цифры: период в календаре
+  // менялся, дни в фоне не грузились, и отчёт выглядел бы готовым при неполных
+  // данных. Отчёт по товарам несёт то же покрытие периода, поэтому хуку достаточно.
+  const auto = useAutoSync({ mp: mp.connected ? mp.code : null, report, range, runner })
+
   const header = (
     <PageHeader
       title="Товары"
@@ -178,7 +185,7 @@ export default function ProductsPage({
     >
       <div className="flex items-center gap-1.5">
         <SyncIndicator
-          state={syncStateOf(report, run)}
+          state={auto.state}
           busy={runner.busy}
           onRetry={() => runner.startFinance(range.from, range.to)}
         />
