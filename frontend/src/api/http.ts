@@ -102,7 +102,7 @@ function networkError(): ApiError {
   return new ApiError(
     0,
     null,
-    `Нет связи с сервером (${API_BASE || window.location.origin}). Проверьте адрес, что бэкенд запущен и что в APP_ALLOWED_ORIGINS указан адрес этого фронтенда.`,
+    `Нет связи с сервером (${API_BASE || window.location.origin}). Повторите попытку.`,
   )
 }
 
