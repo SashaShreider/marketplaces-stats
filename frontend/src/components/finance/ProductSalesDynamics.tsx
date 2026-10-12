@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import { getSalesDynamics } from '@/api/client'
 import { describeError } from '@/api/http'
 import SalesDynamicsChart from '@/components/finance/SalesDynamicsChart'
+import type { ImportRunner } from '@/features/imports/useImportRunner'
 import type { Coverage, DateRange, SalesDay } from '@/types'
 
 /** Какой отбор показан на графике. */
@@ -25,10 +26,13 @@ export default function ProductSalesDynamics({
   mp,
   range,
   authors,
+  runner,
 }: {
   mp: string
   range: DateRange
   authors: string[]
+  /** Нужен ради слежения за ходом импорта: догружается период — график должен достраиваться сам */
+  runner: ImportRunner
 }) {
   const [mode, setMode] = useState<Mode>('all')
   const [author, setAuthor] = useState('')
@@ -46,9 +50,16 @@ export default function ProductSalesDynamics({
     return 'all'
   }, [mode, author, sku])
 
-  const load = useCallback(async () => {
+  /**
+   * Загрузка данных графика.
+   *
+   * @param silent обновление по ходу импорта. Полоса загрузки при нём не мигает:
+   *               данные прибывают постепенно, и мигание на каждом обращении к серверу
+   *               выглядело бы как «страница дёргается», хотя она дописывается
+   */
+  const load = useCallback(async (silent = false) => {
     const t = ++token.current
-    setLoading(true)
+    if (!silent) setLoading(true)
     try {
       const parsedSku = mode === 'sku' ? Number(sku.trim()) : undefined
       const r = await getSalesDynamics(mp, {
@@ -64,13 +75,26 @@ export default function ProductSalesDynamics({
       if (token.current !== t) return
       setError(describeError(e))
     } finally {
-      if (token.current === t) setLoading(false)
+      if (token.current === t && !silent) setLoading(false)
     }
   }, [mp, range.from, range.to, mode, author, sku, filterKey])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  // Данные подтягиваются по ходу импорта, без перезагрузки страницы. На «Обзоре» так
+  // же: страница следит за прогрессом и обновляет отчёт, а пользователь видит, как
+  // график достраивается. Без этого период оставался бы недогруженным до ручного
+  // обновления страницы.
+  const run = runner.run
+  const progressKey = run ? `${run.id}:${run.doneUnits}:${run.failedUnits}:${run.inProgress}` : ''
+  const lastProgress = useRef(progressKey)
+  useEffect(() => {
+    if (progressKey === lastProgress.current) return
+    lastProgress.current = progressKey
+    void load(true)
+  }, [progressKey, load])
 
   const points = useMemo(
     () => (data ? buildPoints(data.days, data.coverage, range) : []),

@@ -444,7 +444,7 @@ export default function ProductsPage({
           {/* Отдельная карточка, а не часть блока с фильтрами: график читается как
               самостоятельный раздел страницы, и в общую рамку с фильтрами он попадал
               внутрь таблицы. На «Обзоре» так же устроены все блоки. */}
-          <ProductSalesDynamics mp={mp.code} range={range} authors={authors} />
+          <ProductSalesDynamics mp={mp.code} range={range} authors={authors} runner={runner} />
         </div>
       )}
     </>
