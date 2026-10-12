@@ -38,6 +38,12 @@ function Row({ r }: { r: ProductRow }) {
   const returned = r.returnedQuantity ?? 0
   const authors = r.authors.map((a) => a.raw)
   const gross = revenue(r.income, r.expenses)
+  // Минус у расходов ставим сами, а не берём из fmtMoney. Проверять надо
+  // округлённое значение: у копеечных остатков вроде −0.4 сумма округляется
+  // в ноль, и проверка на исходное число печатала «−0 ₽» — расход, которого нет,
+  // выглядел как вычет.
+  const expenses = Math.abs(r.expenses ?? 0)
+  const hasExpenses = Math.round(expenses) !== 0
   return (
     <tr className="group transition-colors hover:bg-brand-50/50">
       <td className="border-b border-slate-100 px-4 py-3 group-hover:border-brand-100">
@@ -71,9 +77,9 @@ function Row({ r }: { r: ProductRow }) {
       <td className="tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-extrabold text-slate-900 group-hover:border-brand-100">
         {r.income ? fmtMoney(r.income) : <span className="text-slate-300">0 ₽</span>}
       </td>
-      <td className="tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-semibold text-rose-500 group-hover:border-brand-100">
-        {r.expenses ? `−${fmtMoney(Math.abs(r.expenses))}` : <span className="text-slate-300">0 ₽</span>}
-      </td>
+<td className="tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-semibold text-slate-700 group-hover:border-brand-100">
+          {hasExpenses ? `−${fmtMoney(expenses)}` : <span className="text-slate-300">0 ₽</span>}
+        </td>
       <td
         className={cn(
           'tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-extrabold group-hover:border-brand-100',
@@ -131,6 +137,9 @@ export default function ProductsTable({
   // Выручка — из уже посчитанных сумм, а не новым проходом по строкам: иначе на
   // дробных копейках итог по колонкам разошёлся бы с числом в строке «Итого».
   const gross = revenue(totals.income, totals.expenses)
+  // Ноль расходов показываем нулём, а не «−0 ₽»: у строк этот случай уже
+  // разобран выше, и в итоге он выглядел бы иначе при тех же данных.
+  const hasExpenses = Math.round(totals.expenses) !== 0
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-slate-200/80">
@@ -178,9 +187,9 @@ export default function ProductsTable({
                 <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-900">
                   {fmtMoney(totals.income)}
                 </td>
-                <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-rose-500">
-                  −{fmtMoney(totals.expenses)}
-                </td>
+<td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-700">
+                      {hasExpenses ? `−${fmtMoney(totals.expenses)}` : '0 ₽'}
+                    </td>
                 <td
                   className={cn(
                     'tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold',
