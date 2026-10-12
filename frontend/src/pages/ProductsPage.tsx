@@ -414,8 +414,21 @@ export default function ProductsPage({
             {report.skusMissingFromCatalog.length > 0 && (
               <div className="mt-2 flex items-start gap-2 text-[11.5px] font-semibold leading-relaxed text-amber-600">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                {report.skusMissingFromCatalog.length} SKU из начислений нет в каталоге — их расходы не
-                попали в товары. Обновите каталог.
+                <span>
+                  {report.skusMissingFromCatalog.length} SKU из начислений нет в каталоге — их расходы
+                  не попали в товары.{' '}
+                  {/* Список приходит готовым: показывать конкретные номера позволяет
+                      то, что он уже есть в ответе, — а «обновите каталог» без номера
+                      оставляло человека гадать, к какому именно товару это относится. */}
+                  SKU:{' '}
+                  <span className="tnum font-extrabold">
+                    {report.skusMissingFromCatalog.slice(0, 20).join(', ')}
+                  </span>
+                  {report.skusMissingFromCatalog.length > 20 && (
+                    <> и ещё {report.skusMissingFromCatalog.length - 20}</>
+                  )}
+                  . Обновите каталог.
+                </span>
               </div>
             )}
           </motion.section>
