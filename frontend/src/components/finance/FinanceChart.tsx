@@ -306,7 +306,7 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
               именно расход. Знак ставится здесь, а не флагом в TipRow. */}
           <TipRow label="Продажи" value={hovered.sales} />
           {hovered.returns !== 0 && <TipRow label="Возвраты" value={-hovered.returns} />}
-          <TipRow label="Партнёры" value={hovered.partners} />
+          <TipRow label="Бонусы" value={hovered.partners} />
           <TipRow label="Доходы" value={hovered.income} bold />
           <div className="my-1.5 border-t border-slate-100" />
           <TipRow label="Комиссия" value={-hovered.commission} />
