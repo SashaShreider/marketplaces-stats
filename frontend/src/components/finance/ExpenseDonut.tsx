@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronRight } from 'lucide-react'
 import type { FinanceTotals } from '@/types'
 import { AnimatedNumber } from '@/components/ui'
+import { cn } from '@/utils/cn'
 
 /** Главные статьи расходов: большие сектора круга и три строки легенды. */
 const MAIN_COLORS = {
@@ -97,11 +99,16 @@ interface Sector {
 /**
  * Разбивка «прочих расходов» на категории.
  *
- * Считается один раз и используется и для круга, и для списка справа. Два
+ * <p>Считается один раз и используется и для круга, и для списка справа. Два
  * независимых подсчёта разошлись бы при появлении нового типа начисления — и
  * разошлись бы молча, потому что обе цифры выглядели бы правдоподобно.
+ *
+ * <p>Возвращаются два набора: показываемые категории и то, что свёрнуто в «Другие».
+ * Второй набор нужен для раскрывающегося списка под «Другими» — без него сумма
+ * осталась бы числом без расшифровки, и посмотреть, из чего она сложилась, было бы
+ * негде.
  */
-function useOtherSlices(totals: FinanceTotals): Slice[] {
+function useOtherSlices(totals: FinanceTotals): { slices: Slice[]; hidden: Slice[] } {
   return useMemo(() => {
     const typed = totals.otherByType.filter((t) => t.amount > 0)
     const top = typed.slice(0, MAX_ITEMS)
@@ -111,25 +118,41 @@ function useOtherSlices(totals: FinanceTotals): Slice[] {
     const unexplained = Math.max(0, totals.other - typedSum)
     const rest = typedSum - shownSum + unexplained
 
-    const slices: Slice[] = top.map((t, i) => ({
+    const toSlice = (t: (typeof typed)[number], color: string): Slice => ({
       // Показывается описание из справочника маркетплейса: «Оплата за клик»
       // понятно продавцу, служебное имя PayPerClick — нет. Подпись без описания
       // остаётся служебной, иначе статья расходов стала бы безымянной.
       label: t.description?.trim() || t.name,
       serviceName: t.name,
       value: t.amount,
-      color: SUBSECTOR_COLORS[i % SUBSECTOR_COLORS.length],
-    }))
+      color,
+    })
+
+    const slices: Slice[] = top.map((t, i) => toSlice(t, SUBSECTOR_COLORS[i % SUBSECTOR_COLORS.length]))
     if (rest > 0.5) {
       slices.push({ label: 'Другие', serviceName: 'Другие', value: rest, color: REST_COLOR })
     }
-    return slices
+
+    // Свёрнутые категории помечаются серым независимо от своей настоящей доли: в
+    // раскрытом списке это уже не части одной статьи, а расшифровка самой статьи,
+    // и цветные кружки читались бы как новые статьи расходов.
+    const hidden: Slice[] = typed.slice(MAX_ITEMS).map((t) => toSlice(t, REST_COLOR))
+    if (unexplained > 0.5) {
+      hidden.push({
+        label: 'Без расшифровки',
+        serviceName: 'Без расшифровки',
+        value: unexplained,
+        color: REST_COLOR,
+      })
+    }
+    return { slices, hidden }
   }, [totals])
 }
 
 export default function ExpenseDonut({ totals }: { totals: FinanceTotals }) {
   const [t, setT] = useState(0)
-  const slices = useOtherSlices(totals)
+  const [showRest, setShowRest] = useState(false)
+  const { slices, hidden } = useOtherSlices(totals)
 
   useEffect(() => {
     setT(0)
@@ -322,6 +345,9 @@ const groupOutline = (progress: number) => {
             <div className="mt-5 space-y-4">
               {slices.map((it, i) => {
                 const pct = Math.round((it.value / otherShare) * 100)
+                // «Другие» — единственная строка, за которой есть что раскрыть.
+                const expandable = it.label === 'Другие' && hidden.length > 0
+                const open = expandable && showRest
                 return (
                   <motion.div
                     key={it.label}
@@ -334,12 +360,34 @@ const groupOutline = (progress: number) => {
                       className="h-3 w-3 shrink-0 rounded-full"
                       style={{ background: it.color }}
                     />
-                    <span
-                      className="w-[150px] shrink-0 truncate text-[13px] font-semibold text-slate-600"
-                      title={it.label === it.serviceName ? it.label : `${it.label} (${it.serviceName})`}
-                    >
-                      {it.label}
-                    </span>
+                    {expandable ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowRest((v) => !v)}
+                        aria-expanded={open}
+                        title={open ? 'Свернуть' : 'Показать, из чего состоят «Другие»'}
+                        className="group flex w-[150px] shrink-0 items-center justify-between gap-2 text-left"
+                      >
+                        <span className="truncate text-[13px] font-semibold text-slate-600 group-hover:text-slate-900">
+                          {it.label}
+                        </span>
+                        <ChevronRight
+                          size={17}
+                          strokeWidth={3}
+                          className={cn(
+                            'shrink-0 text-slate-400 transition-transform duration-200 group-hover:text-slate-700',
+                            open && 'rotate-90',
+                          )}
+                        />
+                      </button>
+                    ) : (
+                      <span
+                        className="w-[150px] shrink-0 truncate text-[13px] font-semibold text-slate-600"
+                        title={it.label === it.serviceName ? it.label : `${it.label} (${it.serviceName})`}
+                      >
+                        {it.label}
+                      </span>
+                    )}
                     <div className="h-2 min-w-[60px] flex-1 overflow-hidden rounded-full bg-slate-100">
                       <motion.div
                         className="h-full rounded-full"
@@ -362,6 +410,41 @@ const groupOutline = (progress: number) => {
                   </motion.div>
                 )
               })}
+
+              {/* Расшифровка «Других». Показывается под списком и всегда серым:
+                  это уже не часть цветной разбивки, а содержимое одной серой статьи,
+                  и цветные кружки здесь читались бы как отдельные статьи расходов. */}
+              <AnimatePresence>
+                {showRest && hidden.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="ml-7 mt-1 space-y-1.5 border-l-2 border-slate-100 pl-4">
+                      {hidden.map((h) => (
+                        <div key={h.serviceName} className="flex items-center gap-4">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: h.color }}
+                          />
+                          <span
+                            className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-500"
+                            title={h.label === h.serviceName ? h.label : `${h.label} (${h.serviceName})`}
+                          >
+                            {h.label}
+                          </span>
+                          <span className="tnum shrink-0 text-right text-[12px] font-semibold text-slate-500">
+                            <AnimatedNumber value={h.value} />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import ru.analizer.support.AbstractHttpIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
+import ru.analizer.support.StubOzonClient;
 
 import java.net.http.HttpResponse;
 
@@ -20,6 +21,18 @@ import static org.assertj.core.api.Assertions.assertThat;
         webEnvironment = org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT)
 @org.springframework.context.annotation.Import(FixtureAdapterConfig.class)
 class MarketplaceCredentialsIT extends AbstractHttpIntegrationTest {
+
+    @Test
+    @DisplayName("Название магазина берётся у маркетплейса, а не собирается из Client-Id")
+    void shopNameComesFromMarketplace() throws Exception {
+        putCredentials("1154", "key-1");
+
+        String name = jdbc.queryForObject("select name from seller_account", String.class);
+        assertThat(name)
+                .as("название из ответа маркетплейса, а не «OZON 1154»")
+                .isEqualTo(StubOzonClient.SHOP_NAME)
+                .isNotEqualTo("OZON 1154");
+    }
 
     @Test
     @DisplayName("Подключение создаёт аккаунт и возвращает код маркетплейса")

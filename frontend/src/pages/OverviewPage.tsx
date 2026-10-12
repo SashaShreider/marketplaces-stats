@@ -15,6 +15,7 @@ import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import type { DailyReport, DateRange, MarketplaceInfo } from '@/types'
 import { sumDays } from '@/utils/format'
+import { shopName } from '@/utils/marketplace'
 
 const EMPTY_TOTALS = sumDays([])
 /** Дней, начиная с которых предупреждаем о большом числе запросов к маркетплейсу.
@@ -102,7 +103,7 @@ export default function OverviewPage({
       title="Обзор"
       subtitle={
         <>
-          Финансовые результаты по вашему магазину на {mp.name}
+          Финансовые результаты магазина {shopName(mp)}
           <MarketplaceLogo code={mp.code} size="sm" />
         </>
       }

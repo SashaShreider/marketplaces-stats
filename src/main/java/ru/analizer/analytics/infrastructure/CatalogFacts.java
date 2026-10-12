@@ -323,9 +323,72 @@ private static MapSqlParameterSource filterParams(Long accountId,
         return result;
     }
 
-    private static int number(Object value) {
-        return value == null ? 0 : ((Number) value).intValue();
+/**
+ * Динамика продаж по дням периода: сколько единиц продано и возвращено.
+ *
+ * <p>Считается по тем же правилам, что и количество в отчёте по товарам:
+ * {@code sale_price > 0} — продажа, {@code < 0} — возврат, а строки без цены
+ * (удержания и штрафы за доставку) не попадают ни туда, ни сюда. Разные правила в
+ * двух местах дали бы расхождение: итог отчёта и сумма под графиком сошлись бы
+ * только случайно.
+ *
+ * <p>Каталог присоединяется <b>слева</b>, а не внутри. Товара может не быть в
+ * каталоге — он снят с продажи или карточка ещё не загружена, — но его продажи
+ * от этого не перестают быть продажами, и сумма под графиком обязана сходиться с
+ * итогами. При фильтре по автору ненужные товары отсекает сам фильтр: он ищет
+ * строку в {@code product_author}, которой у товара без карточки просто нет.
+ *
+ * @param filters отбор по атрибутам товара; используются те же, что и в отчёте
+ * @param sku     конкретный SKU; {@code null} — без ограничения по SKU
+ */
+public List<SalesDay> salesDynamics(Long accountId, List<ProductAttributeFilter> filters,
+                                     Long sku, LocalDate from, LocalDate to) {
+    MapSqlParameterSource params = filterParams(accountId, filters, null)
+            .addValue("from", from)
+            .addValue("to", to);
+    String skuClause = "";
+    if (sku != null) {
+        skuClause = "\n  and p.sku = :sku";
+        params.addValue("sku", sku);
     }
+    // sum() в PostgreSQL возвращает bigint, поэтому приводить через (Integer)
+    // нельзя — будет ClassCastException. Как и в quantities().
+    RowMapper<SalesDay> mapper = (rs, i) -> new SalesDay(rs.getDate(1).toLocalDate(),
+            number(rs.getObject(2)), number(rs.getObject(3)));
+    return namedJdbc.query("""
+            select a.accrual_date,
+                   coalesce(sum(p.quantity) filter (where p.sale_price > 0), 0) as sold,
+                   coalesce(sum(p.quantity) filter (where p.sale_price < 0), 0) as returned
+            from finance_accrual a
+            join posting po on po.finance_accrual_id = a.id
+            join posting_product p on p.posting_id = po.id
+            left join ozon_product pr
+                   on pr.seller_account_id = a.seller_account_id and pr.sku = p.sku
+            where a.seller_account_id = :account
+              and a.accrual_date between :from and :to
+              and p.sale_price is not null
+            /*FILTERS*/
+            /*SKU*/
+            group by a.accrual_date
+            order by a.accrual_date
+            """.replace("/*FILTERS*/", filterSql(filters, "pr")).replace("/*SKU*/", skuClause),
+            params,
+            mapper);
+}
+
+/**
+ * Продажи и возвраты за один день.
+ *
+ * @param date     день
+ * @param sold     продано единиц
+ * @param returned возвращено единиц
+ */
+public record SalesDay(LocalDate date, int sold, int returned) {
+}
+
+private static int number(Object value) {
+    return value == null ? 0 : ((Number) value).intValue();
+}
 
     /** Единиц по SKU: продано и возвращено за период. */
     public record Quantities(int sold, int returned) {

@@ -17,6 +17,7 @@ import ru.analizer.integration.ozon.dto.finance.FinanceAccrual;
 import ru.analizer.integration.ozon.dto.finance.FinanceAccrualByDayRequest;
 import ru.analizer.integration.ozon.dto.finance.FinanceAccrualTypesResponse;
 import ru.analizer.integration.ozon.dto.finance.OzonErrorResponse;
+import ru.analizer.integration.ozon.dto.seller.SellerInfoV1Response;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -42,6 +43,11 @@ public class OzonClient {
 
     private static final String PATH_BY_DAY = "/v1/finance/accrual/by-day";
     private static final String PATH_TYPES = "/v1/finance/accrual/types";
+    /**
+     * Сведения о продавце. Даёт название магазина, каким его видит сам продавец, —
+     * без него в интерфейсе остаётся только Client-Id, который магазином не является.
+     */
+    private static final String PATH_SELLER_INFO = "/v1/seller/info";
     private static final String PATH_PRODUCT_ATTRIBUTES = "/v4/product/info/attributes";
     /**
      * Список товаров методом {@code /v3}. Нужен только для архивных: {@code /v4} при
@@ -124,6 +130,26 @@ public class OzonClient {
                 .body("{}")
                 .retrieve()
                 .body(FinanceAccrualTypesResponse.class));
+    }
+
+    /**
+     * Название магазина, каким его называет сам продавец.
+     *
+     * <p>Метод заодно служит проверкой ключей: ответ приходит только для действующей
+     * пары Client-Id и Api-Key, поэтому подключение с неверным ключом падает здесь, а
+     * не позже на первом же импорте с сообщением, которое до магазина не дотягивает.
+     *
+     * @return название магазина или {@code null}, если OZON его не вернул
+     * @throws OzonApiException если ключи отвергнуты: подключение без этого невозможно
+     */
+    public String getShopName(MarketplaceCredentials credentials) {
+        SellerInfoV1Response info = execute("POST " + PATH_SELLER_INFO, () -> clientFor(credentials).post()
+                .uri(PATH_SELLER_INFO)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{}")
+                .retrieve()
+                .body(SellerInfoV1Response.class));
+        return info == null ? null : info.shopNameOrNull();
     }
 
     /**

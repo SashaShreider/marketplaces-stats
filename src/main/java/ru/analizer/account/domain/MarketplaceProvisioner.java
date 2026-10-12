@@ -19,4 +19,20 @@ public interface MarketplaceProvisioner {
      * @param credentials реквизиты, введённые пользователем
      */
     SellerAccount provision(Marketplace marketplace, AppUser user, MarketplaceCredentials credentials);
+
+    /**
+     * Название магазина по его реквизитам.
+     *
+     * <p>Отдельный метод нужен уже подключённому аккаунту: его название тоже нужно
+     * знать, а создавать второй раз нельзя. Без этого аккаунт, заведённый до
+     * появления настоящих имён, остался бы с техническим идентификатором навсегда —
+     * переименовать его можно было бы только удалением вместе с данными.
+     *
+     * <p>По умолчанию — то же, из чего имя складывалось раньше: маркетплейс и
+     * Client-Id. Провайдер, умеющий спросить настоящее имя у маркетплейса,
+     * переопределяет метод.
+     */
+    default String resolveShopName(Marketplace marketplace, MarketplaceCredentials credentials) {
+        return marketplace.getName() + " " + credentials.clientId();
+    }
 }

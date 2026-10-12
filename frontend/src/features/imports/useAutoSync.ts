@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DailyReport, DateRange } from '@/types'
+import type { Coverage, DateRange, ReportStatus } from '@/types'
 import { addDaysISO, todayISO } from '@/utils/format'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { syncStateOf, type SyncState } from '@/components/sync/SyncIndicator'
@@ -79,7 +79,15 @@ export function useAutoSync({
   runner,
 }: {
   mp: string | null
-  report: DailyReport | null
+  /**
+   * Отчёт за выбранный период — не обязательно дневной.
+   *
+   * <p>Хуку нужны только покрытие периода и его статус: по ним видно, какие дни
+   * недогружены. Оба отчёта — дневной и товарный — несут одно и то же, поэтому тип
+   * намеренно уже обоих, а не {@code DailyReport}: иначе страница товаров не смогла
+   * бы загружать недостающие дни, хотя данные для этого у неё есть.
+   */
+  report: { coverage: Coverage; status: ReportStatus } | null
   range: DateRange
   runner: ImportRunner
 }): AutoSync {

@@ -4,9 +4,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import ru.analizer.analytics.domain.ProductReport;
+import ru.analizer.analytics.domain.SalesDynamicsReport;
 import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.CatalogAdapterConfig;
+import ru.analizer.support.CatalogFixtureAdapter;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
 import ru.analizer.sync.domain.RunState;
@@ -297,6 +299,96 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         long soldSkus = new java.util.HashSet<>(FixtureAdapters.soldSkus(FINANCE_FIXTURE)).size();
         assertThat(soldSkus).isGreaterThan(0);
         assertThat(report.rows()).filteredOn(r -> r.income().signum() == 0).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("Сумма продаж в динамике равна итогу отчёта по товарам")
+    void dynamicsTotalsMatchProductReport() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        SalesDynamicsReport dynamics = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null);
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+
+        int sumSold = dynamics.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum();
+        int sumReturned = dynamics.days().stream()
+                .mapToInt(SalesDynamicsReport.SalesDay::returned).sum();
+
+        // Главное свойство динамики: сумма под графиком обязана совпадать с итогом.
+        // Расхождение означало бы, что график показывает не то, что таблица.
+        assertThat(sumSold).isEqualTo(report.selectionTotals().soldQuantity());
+        assertThat(sumReturned).isEqualTo(report.totals().returnedQuantity());
+        assertThat(dynamics.days()).isNotEmpty();
+        assertThat(dynamics.filter()).isEqualTo("Все товары");
+    }
+
+    @Test
+    @DisplayName("Фильтр по автору оставляет в динамике только его товары")
+    void dynamicsRespectAuthorFilter() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        SalesDynamicsReport all = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null);
+        SalesDynamicsReport author = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null);
+
+        int allSold = all.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum();
+        int authorSold = author.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum();
+        assertThat(authorSold).isPositive().isLessThan(allSold);
+        assertThat(author.filter()).isEqualTo("Сурцуков Анатолий");
+
+        // Сумма по автору обязана совпадать с суммой его же товаров в отчёте —
+        // иначе график и таблица считают разное.
+        ProductReport authorReport = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null, "SKU", 0, 500);
+        assertThat(authorSold).isEqualTo(authorReport.selectionTotals().soldQuantity());
+    }
+
+    @Test
+    @DisplayName("По конкретному SKU динамика показывает только его продажи")
+    void dynamicsRespectSkuFilter() {
+        catalogImportService.importProducts(accountId(), null);
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        Long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+        SalesDynamicsReport one = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, sku);
+
+        assertThat(one.days()).isNotEmpty();
+        assertThat(one.filter()).isEqualTo("SKU " + sku);
+        assertThat(one.days()).allSatisfy(d -> assertThat(d.sold()).isPositive());
+
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+        int expected = report.rows().stream()
+                .filter(r -> r.sku() == sku)
+                .mapToInt(r -> r.soldQuantity())
+                .sum();
+        assertThat(one.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum())
+                .isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("Продажи товара без карточки в каталоге всё равно попадают в динамику")
+    void dynamicsIncludeProductsMissingFromCatalog() {
+        // Каталог не импортируем: SKU из начислений в нём нет, но продажи от этого
+        // не перестают быть продажами. Если бы динамика опиралась на каталог, сумма
+        // под графиком разошлась бы с итогом ровно на сумму таких товаров.
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+
+        SalesDynamicsReport dynamics = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null);
+
+        assertThat(dynamics.days()).isNotEmpty();
+        assertThat(dynamics.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum())
+                .isPositive();
     }
 
     @Test
@@ -683,26 +775,44 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Архивный товар догружается по SKU из начислений и помечается")
-    void archivedProductIsFetchedBySkuAndMarked() {
+    @DisplayName("При первой загрузке обычные товары не помечаются архивными")
+    void firstImportDoesNotMarkRegularProductsArchived() {
         FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
         accrualImportService.importAccruals(accountId(), DAY, DAY);
 
-        // SKU, который продаётся в этот день. Он есть в фикстуре каталога, поэтому
-        // догрузка его найдёт, — но в основной обход он не попадает: там visibility=ALL,
-        // а это «все товары, кроме архивных».
-        long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
-
+        // Каталога в базе ещё нет, поэтому запрос «что есть в начислениях, но нет в
+        // каталоге» возвращает все SKU начислений — включая те, что обход уже принёс.
+        // Без фильтра они сочлись бы архивными и перезаписали бы обычные товары.
         catalogImportService.importProducts(accountId(), null);
 
-        // Импорт находит SKU в начислениях, которых нет в каталоге, и спрашивает их
-        // отдельно. Без этого товар с продажами просто исчез бы из отчёта.
-        Boolean archived = jdbc.queryForObject(
-                "select archived from ozon_product where sku = ?", Boolean.class, sku);
-        assertThat(archived).isTrue();
-        String name = jdbc.queryForObject(
-                "select name from ozon_product where sku = ?", String.class, sku);
-        assertThat(name).isNotBlank();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from ozon_product where archived", Long.class))
+                .as("ни один товар обычного обхода не должен попасть в архивные")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("Товар, которого нет в обходе, догружается и помечается архивным")
+    void productMissingFromTraversalIsFetchedAsArchived() {
+        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
+        accrualImportService.importAccruals(accountId(), DAY, DAY);
+        long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+
+        // Прячем товар из обхода: так ведёт себя OZON с товаром в архиве — при
+        // visibility=ALL его нет, а по точному SKU он находится.
+        CatalogFixtureAdapter.hideSku(sku);
+        try {
+            catalogImportService.importProducts(accountId(), null);
+
+            Boolean archived = jdbc.queryForObject(
+                    "select archived from ozon_product where sku = ?", Boolean.class, sku);
+            assertThat(archived).as("товар вне обхода должен попасть в каталог архивным").isTrue();
+            String name = jdbc.queryForObject(
+                    "select name from ozon_product where sku = ?", String.class, sku);
+            assertThat(name).as("карточка догружается, а не остаётся пустой").isNotBlank();
+        } finally {
+            CatalogFixtureAdapter.showAll();
+        }
     }
 
     @Test

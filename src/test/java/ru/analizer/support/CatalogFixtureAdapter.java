@@ -50,6 +50,30 @@ public final class CatalogFixtureAdapter implements ProductCatalogAdapter {
         return calls;
     }
 
+    /**
+     * SKU, которого нет в обходе, но который находится точечным запросом.
+     *
+     * <p>Так ведёт себя настоящий OZON с архивным товаром: при {@code visibility=ALL}
+     * его нет, а запрос по конкретным SKU его находит. Без такой возможности в
+     * заглушке проверить догрузку архивных было бы нечем — обход всегда отдавал бы
+     * всё, и код, считающий товар архивным по отсутствию в обходе, проходил бы тесты,
+     * ни разу не проверившись.
+     *
+     * <p>Общий статический: тесты одного класса делят контекст Spring, а экземпляр
+     * заглушки из него достать нельзя — так же сделан и кэш товаров.
+     */
+    private static volatile Long hiddenSku;
+
+    /** Прячет товар из обхода каталога: он останется доступен только точечно. */
+    public static void hideSku(long sku) {
+        hiddenSku = sku;
+    }
+
+    /** Возвращает все товары обходу обратно. Вызывать в конце каждого теста. */
+    public static void showAll() {
+        hiddenSku = null;
+    }
+
     @Override
     public String marketplaceCode() {
         return "OZON";
@@ -103,13 +127,20 @@ public final class CatalogFixtureAdapter implements ProductCatalogAdapter {
 
     private CatalogPage page(String lastId, int limit) {
         calls++;
-        List<ProductEntry> all = products();
+        // Обход отдаёт всё, кроме скрытого: скрытый товар в нём не появляется никогда,
+        // ровно как архивный у настоящего OZON.
+        List<ProductEntry> visible = products();
+        if (hiddenSku != null) {
+            visible = visible.stream()
+                    .filter(p -> p.sku() != hiddenSku)
+                    .toList();
+        }
         int from = indexAfter(lastId);
         int size = limit > 0 ? limit : PAGE;
-        int to = Math.min(from + size, all.size());
-        List<ProductEntry> slice = from >= all.size() ? List.of() : all.subList(from, to);
+        int to = Math.min(from + size, visible.size());
+        List<ProductEntry> slice = from >= visible.size() ? List.of() : visible.subList(from, to);
         // Курсор непустой и на последней странице — как у настоящего API.
-        return new CatalogPage(slice, all.size(), cursorFor(slice));
+        return new CatalogPage(slice, visible.size(), cursorFor(slice));
     }
 
     private static int indexAfter(String lastId) {

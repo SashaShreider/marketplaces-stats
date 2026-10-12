@@ -280,9 +280,6 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
             <span className="text-[12.5px] font-extrabold text-slate-900">
               {fmtDateLong(hovered.date)}
             </span>
-            <span className="ml-auto rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-              {cfg.label}
-            </span>
           </div>
           {hovered.state !== 'ok' && (
             <div

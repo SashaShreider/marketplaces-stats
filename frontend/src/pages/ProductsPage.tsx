@@ -6,9 +6,11 @@ import { describeError } from '@/api/http'
 import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import EmptyState from '@/components/marketplace/EmptyState'
+import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
-import SyncIndicator, { syncStateOf } from '@/components/sync/SyncIndicator'
+import SyncIndicator from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
+import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import type { DateRange, MarketplaceInfo, ProductSort, ProductsReport } from '@/types'
 import { cn } from '@/utils/cn'
@@ -166,6 +168,12 @@ export default function ProductsPage({
     reload(true)
   }, [progressKey, reload])
 
+  // Догружаем недостающие дни выбранного периода, как это делает обзор.
+  // Без этого страница товаров молча показывала неполные цифры: период в календаре
+  // менялся, дни в фоне не грузились, и отчёт выглядел бы готовым при неполных
+  // данных. Отчёт по товарам несёт то же покрытие периода, поэтому хуку достаточно.
+  const auto = useAutoSync({ mp: mp.connected ? mp.code : null, report, range, runner })
+
   const header = (
     <PageHeader
       title="Товары"
@@ -178,7 +186,7 @@ export default function ProductsPage({
     >
       <div className="flex items-center gap-1.5">
         <SyncIndicator
-          state={syncStateOf(report, run)}
+          state={auto.state}
           busy={runner.busy}
           onRetry={() => runner.startFinance(range.from, range.to)}
         />
@@ -280,13 +288,6 @@ export default function ProductsPage({
                 <AnimatedNumber value={totals.income} />
               </Stat>
               <Stat
-                label="Выручка"
-                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
-                delay={0.1}
-              >
-                <AnimatedNumber value={gross} />
-              </Stat>
-              <Stat
                 label="Расходы по товарам"
                 hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
@@ -298,6 +299,13 @@ export default function ProductsPage({
                 }
               >
                 <AnimatedNumber value={totals.expenses} />
+              </Stat>
+              <Stat
+                label="Выручка"
+                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+                delay={0.1}
+              >
+                <AnimatedNumber value={gross} />
               </Stat>
               <Stat
                 label="Товаров с продажами"
@@ -432,6 +440,11 @@ export default function ProductsPage({
               </div>
             )}
           </motion.section>
+
+          {/* Отдельная карточка, а не часть блока с фильтрами: график читается как
+              самостоятельный раздел страницы, и в общую рамку с фильтрами он попадал
+              внутрь таблицы. На «Обзоре» так же устроены все блоки. */}
+          <ProductSalesDynamics mp={mp.code} range={range} authors={authors} runner={runner} />
         </div>
       )}
     </>

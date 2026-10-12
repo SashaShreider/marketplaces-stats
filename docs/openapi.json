@@ -638,7 +638,53 @@
         },
         "type" : "object"
       },
-      "SelectionTotals" : {
+        "SalesDay" : {
+          "properties" : {
+            "date" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "returned" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "sold" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        },
+        "SalesDynamicsReport" : {
+          "properties" : {
+            "coverage" : {
+              "$ref" : "#/components/schemas/ReportCoverage"
+            },
+            "dateFrom" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "dateTo" : {
+              "format" : "date",
+              "type" : "string"
+            },
+            "days" : {
+              "items" : {
+                "$ref" : "#/components/schemas/SalesDay"
+              },
+              "type" : "array"
+            },
+            "filter" : {
+              "type" : "string"
+            },
+            "status" : {
+              "enum" : [ "READY", "PARTIAL", "NOT_LOADED", "HAS_ERRORS" ],
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        },
+        "SelectionTotals" : {
           "properties" : {
             "expenses" : {
               "type" : "number"
@@ -956,6 +1002,63 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ProductReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "analytics-controller" ]
+      }
+    },
+    "/api/marketplaces/{marketplace}/analytics/products/dynamics" : {
+      "get" : {
+        "operationId" : "salesDynamics",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "marketplace",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sku",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SalesDynamicsReport"
                 }
               }
             },

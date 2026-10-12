@@ -150,8 +150,17 @@ public class AccountLookup {
                 .findByUserIdAndMarketplaceId(user.getId(), marketplace.getId());
         SellerAccount account;
         if (existing.isPresent()) {
-            existing.get().updateCredentials(credentials.clientId(), credentials.apiKey());
-            account = sellerAccountRepository.save(existing.get());
+            SellerAccount found = existing.get();
+            found.updateCredentials(credentials.clientId(), credentials.apiKey());
+            // Название обновляется вместе с ключами: это единственный момент, когда
+            // пользователь сам подтверждает реквизиты, и единственная возможность
+            // починить название у аккаунта, заведённого до появления настоящих имён.
+            // Без этого такие аккаунты остались бы с техническим идентификатором
+            // навсегда — переименовать их можно было бы только удалением вместе с
+            // нагрузкой.
+            found.updateName(provisionerFor(marketplace.getCode())
+                    .resolveShopName(marketplace, credentials));
+            account = sellerAccountRepository.save(found);
         } else {
             account = provisionerFor(marketplace.getCode())
                     .provision(marketplace, user, credentials);
