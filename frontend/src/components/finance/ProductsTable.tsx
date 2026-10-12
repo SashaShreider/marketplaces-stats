@@ -105,6 +105,18 @@ export default function ProductsTable({
   const firstShown = rows.length ? page * size + 1 : 0
   const lastShown = page * size + rows.length
 
+  // Итог по видимым строкам, а не по всему отчёту: бэкенд отдаёт только текущую
+  // страницу, и суммировать нечего. Подпись «Итого» поэтому означает «итог этой
+  // страницы» — иначе число молча бы расходилось с «из N» в подвале.
+  const totals = rows.reduce(
+    (acc, r) => ({
+      sold: acc.sold + (r.soldQuantity ?? r.quantity ?? 0),
+      income: acc.income + (r.income ?? 0),
+      expenses: acc.expenses + Math.abs(r.expenses ?? 0),
+    }),
+    { sold: 0, income: 0, expenses: 0 },
+  )
+
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-slate-200/80">
       <div className="scroll-slim max-h-[620px] overflow-auto">
@@ -136,6 +148,27 @@ export default function ProductsTable({
               </tr>
             )}
           </tbody>
+          {rows.length > 0 && (
+            <tfoot className="sticky bottom-0 z-10 bg-slate-50/95 backdrop-blur">
+              <tr className="shadow-[0_-1px_0_0_rgb(226_232_240)]">
+                <td
+                  colSpan={2}
+                  className="border-t border-slate-200 px-4 py-2.5 text-left text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-slate-500"
+                >
+                  Итого
+                </td>
+                <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-800">
+                  {fmtNum(totals.sold)}
+                </td>
+                <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-slate-900">
+                  {fmtMoney(totals.income)}
+                </td>
+                <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-rose-500">
+                  −{fmtMoney(totals.expenses)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
