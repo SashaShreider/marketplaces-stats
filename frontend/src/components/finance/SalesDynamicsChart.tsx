@@ -88,16 +88,24 @@ export default function SalesDynamicsChart({
     setHover(clamp(Math.floor((mx - PAD_L) / slot), 0, n - 1))
   }
 
-  if (n === 0) {
-    return (
-      <div className="flex h-[220px] items-center justify-center text-[13px] font-medium text-slate-400">
-        Нет данных за выбранный период.
-      </div>
-    )
-  }
-
+  // Контейнер, за которым следит ResizeObserver, отрисовывается всегда — даже когда
+  // рисовать ещё нечего. Так же устроен график на «Обзоре».
+  //
+  // Раньше при пустых данных возвращалась заглушка без этого контейнера, и
+  // useLayoutEffect с пустыми зависимостями выполнялся один раз — когда контейнера
+  // ещё не было. Дальше он не перезапускался, наблюдатель не подписывался, и график
+  // оставался на стартовой ширине 760 вместо ширины блока.
   return (
-    <div className={cn('relative w-full select-none', loading && 'opacity-60 transition-opacity')}>
+    <div
+      ref={wrapRef}
+      className={cn('relative w-full select-none', loading && 'opacity-60 transition-opacity')}
+    >
+      {n === 0 ? (
+        <div className="flex h-[220px] items-center justify-center text-[13px] font-medium text-slate-400">
+          Нет данных за выбранный период.
+        </div>
+      ) : (
+      <>
       <svg width={width} height={H} className="block">
         {gridLines.map((v, i) => (
           <g key={i}>
@@ -232,6 +240,8 @@ export default function SalesDynamicsChart({
         </span>
         <span className="ml-auto truncate text-slate-400">{filterLabel}</span>
       </div>
+      </>
+      )}
     </div>
   )
 }
