@@ -366,18 +366,19 @@ const groupOutline = (progress: number) => {
                         onClick={() => setShowRest((v) => !v)}
                         aria-expanded={open}
                         title={open ? 'Свернуть' : 'Показать, из чего состоят «Другие»'}
-                        className="group flex w-[150px] shrink-0 items-center gap-1 text-left"
+                        className="group flex w-[150px] shrink-0 items-center justify-between gap-2 text-left"
                       >
-                        <ChevronRight
-                          size={13}
-                          className={cn(
-                            'shrink-0 text-slate-300 transition-transform duration-200 group-hover:text-slate-400',
-                            open && 'rotate-90',
-                          )}
-                        />
                         <span className="truncate text-[13px] font-semibold text-slate-600 group-hover:text-slate-900">
                           {it.label}
                         </span>
+                        <ChevronRight
+                          size={17}
+                          strokeWidth={3}
+                          className={cn(
+                            'shrink-0 text-slate-300 transition-transform duration-200 group-hover:text-slate-500',
+                            open && 'rotate-90',
+                          )}
+                        />
                       </button>
                     ) : (
                       <span
