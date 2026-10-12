@@ -14,7 +14,7 @@ import type { DateRange, MarketplaceInfo, ProductSort, ProductsReport } from '@/
 import { cn } from '@/utils/cn'
 import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 200
 
 const SORTS: { id: ProductSort; label: string }[] = [
   { id: 'INCOME', label: 'По доходу' },
