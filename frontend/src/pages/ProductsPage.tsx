@@ -419,8 +419,6 @@ export default function ProductsPage({
               onPageChange={setPage}
             />
 
-            <ProductSalesDynamics mp={mp.code} range={range} authors={authors} />
-
             {report.skusMissingFromCatalog.length > 0 && (
               <div className="mt-2 flex items-start gap-2 text-[11.5px] font-semibold leading-relaxed text-amber-600">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
@@ -442,6 +440,11 @@ export default function ProductsPage({
               </div>
             )}
           </motion.section>
+
+          {/* Отдельная карточка, а не часть блока с фильтрами: график читается как
+              самостоятельный раздел страницы, и в общую рамку с фильтрами он попадал
+              внутрь таблицы. На «Обзоре» так же устроены все блоки. */}
+          <ProductSalesDynamics mp={mp.code} range={range} authors={authors} />
         </div>
       )}
     </>

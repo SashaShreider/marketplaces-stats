@@ -93,7 +93,7 @@ export default function ProductSalesDynamics({
       transition={{ duration: 0.45, delay: 0.3 }}
       className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">
           Динамика продаж
         </h2>
