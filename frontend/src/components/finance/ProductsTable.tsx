@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Package } from 'lucide-react'
 import type { ProductRow } from '@/types'
 import { cn } from '@/utils/cn'
-import { fmtMoney, fmtNum } from '@/utils/format'
+import { fmtMoney, fmtNum, revenue } from '@/utils/format'
 
 /**
  * Таблица товаров: строки, прокрутка и пагинация.
@@ -37,6 +37,7 @@ function Row({ r }: { r: ProductRow }) {
   const sold = r.soldQuantity ?? r.quantity ?? 0
   const returned = r.returnedQuantity ?? 0
   const authors = r.authors.map((a) => a.raw)
+  const gross = revenue(r.income, r.expenses)
   return (
     <tr className="group transition-colors hover:bg-brand-50/50">
       <td className="border-b border-slate-100 px-4 py-3 group-hover:border-brand-100">
@@ -73,6 +74,14 @@ function Row({ r }: { r: ProductRow }) {
       <td className="tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-semibold text-rose-500 group-hover:border-brand-100">
         {r.expenses ? `−${fmtMoney(Math.abs(r.expenses))}` : <span className="text-slate-300">0 ₽</span>}
       </td>
+      <td
+        className={cn(
+          'tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-extrabold group-hover:border-brand-100',
+          gross >= 0 ? 'text-slate-900' : 'text-rose-600',
+        )}
+      >
+        {fmtMoney(gross)}
+      </td>
     </tr>
   )
 }
@@ -83,6 +92,7 @@ const HEAD = [
   ['Продано', 'text-right'],
   ['Доход', 'text-right'],
   ['Расходы', 'text-right'],
+  ['Выручка', 'text-right'],
 ] as const
 
 export default function ProductsTable({
@@ -118,11 +128,14 @@ export default function ProductsTable({
     }),
     { sold: 0, income: 0, expenses: 0 },
   )
+  // Выручка — из уже посчитанных сумм, а не новым проходом по строкам: иначе на
+  // дробных копейках итог по колонкам разошёлся бы с числом в строке «Итого».
+  const gross = revenue(totals.income, totals.expenses)
 
   return (
     <div className="mt-4 overflow-hidden rounded-xl border border-slate-200/80">
       <div className="scroll-slim max-h-[620px] overflow-auto">
-        <table className="w-full min-w-[820px] border-separate border-spacing-0">
+        <table className="w-full min-w-[900px] border-separate border-spacing-0">
           <thead>
             <tr>
               {HEAD.map(([label, align]) => (
@@ -144,7 +157,7 @@ export default function ProductsTable({
             ))}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-14 text-center text-[13px] font-medium text-slate-400">
+                <td colSpan={6} className="px-4 py-14 text-center text-[13px] font-medium text-slate-400">
                   {filtered ? 'По вашему запросу ничего не найдено' : 'Товаров нет'}
                 </td>
               </tr>
@@ -167,6 +180,14 @@ export default function ProductsTable({
                 </td>
                 <td className="tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold text-rose-500">
                   −{fmtMoney(totals.expenses)}
+                </td>
+                <td
+                  className={cn(
+                    'tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold',
+                    gross >= 0 ? 'text-slate-900' : 'text-rose-600',
+                  )}
+                >
+                  {fmtMoney(gross)}
                 </td>
               </tr>
             </tfoot>

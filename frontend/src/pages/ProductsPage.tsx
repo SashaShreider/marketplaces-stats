@@ -12,7 +12,7 @@ import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import type { DateRange, MarketplaceInfo, ProductSort, ProductsReport } from '@/types'
 import { cn } from '@/utils/cn'
-import { fmtDateTime, fmtMoney, fmtNum } from '@/utils/format'
+import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
 
 const PAGE_SIZE = 25
 
@@ -167,8 +167,11 @@ export default function ProductsPage({
   }
 
   const catalogMissing = report ? !report.catalog.loaded : false
-  const totals = report?.totals
-  const hasFilter = Boolean(dq || da)
+const totals = report?.totals
+    // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
+    // чтобы карточка не показывала «NaN» между загрузкой и данными.
+    const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
+    const hasFilter = Boolean(dq || da)
 
   return (
     <>
@@ -221,10 +224,18 @@ export default function ProductsPage({
       ) : (
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           {totals && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat label="Доходы" tone="border-emerald-200/60 bg-emerald-50/60" delay={0.05}>
-                <AnimatedNumber value={totals.income} />
-              </Stat>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+<Stat label="Доходы" tone="border-emerald-200/60 bg-emerald-50/60" delay={0.05}>
+            <AnimatedNumber value={totals.income} />
+          </Stat>
+          <Stat
+            label="Выручка"
+            tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+            delay={0.1}
+            sub="доход за вычетом расходов"
+          >
+            <AnimatedNumber value={gross} />
+          </Stat>
               <Stat
                 label="Расходы по товарам"
                 tone="border-rose-200/60 bg-rose-50/60"
