@@ -274,8 +274,7 @@ function ProfileMenu({
                     {confirm === m.code && (
                       <div className="mt-2.5 rounded-lg bg-rose-50 p-2.5">
                         <p className="text-[11.5px] font-semibold leading-relaxed text-rose-700">
-                          Будут удалены подключение и все загруженные данные магазина. Восстановить
-                          можно только повторной загрузкой (она тратит квоту маркетплейса).
+                          Будут удалены подключение и все загруженные данные с маркетплейса.
                         </p>
                         <div className="mt-2 flex justify-end gap-1.5">
                           <button
