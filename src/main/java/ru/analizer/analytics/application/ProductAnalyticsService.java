@@ -187,8 +187,69 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
                 catalogFacts.skusMissingFromCatalog(account, from, to));
     }
 
-    /**
-     * Сводит операции периода по SKU через общую финансовую модель.
+      /**
+       * Продажи по дням периода, с ограничением на автора или на конкретный SKU.
+       *
+       * <p>Нужен для графика под таблицей товаров: в самом отчёте строки это товары,
+       * а не дни, и без отдельного запроса динамику пришлось бы собирать на клиенте из
+       * всех товаров разом — то есть скачивать весь отчёт только ради рисунка.
+       *
+       * <p>Фильтр по SKU и по автору несовместимы: это два разных отбора, и применять
+       * оба сразу означало бы искать товар одновременно у двух продавцов. Задача одна,
+       * поэтому при заданном SKU автор игнорируется — так решает пользователь,
+       * вводя номер конкретного товара.
+       *
+       * @param author автор ровно в том написании, в каком указан в карточке товара
+       * @param sku    конкретный SKU; {@code null} — без ограничения
+       */
+      public SalesDynamicsReport salesDynamics(String marketplaceCode,
+                                                Optional<Long> accountId,
+                                                LocalDate from, LocalDate to,
+                                                String author, Long sku) {
+          if (from == null || to == null) {
+              throw new IllegalArgumentException("dateFrom и dateTo обязательны");
+          }
+          if (to.isBefore(from)) {
+              throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
+          }
+          // Аккаунта нет — это «данных нет», а не ошибка: пустой график с честным
+          // покрытием даст клиенту показать предложение загрузить данные.
+          if (accountId.isEmpty()) {
+              return new SalesDynamicsReport(from, to, ReportStatus.NOT_LOADED,
+                      ReportCoverage.from(PeriodCoverage.empty(from, to)), List.of(), labelOf(author, sku));
+          }
+          Long account = accountId.get();
+
+          PeriodCoverage periodCoverage = dayStateService.coverage(account, from, to);
+          List<CatalogFacts.SalesDay> days = catalogFacts.salesDynamics(
+                  account,
+                  List.of(ProductAuthorFilter.byValue(sku == null ? author : null)),
+                  sku, from, to);
+
+          return new SalesDynamicsReport(from, to,
+                  DailyAnalyticsService.statusOf(periodCoverage),
+                  ReportCoverage.from(periodCoverage),
+                  days.stream().map(d -> new SalesDynamicsReport.SalesDay(
+                          d.date(), d.sold(), d.returned())).toList(),
+                  labelOf(author, sku));
+      }
+
+      /**
+       * Подпись отбора над графиком.
+       *
+       * <p>Нужна, чтобы было видно, что именно показано. Без неё график выглядел бы
+       * как общий, даже когда выбран один товар из сотни, и результат читался бы как
+       * данные по всему магазину.
+       */
+      private static String labelOf(String author, Long sku) {
+          if (sku != null) {
+              return "SKU " + sku;
+          }
+          return author == null || author.isBlank() ? "Все товары" : author;
+      }
+
+      /**
+       * Сводит операции периода по SKU через общую финансовую модель.
      *
      * <p>Продажи и расходы считаются только по SKU, присутствующим в операциях.
      * NON_ITEM и CONTAINER сюда не попадают: у них товара нет.

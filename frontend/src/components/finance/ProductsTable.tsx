@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Package } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ExternalLink, Package } from 'lucide-react'
 import type { ProductRow, SelectionTotals } from '@/types'
 import { cn } from '@/utils/cn'
 import { fmtMoney, fmtNum, revenue } from '@/utils/format'
@@ -69,6 +69,18 @@ function Row({ r, n }: { r: ProductRow; n: number }) {
                   Архив
                 </span>
               )}
+              {/* Ссылка на карточку в OZON. Отдельная кнопка, а не ссылка на
+                  названии: в таблице названий много, и кликать по тексту опасно —
+                  промахнувшись, человек уходил бы из отчёта, ничего не выбрав. */}
+              <a
+                href={`https://www.ozon.ru/product/${r.sku}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Открыть карточку в OZON"
+                className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              >
+                <ExternalLink size={12} />
+              </a>
             </div>
             <div className="mt-0.5 truncate text-[11.5px] font-medium text-slate-400">
               {authors.length > 0 ? authors.join(', ') : 'Автор не указан'}

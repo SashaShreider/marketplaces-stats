@@ -128,6 +128,30 @@ export interface ProductRow {
   archived: boolean
 }
 
+/** Один день динамики продаж: сколько единиц продано и возвращено. */
+export interface SalesDay {
+  date: string
+  sold: number
+  returned: number
+}
+
+/**
+ * Динамика продаж по дням периода.
+ *
+ * Дни без операций в days не попадают — пропуски восстанавливаются по дате, а
+ * состояние незагруженных дней приходит в coverage. Без него «день без продаж» и
+ * «день не загружен» на графике выглядели бы одинаково.
+ */
+export interface SalesDynamics {
+  dateFrom: string
+  dateTo: string
+  status: ReportStatus
+  coverage: Coverage
+  days: SalesDay[]
+  /** Чем ограничен отчёт: «Все товары», имя автора или «SKU …». */
+  filter: string
+}
+
 export interface ProductsTotals {
   income: number
   expenses: number

@@ -6,6 +6,7 @@ import { describeError } from '@/api/http'
 import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import EmptyState from '@/components/marketplace/EmptyState'
+import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SyncIndicator from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
@@ -439,6 +440,11 @@ export default function ProductsPage({
               </div>
             )}
           </motion.section>
+
+          {/* Отдельная карточка, а не часть блока с фильтрами: график читается как
+              самостоятельный раздел страницы, и в общую рамку с фильтрами он попадал
+              внутрь таблицы. На «Обзоре» так же устроены все блоки. */}
+          <ProductSalesDynamics mp={mp.code} range={range} authors={authors} runner={runner} />
         </div>
       )}
     </>
