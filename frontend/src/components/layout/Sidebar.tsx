@@ -1,4 +1,5 @@
 import { BarChart3, Package } from 'lucide-react'
+import logoUrl from '@/assets/logo.svg'
 import { cn } from '@/utils/cn'
 
 export type PageId = 'overview' | 'products'
@@ -20,19 +21,20 @@ export default function Sidebar({
       {/* Логотип */}
       <div className="flex items-center gap-2.5 px-5 pb-6 pt-5">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg shadow-brand-500/30">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 18V7l5.5 7L12 9.5 14.5 14 20 6v12"
-              stroke="white"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          {/* Файл белый на прозрачном фоне, поэтому читается на тёмном квадрате.
+              В продакшене сборка сведена в один HTML, и Vite кладёт сюда картинку
+              прямо в разметку, а не отдельным запросом. */}
+          <img
+            src={logoUrl}
+            alt="ИДАЖАналитика"
+            width={26}
+            height={26}
+            className="h-[26px] w-[26px] object-contain"
+          />
         </span>
         <div className="leading-tight">
           <div className="text-[15px] font-extrabold tracking-tight text-slate-900">
-            Market<span className="text-brand-600">Analytics</span>
+            ИДАЖ<span className="text-brand-600">Аналитика</span>
           </div>
           <div className="text-[10px] font-medium text-slate-400">аналитика продаж</div>
         </div>
