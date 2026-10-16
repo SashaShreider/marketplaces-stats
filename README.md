@@ -77,7 +77,14 @@ docker compose up --build
 | Приложение и интерфейс | http://localhost:8080 |
 | Проверка живости | http://localhost:8080/actuator/health |
 | Контракт API | http://localhost:8080/v3/api-docs |
-| Просмотр базы | http://localhost:5050 (`analizer@example.com` / `analizer`) |
+
+Данные смотреть отчётом, а не админкой базы: pgAdmin в compose намеренно нет —
+он стоил около 450 МБ образа, а на VPS с 2 ГБ это место и время на ровно тот
+сервер, где ресурсов мало. Запрос прямо в базу:
+
+```bash
+docker compose exec postgres psql -U analizer -d analizer
+```
 
 Интерфейс лежит в том же образе, что и backend: стадия сборки фронтенда кладёт
 собранный `index.html` внутрь `jar`, и Spring Boot отдаёт его сам. Отдельный
@@ -172,8 +179,6 @@ XSRF-TOKEN обязательно повторяется в заголовке `
 | `DB_USERNAME` | **обязательна** | Пользователь базы |
 | `DB_PASSWORD` | **обязательна** | Пароль: и у PostgreSQL, и у приложения |
 | `SERVER_PORT` | `8080` | Порт приложения |
-| `PGADMIN_EMAIL` | `analizer@example.com` | Логин pgAdmin, локальный инструмент |
-| `PGADMIN_PASSWORD` | как `DB_PASSWORD` | Пароль pgAdmin |
 | `APP_ALLOWED_ORIGINS` | пусто | Источники, которым разрешён CORS |
 | `COOKIE_SAME_SITE` | `Lax` | Политика кук; для HTTPS нужно `None` |
 | `COOKIE_SECURE` | `false` | Флаг `Secure` на куках |
