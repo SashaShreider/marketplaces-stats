@@ -5,7 +5,14 @@ services:
     environment:
       POSTGRES_DB: analizer
       POSTGRES_USER: analizer
-      POSTGRES_PASSWORD: analizer
+      # Пароль обязателен: без него compose не запустится, а не возьмёт молчаливый
+      # дефолт. Пароль базы и пароль приложения — одна и та же переменная DB_PASSWORD,
+      # иначе пришлось бы держать в .env два значения, которые обязаны совпадать.
+      #
+      # ВАЖНО для существующей базы: том уже создан со старым паролем, и смена
+      # переменной его не меняет — приложение перестанет подключаться. Новый пароль
+      # действует только на чистом томе.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env — возьмите значение из .env.example}
     ports:
       - "5433:5432"
     volumes:
@@ -35,7 +42,7 @@ services:
       # внутри контейнера другой.
       DB_URL: jdbc:postgresql://postgres:5432/analizer
       DB_USERNAME: analizer
-      DB_PASSWORD: analizer
+      DB_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env — возьмите значение из .env.example}
       # Разрешённые источники задаёт пользователь. Значение по умолчанию пустое:
       # без него приложение отвечает только своему источнику.
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
@@ -47,7 +54,10 @@ services:
       - analizer-gradle-cache:/root/.gradle
 
   # Веб-интерфейс для просмотра базы: http://localhost:5050
-  # Логин: analizer@example.com, пароль: analizer (см. .env.example и README.md)
+  #
+  # Локальный инструмент, на сервере не запускается: админка базы на публичном
+  # адресе — это ровно тот случай, когда пароль по умолчанию и стоило бы сменить,
+  # а лучше не открывать порт вовсе.
   pgadmin:
     image: dpage/pgadmin4:9
     container_name: analizer-pgadmin
@@ -56,7 +66,11 @@ services:
         condition: service_healthy
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-analizer@example.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-analizer}
+      # Пароль админки по умолчанию равен паролю базы: это не секрет, а логин
+      # инструмента для локального просмотра. Отдельная переменная нужна только тем,
+      # кто не хочет совпадения. Своего дефолта у пароля нет намеренно — иначе он
+      # жил бы в репозитории открытым текстом.
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-${DB_PASSWORD}}
       # Чтобы сервер подключался по внутренней сети compose, а не через localhost
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:

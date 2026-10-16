@@ -9,9 +9,13 @@ spring:
       - optional:file:.env[.properties]
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5433/analizer}
-    username: ${DB_USERNAME:analizer}
-    password: ${DB_PASSWORD:analizer}
+    # Дефолтов намеренно нет. Молчаливый пароль из настроек означал бы, что
+    # забытая переменная выглядит как «всё работает», пока на сервере с настоящим
+    # паролем приложение не подключится. Требование видно сразу: не хватило
+    # переменной — не стартовало.
+    url: ${DB_URL:?задайте DB_URL — см. .env.example}
+    username: ${DB_USERNAME:?задайте DB_USERNAME — см. .env.example}
+    password: ${DB_PASSWORD:?задайте DB_PASSWORD — см. .env.example}
     hikari:
       maximum-pool-size: 10
 
