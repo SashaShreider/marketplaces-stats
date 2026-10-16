@@ -49,7 +49,11 @@ services:
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
-      - "8081:8080"
+      # Порт на машине задаётся переменной, а не зашит: у разных развёртываний он
+      # разный. На сервере APP_PORT остаётся 8080 — к нему обращается локальный
+      # прокси из DEPLOY.md, и сдвиг здесь сломал бы сайт молча. Локально порт
+      # занят другим процессом, поэтому задаётся в .env.
+      - "${APP_PORT:-8080}:8080"
     volumes:
       - analizer-gradle-cache:/root/.gradle
 
