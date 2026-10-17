@@ -34,8 +34,9 @@ class AuthApiIT extends AbstractPostgresIntegrationTest {
     void anonymousGets401InsteadOfRedirect() throws Exception {
         for (String path : new String[]{
                 "/api/marketplaces",
-                "/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10",
-                "/api/marketplaces/ozon/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-10",
+                "/api/accounts",
+                "/api/accounts/1/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10",
+                "/api/accounts/1/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-10",
                 "/api/auth/me"}) {
 
             HttpResponse<String> response = get(path);

@@ -3,7 +3,6 @@ package ru.analizer.sync.api;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import ru.analizer.account.domain.AccountLookup;
-import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.domain.PeriodCoverage;
 
@@ -24,7 +23,7 @@ import java.time.LocalDate;
  * {@link PeriodCoverage} делает это различие явным.
  */
 @RestController
-@RequestMapping("/api/marketplaces/{marketplace}/data")
+@RequestMapping("/api/accounts/{accountId}/data")
 public class CoverageController {
 
     private final DayStateService dayStateService;
@@ -36,9 +35,10 @@ public class CoverageController {
     }
 
     /**
-     * GET /api/marketplaces/ozon/data/coverage?dateFrom=…&dateTo=…
+     * GET /api/accounts/1/data/coverage?dateFrom=…&dateTo=…
      *
-     * <p>Отвечает и до первой синхронизации: отсутствие данных это ответ, а не ошибка.
+     * <p>Отвечает и до первой синхронизации: у подключённого магазина без импортов
+     * покрытие нулевое, и это ответ, а не ошибка.
      *
      * <p>Чтобы узнать про один день, передайте одинаковые {@code dateFrom} и
      * {@code dateTo}. Отдельного метода «про день» нет намеренно: он был бы тем же
@@ -46,20 +46,18 @@ public class CoverageController {
      *
      * @param dateFrom начало периода включительно
      * @param dateTo   конец периода включительно
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      */
     @GetMapping("/coverage")
     public PeriodCoverage coverage(
-            @PathVariable String marketplace,
+            @PathVariable Long accountId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
 
         if (dateTo.isBefore(dateFrom)) {
             throw new IllegalArgumentException("dateTo не может быть раньше dateFrom");
         }
-        // Аккаунта может ещё не быть — это «данных нет», а не ошибка.
-        Long accountId = accountLookup.findAccount(marketplace)
-                .map(SellerAccount::getId)
-                .orElse(null);
-        return dayStateService.coverage(accountId, dateFrom, dateTo);
+        return dayStateService.coverage(accountLookup.requireAccount(accountId).getId(),
+                dateFrom, dateTo);
     }
 }

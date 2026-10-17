@@ -69,16 +69,17 @@ class OpenApiContractIT extends AbstractPostgresIntegrationTest {
             "/api/auth/logout",
             "/api/auth/me",
             "/api/marketplaces",
-            "/api/marketplaces/{marketplace}",
-            "/api/marketplaces/{marketplace}/credentials",
-            "/api/marketplaces/{marketplace}/analytics/daily",
-            "/api/marketplaces/{marketplace}/analytics/products",
-            "/api/marketplaces/{marketplace}/imports",
-            "/api/marketplaces/{marketplace}/imports/finance",
-            "/api/marketplaces/{marketplace}/imports/catalog",
-            "/api/marketplaces/{marketplace}/data/coverage",
-            "/api/marketplaces/{marketplace}/data/catalog",
-            "/api/marketplaces/{marketplace}/data/authors");
+            "/api/accounts",
+            "/api/accounts/{accountId}",
+            "/api/accounts/{accountId}/credentials",
+            "/api/accounts/{accountId}/analytics/daily",
+            "/api/accounts/{accountId}/analytics/products",
+            "/api/accounts/{accountId}/imports",
+            "/api/accounts/{accountId}/imports/finance",
+            "/api/accounts/{accountId}/imports/catalog",
+            "/api/accounts/{accountId}/data/coverage",
+            "/api/accounts/{accountId}/data/catalog",
+            "/api/accounts/{accountId}/data/authors");
 
     @LocalServerPort
     int port;

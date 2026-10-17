@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import {
-  deleteMarketplace, listMarketplaces, logout as apiLogout, me,
+  deleteAccount, listAccounts, logout as apiLogout, me,
 } from '@/api/client'
 import { ApiError, describeError, forgetCsrf, setUnauthorizedHandler } from '@/api/http'
 import AuthScreen from '@/components/auth/AuthScreen'
@@ -12,28 +12,31 @@ import TopBar from '@/components/layout/TopBar'
 import { useImportRunner } from '@/features/imports/useImportRunner'
 import OverviewPage from '@/pages/OverviewPage'
 import ProductsPage from '@/pages/ProductsPage'
-import type { DateRange, MarketplaceInfo, User } from '@/types'
+import type { AccountInfo, DateRange, User } from '@/types'
 import { cn } from '@/utils/cn'
 import { lastNDays } from '@/utils/format'
 
 // ─── Основное приложение (пользователь уже вошёл) ───────────────────────────
 
 function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const [list, setList] = useState<MarketplaceInfo[] | null>(null)
+  const [list, setList] = useState<AccountInfo[] | null>(null)
   const [listError, setListError] = useState<string | null>(null)
-  const [code, setCode] = useState<string | null>(null)
+  // Выбран магазин по идентификатору, а не по коду платформы: магазинов на одной
+  // площадке бывает несколько, и по коду выбор был бы неоднозначным.
+  const [accountId, setAccountId] = useState<number | null>(null)
   const [page, setPage] = useState<PageId>('overview')
   const [range, setRange] = useState<DateRange>(() => lastNDays(30))
-  const [modal, setModal] = useState<string | null>(null)
+  const [modalAccount, setModalAccount] = useState<AccountInfo | null>(null)
 
   const loadList = useCallback(async () => {
     try {
-      const l = await listMarketplaces()
+      const l = await listAccounts()
       setList(l)
       setListError(null)
-      setCode((prev) =>
-        prev && l.some((m) => m.code === prev) ? prev : (l.find((m) => m.connected) ?? l[0])?.code ?? null,
-      )
+      // Сохраняем выбор, если магазин ещё подключён; иначе берём первый доступный.
+      // Отключённый магазин выпадает из списка сам — иначе страница осталась бы
+      // показывать отчёт по уже несуществующему магазину.
+      setAccountId((prev) => (prev !== null && l.some((a) => a.id === prev) ? prev : (l[0]?.id ?? null)))
     } catch (e) {
       setListError(describeError(e))
     }
@@ -43,24 +46,22 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
     loadList()
   }, [loadList])
 
-  const current = list?.find((m) => m.code === code) ?? null
+  const current = list?.find((a) => a.id === accountId) ?? null
 
   // один раннер импортов на приложение: прогресс виден на обеих страницах
-  const runner = useImportRunner(current?.connected ? current.code : null, () => {
+  const runner = useImportRunner(current?.id ?? null, () => {
     loadList() // обновятся catalogProducts / importRuns
   })
 
-  const disconnect = async (c: string) => {
+  const disconnect = async (id: number) => {
     try {
-      await deleteMarketplace(c)
+      await deleteAccount(id)
     } catch (e) {
-      // 409: уже не подключён — просто обновим список
-      if (!(e instanceof ApiError && e.status === 409)) throw e
+      // 404: магазина уже нет — просто обновим список
+      if (!(e instanceof ApiError && e.status === 404)) throw e
     }
     await loadList()
   }
-
-  const modalMp = list?.find((m) => m.code === modal) ?? null
 
   return (
     <div className="min-h-screen">
@@ -77,8 +78,8 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
             user={user}
             list={list ?? []}
             current={current}
-            onMarketplaceChange={setCode}
-            onConnect={setModal}
+            onAccountChange={(id) => setAccountId(id)}
+            onEditAccount={setModalAccount}
             onDisconnect={disconnect}
             onLogout={onLogout}
           />
@@ -108,7 +109,13 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
               </div>
             ) : !current ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-16 text-center text-[13.5px] font-medium text-slate-500">
-                Сервер не вернул ни одного маркетплейса.
+                <p>Магазины ещё не подключены.</p>
+                <button
+                  onClick={() => setModalAccount(null)}
+                  className="mt-5 rounded-xl bg-brand-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-md shadow-brand-600/25 transition-all hover:bg-brand-700"
+                >
+                  Подключить магазин
+                </button>
               </div>
             ) : (
               <AnimatePresence mode="wait" initial={false}>
@@ -121,21 +128,19 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                 >
                   {page === 'overview' ? (
                     <OverviewPage
-                      key={current.code}
-                      mp={current}
+                      key={current.id}
+                      account={current}
                       range={range}
                       onRangeChange={setRange}
                       runner={runner}
-                      onConnect={() => setModal(current.code)}
                     />
                   ) : (
                     <ProductsPage
-                      key={current.code}
-                      mp={current}
+                      key={current.id}
+                      account={current}
                       range={range}
                       onRangeChange={setRange}
                       runner={runner}
-                      onConnect={() => setModal(current.code)}
                     />
                   )}
                 </motion.div>
@@ -167,11 +172,11 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
       </nav>
 
       <ConnectModal
-        mp={modalMp}
-        onClose={() => setModal(null)}
-        onConnected={async (c) => {
+        account={modalAccount}
+        onClose={() => setModalAccount(null)}
+        onConnected={async (a) => {
           await loadList()
-          setCode(c)
+          setAccountId(a.id)
         }}
       />
     </div>

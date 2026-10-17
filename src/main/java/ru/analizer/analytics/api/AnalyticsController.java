@@ -11,11 +11,10 @@ import ru.analizer.analytics.domain.ProductReport;
 import ru.analizer.analytics.domain.SalesDynamicsReport;
 
 import java.time.LocalDate;
-import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Отчёты по сохранённым данным.
+ * Отчёты по сохранённым данным одного магазина.
  *
  * <p>Ни один метод не обращается к API маркетплейса: отчёты считаются по нашей базе.
  * Поэтому их можно вызывать часто и без риска исчерпать квоту.
@@ -23,9 +22,14 @@ import java.util.Optional;
  * <p>Каждый отчёт всегда сообщает, можно ли ему доверять, через поля {@code status} и
  * {@code coverage}. Нули за незагруженный день неотличимы от нулей за день без
  * начислений, и без этих полей пользователь решил бы, что денег не было.
+ *
+ * <p>Магазин определяется идентификатором из пути. Раньше вместо него был код
+ * маркетплейса, и это работало, пока магазин на платформе был один: с несколькими
+ * кабинетами одного продавца выбор стал бы неоднозначным, а молча взять не тот
+ * значило бы показать чужие данные.
  */
 @RestController
-@RequestMapping("/api/marketplaces/{marketplace}/analytics")
+@RequestMapping("/api/accounts/{accountId}/analytics")
 public class AnalyticsController {
 
     private final DailyAnalyticsService dailyAnalytics;
@@ -41,29 +45,31 @@ public class AnalyticsController {
     }
 
     /**
-     * GET /api/marketplaces/ozon/analytics/daily?dateFrom=…&dateTo=…
+     * GET /api/accounts/1/analytics/daily?dateFrom=…&dateTo=…
      *
      * <p>Разбивка доходов, расходов и выплаты по дням периода, с детализацией расходов
      * по типам начислений.
      *
      * @param dateFrom начало периода включительно
      * @param dateTo   конец периода включительно
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      */
     @GetMapping("/daily")
     public DailyReport dailyReport(
-            @PathVariable String marketplace,
+            @PathVariable Long accountId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
 
-        // Аккаунт ищется здесь, в потоке запроса: только тут доступна сессия. Сервис получает
-        // его готовым и потому одинаково работает из фоновой задачи и из теста —
-        // там, где сессии нет вовсе.
+        // Магазин ищется здесь, в потоке запроса: только тут доступна сессия. Сервис
+        // получает его готовым и потому одинаково работает из фоновой задачи и из
+        // теста — там, где сессии нет вовсе.
+        SellerAccount account = accountLookup.requireAccount(accountId);
         return dailyAnalytics.dailyReport(
-                marketplaceCode(marketplace), accountId(marketplace), dateFrom, dateTo);
+                account.getMarketplace().getCode(), Optional.of(account.getId()), dateFrom, dateTo);
     }
 
     /**
-     * GET /api/marketplaces/ozon/analytics/products?dateFrom=…&dateTo=…
+     * GET /api/accounts/1/analytics/products?dateFrom=…&dateTo=…
      *
      * <p>Все товары каталога вместе с их продажами и списаниями за период.
      *
@@ -89,7 +95,7 @@ public class AnalyticsController {
      */
     @GetMapping("/products")
     public ProductReport productReport(
-            @PathVariable String marketplace,
+            @PathVariable Long accountId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String author,
@@ -98,54 +104,41 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
-        return productAnalytics.productReport(marketplaceCode(marketplace), accountId(marketplace),
-                dateFrom, dateTo, author, query, sort, page, size);
+        SellerAccount account = accountLookup.requireAccount(accountId);
+        return productAnalytics.productReport(account.getMarketplace().getCode(),
+                Optional.of(account.getId()), dateFrom, dateTo, author, query, sort, page, size);
     }
 
-      /**
-       * GET /api/marketplaces/ozon/analytics/products/dynamics?dateFrom=…&dateTo=…
-       *
-       * <p>Продажи и возвраты по дням периода — для графика под таблицей товаров.
-       * Количество в штуках, а не суммы: у отчёта по товарам строки это товары, и
-       * без этого запроса пришлось бы скачивать весь отчёт только ради рисунка.
-       *
-       * <p>Без фильтров показывает все товары. {@code author} и {@code sku} —
-       * два разных отбора, и одновременно они не применяются: при заданном
-       * {@code sku} автор игнорируется, иначе пришлось бы искать товар сразу у двух
-       * продавцов. Задача у пользователя одна.
-       *
-       * <p>Дни без операций в {@code days} не попадают, а состояние периода приходит
-       * в {@code coverage}: без него «день без продаж» и «день не загружен» на графике
-       * выглядели бы одинаково.
-       *
-       * @param author автор ровно в том написании, в каком указан в карточке товара
-       * @param sku    конкретный SKU
-       */
-      @GetMapping("/products/dynamics")
-      public SalesDynamicsReport salesDynamics(
-              @PathVariable String marketplace,
-              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-              @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
-              @RequestParam(required = false) String author,
-              @RequestParam(required = false) Long sku) {
-
-          return productAnalytics.salesDynamics(marketplaceCode(marketplace), accountId(marketplace),
-                  dateFrom, dateTo, author, sku);
-      }
-
-      /**
-       * Аккаунт текущего пользователя на маркетплейсе; пусто — не подключён.
+    /**
+     * GET /api/accounts/1/analytics/products/dynamics?dateFrom=…&dateTo=…
      *
-     * <p>Пусто не ошибка: отчёт обязан ответить {@code NOT_LOADED}, чтобы клиент
-     * предложил загрузку, а не показал нули как будто денег не было.
+     * <p>Продажи и возвраты по дням периода — для графика под таблицей товаров.
+     * Количество в штуках, а не суммы: у отчёта по товарам строки это товары, и
+     * без этого запроса пришлось бы скачивать весь отчёт только ради рисунка.
+     *
+     * <p>Без фильтров показывает все товары. {@code author} и {@code sku} —
+     * два разных отбора, и одновременно они не применяются: при заданном
+     * {@code sku} автор игнорируется, иначе пришлось бы искать товар сразу у двух
+     * продавцов. Задача у пользователя одна.
+     *
+     * <p>Дни без операций в {@code days} не попадают, а состояние периода приходит
+     * в {@code coverage}: без него «день без продаж» и «день не загружен» на графике
+     * выглядели бы одинаково.
+     *
+     * @param author автор ровно в том написании, в каком указан в карточке товара
+     * @param sku    конкретный SKU
      */
-    private Optional<Long> accountId(String marketplace) {
-        accountLookup.requireMarketplace(marketplace);
-        return accountLookup.findAccount(marketplace).map(SellerAccount::getId);
+    @GetMapping("/products/dynamics")
+    public SalesDynamicsReport salesDynamics(
+            @PathVariable Long accountId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) Long sku) {
+
+        SellerAccount account = accountLookup.requireAccount(accountId);
+        return productAnalytics.salesDynamics(account.getMarketplace().getCode(),
+                Optional.of(account.getId()), dateFrom, dateTo, author, sku);
     }
 
-    /** Код маркетплейса в верхнем регистре — так он хранится и возвращается в ответе. */
-    private String marketplaceCode(String marketplace) {
-        return marketplace.trim().toUpperCase(Locale.ROOT);
     }
-}

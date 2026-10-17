@@ -44,11 +44,11 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
     }
 
     @Test
-    @DisplayName("GET /api/marketplaces/ozon/analytics/daily отдаёт доходы, расходы и к выплате за день")
+    @DisplayName("GET /api/accounts/{id}/analytics/daily отдаёт доходы, расходы и к выплате за день")
     void dailyReport() throws Exception {
         syncApr10();
 
-        HttpResponse<String> response = get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
+        HttpResponse<String> response = get("/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
         assertThat(response.statusCode()).as("ответ: %s", response.body()).isEqualTo(200);
 
         JsonNode body = MAPPER.readTree(response.body());
@@ -96,7 +96,7 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
         syncApr10();
 
         JsonNode body = MAPPER.readTree(
-                get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-05-01&dateTo=2026-05-03").body());
+                get("/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-05-01&dateTo=2026-05-03").body());
 
         assertThat(new BigDecimal(body.get("payout").asString())).isEqualByComparingTo("0");
         assertThat(body.get("reconciled").asBoolean()).isTrue();
@@ -106,7 +106,7 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
     @Test
     @DisplayName("Неверный период возвращает 400 с понятным сообщением")
     void invalidPeriodReturnsBadRequest() throws Exception {
-        HttpResponse<String> response = get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-12&dateTo=2026-04-10");
+        HttpResponse<String> response = get("/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-04-12&dateTo=2026-04-10");
 
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(response.body()).contains("dateTo");
@@ -115,8 +115,8 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
     @Test
     @DisplayName("Отсутствующие параметры возвращают 400, а не 500")
     void missingParametersReturnBadRequest() throws Exception {
-        assertThat(get("/api/marketplaces/ozon/analytics/daily").statusCode()).isEqualTo(400);
-        assertThat(get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10").statusCode()).isEqualTo(400);
+        assertThat(get("/api/accounts/" + accountId() + "/analytics/daily").statusCode()).isEqualTo(400);
+        assertThat(get("/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-04-10").statusCode()).isEqualTo(400);
     }
 
     @Test
@@ -125,7 +125,7 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
         syncApr10();
 
         JsonNode body = MAPPER.readTree(
-                get("/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-09&dateTo=2026-04-11").body());
+                get("/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-04-09&dateTo=2026-04-11").body());
 
         // Пустые дни в периоде тоже присутствуют: пропуск дня молча выглядел бы
         // как «денег не было», хотя данных могло просто не быть в базе.
@@ -139,7 +139,7 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
         // Раньше здесь был 500 с пустым телом. Теперь отчёт прямо говорит, что данных
         // нет, и перечисляет недостающие дни — этого достаточно, чтобы предложить загрузку.
         HttpResponse<String> response = get(
-                "/api/marketplaces/ozon/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-12");
+                "/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-12");
 
         assertThat(response.statusCode()).isEqualTo(200);
 
@@ -160,7 +160,7 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
     @DisplayName("Покрытие отвечает даже до первой синхронизации")
     void coverageAnswersBeforeFirstSync() throws Exception {
         HttpResponse<String> response = get(
-                "/api/marketplaces/ozon/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-12");
+                "/api/accounts/" + accountId() + "/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-12");
 
         assertThat(response.statusCode()).isEqualTo(200);
         JsonNode body = MAPPER.readTree(response.body());

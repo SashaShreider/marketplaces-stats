@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Check, CheckCircle2, ChevronDown, CircleAlert, Loader2, LogOut, Plus, Trash2, User as UserIcon,
+  Check, CheckCircle2, ChevronDown, Loader2, LogOut, Plus, Trash2, User as UserIcon,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { MarketplaceLogo } from '@/components/ui'
-import type { MarketplaceInfo, User } from '@/types'
-import { shopName } from '@/utils/marketplace'
+import type { AccountInfo, User } from '@/types'
+import { shopLabel, shopSubLabel } from '@/utils/marketplace'
 
 // ─── Универсальный поповер ───────────────────────────────────────────────────
 
@@ -46,40 +46,48 @@ function PopoverPanel({ children, className }: { children: ReactNode; className?
   )
 }
 
+/** Сколько товаров в каталоге и были ли импорты — по этому видно, заведён ли магазин. */
+function statusText(a: AccountInfo): string {
+  if (a.catalogProducts > 0) {
+    return `${a.catalogProducts.toLocaleString('ru-RU')} товаров · ${a.importRuns} импортов`
+  }
+  return a.importRuns > 0 ? `${a.importRuns} импортов · каталог не загружен` : 'Данных ещё нет'
+}
+
+// ─── Переключатель магазина ──────────────────────────────────────────────────
+
 /**
- * Состояние подключения.
+ * Переключатель магазина.
  *
- * <p>Название магазина сюда намеренно не входит: его и так показывает строка выше, и в
- * переключателе повторялось бы дважды подряд — «OZON 1154» и «Подключён · OZON 1154».
+ * <p>Магазины сгруппированы по платформе: у продавца их бывает несколько, и без
+ * группировки список быстро превращается в неразличимую колонку одинаковых названий.
+ *
+ * <p>Рядом с названием показывается clientId, потому что названия у кабинетов одного
+ * продавца совпадают, а clientId продавец знает из своего кабинета.
  */
-function statusText(m: MarketplaceInfo): string {
-  return m.connected ? 'Подключён' : 'Не подключён'
-}
-
-function StatusDot({ connected }: { connected: boolean }) {
-  return connected ? (
-    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]" />
-  ) : (
-    <span className="h-2 w-2 shrink-0 rounded-full bg-slate-300 shadow-[0_0_0_3px_rgba(148,163,184,0.2)]" />
-  )
-}
-
-// ─── Переключатель маркетплейса ─────────────────────────────────────────────
-
-function MarketplaceSelector({
+function AccountSelector({
   current,
   list,
   onChange,
 }: {
-  current: MarketplaceInfo | null
-  list: MarketplaceInfo[]
-  onChange: (code: string) => void
+  current: AccountInfo | null
+  list: AccountInfo[]
+  onChange: (accountId: number) => void
 }) {
   const { open, setOpen, ref } = usePopover()
 
   if (!current) {
     return <div className="h-[38px] w-[120px] animate-pulse-soft rounded-xl bg-slate-100" />
   }
+
+  // Группировка по платформе с сохранением порядка из серверного списка: он уже
+  // отсортирован по платформе и порядку подключения.
+  const groups = list.reduce<{ code: string; items: AccountInfo[] }[]>((acc, a) => {
+    const last = acc[acc.length - 1]
+    if (last && last.code === a.marketplaceCode) last.items.push(a)
+    else acc.push({ code: a.marketplaceCode, items: [a] })
+    return acc
+  }, [])
 
   return (
     <div ref={ref} className="relative">
@@ -92,43 +100,56 @@ function MarketplaceSelector({
             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-sm',
         )}
       >
-        <MarketplaceLogo code={current.code} size="sm" />
-        {shopName(current)}
+        <MarketplaceLogo code={current.marketplaceCode} size="sm" />
+        <span className="max-w-[190px] truncate">{shopLabel(current)}</span>
         <ChevronDown size={15} className={cn('text-slate-400 transition-transform', open && 'rotate-180')} />
       </button>
 
       <AnimatePresence>
         {open && (
-          <PopoverPanel className="w-[272px]">
-            <div className="p-1.5">
-              {list.map((m) => {
-                const active = m.code === current.code
-                return (
-                  <button
-                    key={m.code}
-                    onClick={() => {
-                      onChange(m.code)
-                      setOpen(false)
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
-                      active ? 'bg-brand-50' : 'hover:bg-slate-50',
+          <PopoverPanel className="w-[300px]">
+            <div className="max-h-[380px] overflow-y-auto p-1.5">
+              {groups.map((group) => (
+                <div key={group.code} className="mb-1 last:mb-0">
+                  <div className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    {group.code}
+                    {group.items.length > 1 && (
+                      <span className="ml-1.5 font-semibold normal-case tracking-normal text-slate-300">
+                        {group.items.length}
+                      </span>
                     )}
-                  >
-                    <MarketplaceLogo code={m.code} size="md" />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2 text-[13px] font-bold text-slate-800">
-                        {shopName(m)}
-                        {active && <Check size={14} className="text-brand-600" />}
-                      </span>
-                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-                        <StatusDot connected={m.connected} />
-                        <span className="truncate">{statusText(m)}</span>
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
+                  </div>
+                  {group.items.map((a) => {
+                    const active = a.id === current.id
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => {
+                          onChange(a.id)
+                          setOpen(false)
+                        }}
+                        className={cn(
+                          'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                          active ? 'bg-brand-50' : 'hover:bg-slate-50',
+                        )}
+                      >
+                        <MarketplaceLogo code={a.marketplaceCode} size="md" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 text-[13px] font-bold text-slate-800">
+                            <span className="truncate">{shopLabel(a)}</span>
+                            {active && <Check size={14} className="shrink-0 text-brand-600" />}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                            <span className="shrink-0 font-mono">{shopSubLabel(a)}</span>
+                            <span className="text-slate-300">·</span>
+                            <span className="truncate">{statusText(a)}</span>
+                          </span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
           </PopoverPanel>
         )}
@@ -148,28 +169,33 @@ function initials(u: User): string {
 function ProfileMenu({
   user,
   list,
-  onConnect,
+  onAdd,
+  onEdit,
   onDisconnect,
   onLogout,
 }: {
   user: User
-  list: MarketplaceInfo[]
-  onConnect: (code: string) => void
-  onDisconnect: (code: string) => Promise<void>
+  list: AccountInfo[]
+  /** null — подключение нового магазина, иначе замена его ключей */
+  onAdd: () => void
+  onEdit: (account: AccountInfo) => void
+  onDisconnect: (accountId: number) => Promise<void>
   onLogout: () => void
 }) {
   const { open, setOpen, ref } = usePopover()
-  const [confirm, setConfirm] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
+  // Подтверждение удаления держим по идентификатору, а не по коду платформы:
+  // магазинов на одной площадке несколько, и по коду подтверждение уезжало бы не туда.
+  const [confirm, setConfirm] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState<number | null>(null)
 
   useEffect(() => {
     if (!open) setConfirm(null)
   }, [open])
 
-  const doDisconnect = async (code: string) => {
-    setDeleting(code)
+  const doDisconnect = async (accountId: number) => {
+    setDeleting(accountId)
     try {
-      await onDisconnect(code)
+      await onDisconnect(accountId)
     } finally {
       setDeleting(null)
       setConfirm(null)
@@ -212,69 +238,71 @@ function ProfileMenu({
             </div>
 
             <div className="px-4 pb-2 pt-3">
-              <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                Мои маркетплейсы
+              <div className="flex items-center justify-between">
+                <div className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                  Мои магазины
+                </div>
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    onAdd()
+                  }}
+                  className="flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-95"
+                >
+                  <Plus size={12} strokeWidth={3} />
+                  Добавить
+                </button>
               </div>
               <div className="mt-2.5 space-y-2">
-                {list.map((m) => (
+                {list.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-slate-200 px-3 py-3 text-center text-[11.5px] font-medium text-slate-400">
+                    Пока ни одного магазина не подключено
+                  </p>
+                )}
+                {list.map((a) => (
                   <div
-                    key={m.code}
+                    key={a.id}
                     className="rounded-xl border border-slate-200/80 px-3 py-2.5"
                   >
                     <div className="flex items-center gap-3">
-                      <MarketplaceLogo code={m.code} size="md" />
+                      <MarketplaceLogo code={a.marketplaceCode} size="md" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[12.5px] font-bold text-slate-800">{shopName(m)}</div>
-                        <div
-                          className={cn(
-                            'mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold',
-                            m.connected ? 'text-emerald-600' : 'text-slate-400',
-                          )}
-                        >
-                          {m.connected ? <CheckCircle2 size={12} /> : <CircleAlert size={12} />}
-                          <span className="truncate">{statusText(m)}</span>
+                        <div className="truncate text-[12.5px] font-bold text-slate-800">
+                          {shopLabel(a)}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
+                          <CheckCircle2 size={12} />
+                          <span className="font-mono">{shopSubLabel(a)}</span>
                         </div>
                       </div>
-                      {!m.connected ? (
-                        <button
-                          onClick={() => {
-                            setOpen(false)
-                            onConnect(m.code)
-                          }}
-                          className="flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-sm shadow-brand-600/30 transition-all hover:bg-brand-700 active:scale-95"
-                        >
-                          <Plus size={12} strokeWidth={3} />
-                          Подключить
-                        </button>
-                      ) : (
-                        confirm !== m.code && (
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => {
-                                setOpen(false)
-                                onConnect(m.code)
-                              }}
-                              className="rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-100"
-                              title="Заменить API-ключ"
-                            >
-                              Ключ
-                            </button>
-                            <button
-                              onClick={() => setConfirm(m.code)}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
-                              title="Отключить магазин"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        )
+                      {confirm !== a.id && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              setOpen(false)
+                              onEdit(a)
+                            }}
+                            className="rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:bg-slate-100"
+                            title="Заменить API-ключ"
+                          >
+                            Ключ
+                          </button>
+                          <button
+                            onClick={() => setConfirm(a.id)}
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                            title="Отключить магазин"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       )}
                     </div>
 
-                    {confirm === m.code && (
+                    {confirm === a.id && (
                       <div className="mt-2.5 rounded-lg bg-rose-50 p-2.5">
                         <p className="text-[11.5px] font-semibold leading-relaxed text-rose-700">
-                          Будут удалены подключение и все загруженные данные с маркетплейса.
+                          Будут удалены подключение и все загруженные данные этого магазина.
+                          Остальные магазины не пострадают.
                         </p>
                         <div className="mt-2 flex justify-end gap-1.5">
                           <button
@@ -284,11 +312,11 @@ function ProfileMenu({
                             Отмена
                           </button>
                           <button
-                            disabled={deleting === m.code}
-                            onClick={() => doDisconnect(m.code)}
+                            disabled={deleting === a.id}
+                            onClick={() => doDisconnect(a.id)}
                             className="flex items-center gap-1.5 rounded-md bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700 disabled:opacity-60"
                           >
-                            {deleting === m.code && <Loader2 size={11} className="animate-spin" />}
+                            {deleting === a.id && <Loader2 size={11} className="animate-spin" />}
                             Удалить
                           </button>
                         </div>
@@ -321,17 +349,18 @@ export default function TopBar({
   user,
   list,
   current,
-  onMarketplaceChange,
-  onConnect,
+  onAccountChange,
+  onEditAccount,
   onDisconnect,
   onLogout,
 }: {
   user: User
-  list: MarketplaceInfo[]
-  current: MarketplaceInfo | null
-  onMarketplaceChange: (code: string) => void
-  onConnect: (code: string) => void
-  onDisconnect: (code: string) => Promise<void>
+  list: AccountInfo[]
+  current: AccountInfo | null
+  onAccountChange: (accountId: number) => void
+  /** null — подключение нового магазина */
+  onEditAccount: (account: AccountInfo | null) => void
+  onDisconnect: (accountId: number) => Promise<void>
   onLogout: () => void
 }) {
   return (
@@ -349,12 +378,13 @@ export default function TopBar({
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-2.5 sm:gap-3">
-        <MarketplaceSelector current={current} list={list} onChange={onMarketplaceChange} />
+        <AccountSelector current={current} list={list} onChange={onAccountChange} />
         <span className="hidden h-6 w-px bg-slate-200 sm:block" />
         <ProfileMenu
           user={user}
           list={list}
-          onConnect={onConnect}
+          onAdd={() => onEditAccount(null)}
+          onEdit={onEditAccount}
           onDisconnect={onDisconnect}
           onLogout={onLogout}
         />

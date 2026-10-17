@@ -13,19 +13,24 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Поиск маркетплейса и аккаунта текущего пользователя.
+ * Поиск маркетплейса и магазина текущего пользователя.
  *
- * <p><b>Здесь обеспечивается изоляция данных.</b> Все контроллеры получают аккаунт
+ * <p><b>Здесь обеспечивается изоляция данных.</b> Все контроллеры получают магазин
  * только через этот класс, а все запросы к начислениям и каталогу идут по
- * {@code sellerAccountId}. Поэтому пользователь не может увидеть чужие данные:
- * подменить идентификатор аккаунта в запросе негде — его там просто нет.
+ * {@code sellerAccountId}.
  *
- * <p>Раньше идентификатор приходил параметром {@code clientId}, и это была
- * протекающая абстракция: {@code clientId} — понятие OZON, у Wildberries это
- * {@code companyId}. Теперь аккаунт определяется пользователем и маркетплейсом.
+ * <p>Магазина на маркетплейсе может быть сколько угодно: у продавца несколько
+ * кабинетов OZON, и у каждого свои начисления и каталог. Поэтому идентификатор
+ * магазина приходит из пути запроса — {@code /api/accounts/{accountId}/...} — и
+ * принадлежность проверяется в каждом обращении.
  *
- * <p>Аккаунт на маркетплейс ровно один: ограничение в базе
- * ({@code uq_seller_account_user_marketplace}), а не в коде.
+ * <p>Ответ на «нет такого магазина» и на «магазин чужой» намеренно одинаковый:
+ * различая их, мы пересказывали бы, какие магазины вообще существуют.
+ *
+ * <p>Раньше магазин определялся пользователем и маркетплейсом, а идентификатор был
+ * вовсе не в запросе. Это работало, пока магазин на платформе был один. Параметр
+ * {@code clientId}, как и раньше, в контракт не возвращается: это понятие OZON, у
+ * Wildberries оно называется {@code companyId}.
  */
 @Component
 public class AccountLookup {
@@ -67,108 +72,107 @@ public class AccountLookup {
     }
 
     /**
-     * Аккаунт текущего пользователя на маркетплейсе.
+     * Магазины текущего пользователя.
      *
-     * <p>Пусто — это не ошибка, а «маркетплейс ещё не подключён». Именно поэтому метод
-     * возвращает Optional, а не бросает исключение: отчёт об ещё не загруженных
-     * данных обязан ответить {@code NOT_LOADED}, а не упасть.
+     * <p>Пустой список — это не ошибка, а «ничего не подключено»: именно поэтому
+     * возвращается просто список, а не бросается исключение.
      */
-    public Optional<SellerAccount> findAccount(String marketplaceCode) {
-        AppUser user = requireUser();
-        Marketplace marketplace = requireMarketplace(marketplaceCode);
-        return sellerAccountRepository.findByUserIdAndMarketplaceId(user.getId(), marketplace.getId());
+    public List<SellerAccount> findAccounts() {
+        return sellerAccountRepository.findOwnedWithMarketplace(requireUser().getId());
     }
 
     /**
-     * Аккаунт текущего пользователя, либо отказ.
+     * Магазин текущего пользователя по идентификатору, либо отказ.
      *
-     * <p>Используется там, где без аккаунта работать нечего: запуск импорта и выборка
-     * данных. Отличается от {@link #findAccount} тем, что не подсказывает причину —
-     * просто «маркетплейс не подключён», без SQL-подробностей.
+     * <p>Идентификатор приходит из пути запроса, поэтому проверка принадлежности
+     * обязательна: без неё запрос, подставивший чужой {@code accountId}, прочитал бы
+     * чужие начисления. Проверка входит в сам запрос
+     * ({@code findByIdAndUser_Id}), а не делается сравнением потом.
      *
-     * @throws ru.analizer.web.NotConnectedException маркетплейс ещё не подключён
-     */
-    public SellerAccount requireAccount(String marketplaceCode) {
-        return findAccount(marketplaceCode)
-                .orElseThrow(() -> new ru.analizer.web.NotConnectedException(
-                        requireMarketplace(marketplaceCode).getCode()));
-    }
-
-    /**
-     * Аккаунт текущего пользователя по идентификатору.
-     *
-     * <p>Идентификатор приходит из фоновой задачи, поэтому проверка принадлежности
-     * обязательна: без неё запрос, подделавший {@code accountId}, прочитал бы чужие
-     * начисления.
-     *
-     * @throws ru.analizer.web.NotConnectedException аккаунт не принадлежит текущему пользователю
+     * @throws ru.analizer.web.NotConnectedException магазина нет или он не этот
      */
     public SellerAccount requireAccount(Long accountId) {
-        AppUser user = requireUser();
-        SellerAccount account = findAccount(accountId)
-                .orElseThrow(() -> new ru.analizer.web.NotConnectedException(Long.toString(accountId)));
-        if (!account.getUser().getId().equals(user.getId())) {
-            // Намеренно одинаковый ответ: различая «нет такого» и «не твой»,
-            // мы пересказываем злоумышленнику, какие аккаунты существуют.
-            throw new ru.analizer.web.NotConnectedException(Long.toString(accountId));
+        if (accountId == null) {
+            throw new ru.analizer.web.AccountNotFoundException("не указан в пути запроса");
         }
-        return account;
-    }
-
-    public Optional<SellerAccount> findAccount(Long accountId) {
-        return sellerAccountRepository.findById(accountId);
+        return sellerAccountRepository
+                .findOwnedWithMarketplace(accountId, requireUser().getId())
+                .orElseThrow(() -> new ru.analizer.web.AccountNotFoundException(
+                        Long.toString(accountId)));
     }
 
     /**
-     * Аккаунт, созданный или обновлённый, с уже прочитанными полями.
+     * Магазин, созданный или обновлённый, с уже прочитанными полями.
      *
      * <p>Отдельная запись вместо самой сущности: контроллеру нужен код маркетплейса, а
      * читать его на ленивом прокси вне транзакции нельзя — запрос упал бы с 500. Здесь
      * сессия ещё открыта, и всё, что нужно наружу, извлекается один раз.
      *
+     * @param id              идентификатор магазина; подставляется в путь следующих запросов
      * @param marketplaceCode код маркетплейса в верхнем регистре
      * @param clientId        подключённый идентификатор клиента
      */
-    public record ConnectedAccount(String marketplaceCode, String clientId) {
+    public record ConnectedAccount(Long id, String marketplaceCode, String clientId) {
     }
 
     /**
-     * Аккаунт, при необходимости созданный, с проверенными реквизитами.
+     * Новый магазин пользователя на маркетплейсе.
      *
-     * <p>Используется только подключением маркетплейса: на чистой установке аккаунта
-     * ещё нет, и именно это действие должно его завести. Импорт аккаунт только читает.
+     * <p>Используется только подключением: на чистой установке магазина ещё нет, и
+     * именно это действие его заводит. Импорт магазин только читает.
      *
-     * @param credentials реквизиты от пользователя; если аккаунт уже есть, обновляются
+     * <p>Повторное подключение того же кабинета запрещено: уникальное ограничение в
+     * базе не даст создать дубль, а заранее найденный аккаунт позволяет ответить
+     * внятной ошибкой. Смена ключей уже существующего магазина — отдельное действие,
+     * {@link #updateCredentials}.
+     *
+     * @throws ru.analizer.web.ShopAlreadyConnectedException этот кабинет уже подключён
      */
     @Transactional
-    public ConnectedAccount ensureAccount(String marketplaceCode,
+    public ConnectedAccount createAccount(String marketplaceCode,
                                            MarketplaceCredentials credentials) {
         AppUser user = requireUser();
         Marketplace marketplace = requireMarketplace(marketplaceCode);
 
-        Optional<SellerAccount> existing = sellerAccountRepository
-                .findByUserIdAndMarketplaceId(user.getId(), marketplace.getId());
-        SellerAccount account;
-        if (existing.isPresent()) {
-            SellerAccount found = existing.get();
-            found.updateCredentials(credentials.clientId(), credentials.apiKey());
-            // Название обновляется вместе с ключами: это единственный момент, когда
-            // пользователь сам подтверждает реквизиты, и единственная возможность
-            // починить название у аккаунта, заведённого до появления настоящих имён.
-            // Без этого такие аккаунты остались бы с техническим идентификатором
-            // навсегда — переименовать их можно было бы только удалением вместе с
-            // нагрузкой.
-            found.updateName(provisionerFor(marketplace.getCode())
-                    .resolveShopName(marketplace, credentials));
-            account = sellerAccountRepository.save(found);
-        } else {
-            account = provisionerFor(marketplace.getCode())
-                    .provision(marketplace, user, credentials);
+        Optional<SellerAccount> sameShop = sellerAccountRepository
+                .findOwnedWithMarketplace(
+                        user.getId(), marketplace.getId(), credentials.clientId());
+        if (sameShop.isPresent()) {
+            throw new ru.analizer.web.ShopAlreadyConnectedException(
+                    marketplace.getCode(), credentials.clientId());
         }
+
+        SellerAccount account = provisionerFor(marketplace.getCode())
+                .provision(marketplace, user, credentials);
 
         // Код читается здесь, пока сессия открыта: возврат сущности наружу приводил бы к
         // 500 при попытке открыть ленивый прокси за пределами транзакции.
-        return new ConnectedAccount(marketplace.getCode(), account.getClientId());
+        return new ConnectedAccount(account.getId(), marketplace.getCode(), account.getClientId());
+    }
+
+    /**
+     * Замена реквизитов существующего магазина.
+     *
+     * <p>Отдельное действие от подключения: смена ключей не заводит новый магазин, а
+     * чинит тот, что уже есть. Иначе пришлось бы различать эти два случая по
+     * наличию идентификатора в пути, а это ровно то различие, которое нельзя
+     * додумывать на клиенте.
+     *
+     * <p>Название обновляется вместе с ключами: это единственный момент, когда
+     * пользователь сам подтверждает реквизиты, и единственная возможность починить
+     * название у магазина, заведённого до появления настоящих имён. Без этого такие
+     * магазины остались бы с техническим идентификатором навсегда — переименовать их
+     * можно было бы только удалением вместе с нагрузкой.
+     */
+    @Transactional
+    public ConnectedAccount updateCredentials(Long accountId, MarketplaceCredentials credentials) {
+        SellerAccount account = requireAccount(accountId);
+        account.updateCredentials(credentials.clientId(), credentials.apiKey());
+        account.updateName(provisionerFor(account.getMarketplace().getCode())
+                .resolveShopName(account.getMarketplace(), credentials));
+        sellerAccountRepository.save(account);
+        return new ConnectedAccount(account.getId(),
+                account.getMarketplace().getCode(), account.getClientId());
     }
 
     /**
@@ -179,15 +183,14 @@ public class AccountLookup {
      * авторы и прогоны уходят вместе с аккаунтом. Справочник типов начислений остаётся:
      * он общий для маркетплейса, а не для магазина.
      *
-     * <p>Аккаунт ищется по текущему пользователю, поэтому чужой магазин удалить нельзя
-     * даже зная его идентификатор.
+     * <p>Магазин ищется по текущему пользователю, поэтому чужой удалить нельзя даже
+     * зная его идентификатор.
      *
-     * @throws ru.analizer.web.NotConnectedException магазин не подключён, удалять нечего
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      */
     @Transactional
-    public void deleteAccount(String marketplaceCode) {
-        SellerAccount account = requireAccount(marketplaceCode);
-        sellerAccountRepository.delete(account);
+    public void deleteAccount(Long accountId) {
+        sellerAccountRepository.delete(requireAccount(accountId));
     }
 
     private MarketplaceProvisioner provisionerFor(String code) {

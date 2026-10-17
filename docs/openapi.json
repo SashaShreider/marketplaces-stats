@@ -1,6 +1,35 @@
 {
   "components" : {
     "schemas" : {
+      "AccountInfo" : {
+        "properties" : {
+          "catalogProducts" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "clientId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "importRuns" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "marketplaceCode" : {
+            "type" : "string"
+          },
+          "marketplaceName" : {
+            "type" : "string"
+          },
+          "shopName" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Breakdown" : {
         "properties" : {
           "commission" : {
@@ -52,6 +81,20 @@
           "products" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "CreateAccountRequest" : {
+        "properties" : {
+          "apiKey" : {
+            "type" : "string"
+          },
+          "clientId" : {
+            "type" : "string"
+          },
+          "marketplace" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -301,25 +344,11 @@
       },
       "MarketplaceInfo" : {
         "properties" : {
-          "accountName" : {
-            "type" : "string"
-          },
-          "catalogProducts" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "clientId" : {
-            "type" : "string"
-          },
           "code" : {
             "type" : "string"
           },
           "connected" : {
             "type" : "boolean"
-          },
-          "importRuns" : {
-            "format" : "int64",
-            "type" : "integer"
           },
           "name" : {
             "type" : "string"
@@ -468,14 +497,14 @@
       },
       "ProductRow" : {
         "properties" : {
-"accrualCount" : {
-              "format" : "int32",
-              "type" : "integer"
-            },
-            "archived" : {
-              "type" : "boolean"
-            },
-            "authors" : {
+          "accrualCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "archived" : {
+            "type" : "boolean"
+          },
+          "authors" : {
             "items" : {
               "$ref" : "#/components/schemas/ProductAuthorView"
             },
@@ -638,68 +667,68 @@
         },
         "type" : "object"
       },
-        "SalesDay" : {
-          "properties" : {
-            "date" : {
-              "format" : "date",
-              "type" : "string"
-            },
-            "returned" : {
-              "format" : "int32",
-              "type" : "integer"
-            },
-            "sold" : {
-              "format" : "int32",
-              "type" : "integer"
-            }
+      "SalesDay" : {
+        "properties" : {
+          "date" : {
+            "format" : "date",
+            "type" : "string"
           },
-          "type" : "object"
-        },
-        "SalesDynamicsReport" : {
-          "properties" : {
-            "coverage" : {
-              "$ref" : "#/components/schemas/ReportCoverage"
-            },
-            "dateFrom" : {
-              "format" : "date",
-              "type" : "string"
-            },
-            "dateTo" : {
-              "format" : "date",
-              "type" : "string"
-            },
-            "days" : {
-              "items" : {
-                "$ref" : "#/components/schemas/SalesDay"
-              },
-              "type" : "array"
-            },
-            "filter" : {
-              "type" : "string"
-            },
-            "status" : {
-              "enum" : [ "READY", "PARTIAL", "NOT_LOADED", "HAS_ERRORS" ],
-              "type" : "string"
-            }
+          "returned" : {
+            "format" : "int32",
+            "type" : "integer"
           },
-          "type" : "object"
+          "sold" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
         },
-        "SelectionTotals" : {
-          "properties" : {
-            "expenses" : {
-              "type" : "number"
-            },
-            "income" : {
-              "type" : "number"
-            },
-            "soldQuantity" : {
-              "format" : "int32",
-              "type" : "integer"
-            }
+        "type" : "object"
+      },
+      "SalesDynamicsReport" : {
+        "properties" : {
+          "coverage" : {
+            "$ref" : "#/components/schemas/ReportCoverage"
           },
-          "type" : "object"
+          "dateFrom" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "dateTo" : {
+            "format" : "date",
+            "type" : "string"
+          },
+          "days" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SalesDay"
+            },
+            "type" : "array"
+          },
+          "filter" : {
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "READY", "PARTIAL", "NOT_LOADED", "HAS_ERRORS" ],
+            "type" : "string"
+          }
         },
-        "TypeAmount" : {
+        "type" : "object"
+      },
+      "SelectionTotals" : {
+        "properties" : {
+          "expenses" : {
+            "type" : "number"
+          },
+          "income" : {
+            "type" : "number"
+          },
+          "soldQuantity" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "TypeAmount" : {
         "properties" : {
           "amount" : {
             "type" : "number"
@@ -734,6 +763,536 @@
   },
   "openapi" : "3.1.0",
   "paths" : {
+    "/api/accounts" : {
+      "get" : {
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/AccountInfo"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      },
+      "post" : {
+        "operationId" : "connect",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountInfo"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}" : {
+      "delete" : {
+        "operationId" : "disconnect",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/analytics/daily" : {
+      "get" : {
+        "operationId" : "dailyReport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DailyReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "analytics-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/analytics/products" : {
+      "get" : {
+        "operationId" : "productReport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "analytics-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/analytics/products/dynamics" : {
+      "get" : {
+        "operationId" : "salesDynamics",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "sku",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SalesDynamicsReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "analytics-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/credentials" : {
+      "put" : {
+        "operationId" : "updateCredentials",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CredentialsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "account-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/data/authors" : {
+      "get" : {
+        "operationId" : "authors",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/data/catalog" : {
+      "get" : {
+        "operationId" : "catalog",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CatalogState"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/data/coverage" : {
+      "get" : {
+        "operationId" : "coverage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PeriodCoverage"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "coverage-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/imports" : {
+      "get" : {
+        "operationId" : "listImports",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ImportProgress"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/imports/catalog" : {
+      "post" : {
+        "operationId" : "startCatalogImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportProgress"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/imports/finance" : {
+      "post" : {
+        "operationId" : "startFinanceImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateFrom",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dateTo",
+          "required" : true,
+          "schema" : {
+            "format" : "date",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "refreshAccrualTypes",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportProgress"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/imports/{importId}" : {
+      "get" : {
+        "operationId" : "getImport",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "path",
+          "name" : "importId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportProgress"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "import-controller" ]
+      }
+    },
     "/api/auth/csrf" : {
       "get" : {
         "operationId" : "csrf",
@@ -850,7 +1409,7 @@
     },
     "/api/marketplaces" : {
       "get" : {
-        "operationId" : "list",
+        "operationId" : "list_1",
         "responses" : {
           "200" : {
             "content" : {
@@ -867,477 +1426,6 @@
           }
         },
         "tags" : [ "marketplace-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}" : {
-      "delete" : {
-        "operationId" : "disconnect",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "marketplace-connection-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/analytics/daily" : {
-      "get" : {
-        "operationId" : "dailyReport",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateFrom",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateTo",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/DailyReport"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "analytics-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/analytics/products" : {
-      "get" : {
-        "operationId" : "productReport",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateFrom",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateTo",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "author",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "sort",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "page",
-          "required" : false,
-          "schema" : {
-            "default" : 0,
-            "format" : "int32",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "size",
-          "required" : false,
-          "schema" : {
-            "default" : 50,
-            "format" : "int32",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ProductReport"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "analytics-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/analytics/products/dynamics" : {
-      "get" : {
-        "operationId" : "salesDynamics",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateFrom",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateTo",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "author",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "sku",
-          "required" : false,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SalesDynamicsReport"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "analytics-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/credentials" : {
-      "put" : {
-        "operationId" : "connect",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/CredentialsRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "type" : "object"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "marketplace-connection-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/data/authors" : {
-      "get" : {
-        "operationId" : "authors",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "type" : "string"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "catalog-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/data/catalog" : {
-      "get" : {
-        "operationId" : "catalog",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CatalogState"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "catalog-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/data/coverage" : {
-      "get" : {
-        "operationId" : "coverage",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateFrom",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateTo",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PeriodCoverage"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "coverage-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/imports" : {
-      "get" : {
-        "operationId" : "listImports",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ImportProgress"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "import-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/imports/catalog" : {
-      "post" : {
-        "operationId" : "startCatalogImport",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ImportProgress"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "import-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/imports/finance" : {
-      "post" : {
-        "operationId" : "startFinanceImport",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateFrom",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "dateTo",
-          "required" : true,
-          "schema" : {
-            "format" : "date",
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "refreshAccrualTypes",
-          "required" : false,
-          "schema" : {
-            "default" : false,
-            "type" : "boolean"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ImportProgress"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "import-controller" ]
-      }
-    },
-    "/api/marketplaces/{marketplace}/imports/{importId}" : {
-      "get" : {
-        "operationId" : "getImport",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "marketplace",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "path",
-          "name" : "importId",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ImportProgress"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "import-controller" ]
       }
     }
   },
