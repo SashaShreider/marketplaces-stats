@@ -26,7 +26,19 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [accountId, setAccountId] = useState<number | null>(null)
   const [page, setPage] = useState<PageId>('overview')
   const [range, setRange] = useState<DateRange>(() => lastNDays(30))
+  // Открытость окна и его цель хранятся раздельно. Раньше достаточно было знать,
+  // какой магазин правится: окно без магазина считалось закрытым. Теперь окно
+  // открывается и без магазина — чтобы подключить новый, — и одно это поле стало
+  // означать два разных состояния сразу: «открыто для добавления» и «закрыто».
+  // Оба выглядели бы одинаково, а крестик не закрывал бы окно.
+  const [modalOpen, setModalOpen] = useState(false)
   const [modalAccount, setModalAccount] = useState<AccountInfo | null>(null)
+
+  /** Открыть окно: с магазином — чтобы заменить его ключ, без — чтобы добавить новый. */
+  const openModal = useCallback((account: AccountInfo | null) => {
+    setModalAccount(account)
+    setModalOpen(true)
+  }, [])
 
   const loadList = useCallback(async () => {
     try {
@@ -79,7 +91,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
             list={list ?? []}
             current={current}
             onAccountChange={(id) => setAccountId(id)}
-            onEditAccount={setModalAccount}
+            onEditAccount={openModal}
             onDisconnect={disconnect}
             onLogout={onLogout}
           />
@@ -111,7 +123,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-16 text-center text-[13.5px] font-medium text-slate-500">
                 <p>Магазины ещё не подключены.</p>
                 <button
-                  onClick={() => setModalAccount(null)}
+                  onClick={() => openModal(null)}
                   className="mt-5 rounded-xl bg-brand-600 px-5 py-2.5 text-[13px] font-bold text-white shadow-md shadow-brand-600/25 transition-all hover:bg-brand-700"
                 >
                   Подключить магазин
@@ -172,11 +184,13 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
       </nav>
 
       <ConnectModal
+        open={modalOpen}
         account={modalAccount}
-        onClose={() => setModalAccount(null)}
+        onClose={() => setModalOpen(false)}
         onConnected={async (a) => {
           await loadList()
           setAccountId(a.id)
+          setModalOpen(false)
         }}
       />
     </div>

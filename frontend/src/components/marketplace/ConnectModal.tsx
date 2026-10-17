@@ -17,14 +17,17 @@ type Phase = 'form' | 'loading' | 'success'
  * В первом случае платформа — это тип создаваемого магазина, во втором её не
  * меняют: замена ключей чинит существующий кабинет, а не переносит его на другой.
  *
- * <p>Окно вызывается всегда, даже когда магазинов нет, поэтому его открытие не
- * зависит от выбранного в списке: подключать магазин нужно и тогда, когда их нет.
+ * <p>Открытость приходит отдельным флагом, а не через `account`: окно открывается и
+ * без магазина, чтобы подключить новый, и по одному этому полю «открыто для
+ * добавления» и «закрыто» не различить — крестик тогда просто не закрыл бы окно.
  */
 export default function ConnectModal({
+  open,
   account,
   onClose,
   onConnected,
 }: {
+  open: boolean
   /** null — подключение нового магазина; иначе замена его ключей */
   account: AccountInfo | null
   onClose: () => void
@@ -40,8 +43,11 @@ export default function ConnectModal({
 
   // Подключение требует знать, какие платформы вообще поддерживаются: без этого
   // клиент не отличил бы «нет такого маркетплейса» от «есть, но не подключён».
+  // Запрашиваются при открытии окна, а не при монтировании: закрытое окно в списке
+  // платформ ничего не показывает, и лишний запрос на каждый заход на страницу
+  // ни к чему.
   useEffect(() => {
-    if (account) return
+    if (!open || account) return
     let cancelled = false
     listMarketplaces()
       .then((l) => {
@@ -53,16 +59,17 @@ export default function ConnectModal({
     return () => {
       cancelled = true
     }
-  }, [account])
+  }, [open, account])
 
   // При открытии подставляем известный clientId (замена ключа)
   useEffect(() => {
+    if (!open) return
     setClientId(account?.clientId ?? '')
     setApiKey('')
     setShowKey(false)
     setPhase('form')
     setError(null)
-  }, [account?.id])
+  }, [open, account?.id])
 
   const isOzon = (code || account?.marketplaceCode || '').toUpperCase() === 'OZON'
   const idLabel = isOzon ? 'Client-Id' : 'ID компании'
@@ -94,7 +101,7 @@ export default function ConnectModal({
     'w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-[13px] font-semibold text-slate-800 outline-none transition-all placeholder:font-medium placeholder:text-slate-300 focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10'
 
   return (
-    <AnimatePresence>
+    <AnimatePresence>{open && (
       <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0 }}
@@ -265,6 +272,7 @@ export default function ConnectModal({
           )}
         </motion.div>
       </div>
+    )}
     </AnimatePresence>
   )
 }
