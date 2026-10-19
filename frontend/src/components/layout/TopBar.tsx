@@ -49,9 +49,9 @@ function PopoverPanel({ children, className }: { children: ReactNode; className?
 /** Сколько товаров в каталоге и были ли импорты — по этому видно, заведён ли магазин. */
 function statusText(a: AccountInfo): string {
   if (a.catalogProducts > 0) {
-    return `${a.catalogProducts.toLocaleString('ru-RU')} товаров · ${a.importRuns} импортов`
+    return `${a.catalogProducts.toLocaleString('ru-RU')} товаров`
   }
-  return a.importRuns > 0 ? `${a.importRuns} импортов · каталог не загружен` : 'Данных ещё нет'
+  return 'Каталог не загружен'
 }
 
 // ─── Переключатель магазина ──────────────────────────────────────────────────
@@ -140,8 +140,6 @@ function AccountSelector({
                             {active && <Check size={14} className="shrink-0 text-brand-600" />}
                           </span>
                           <span className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
-                            <span className="shrink-0 font-mono">{shopSubLabel(a)}</span>
-                            <span className="text-slate-300">·</span>
                             <span className="truncate">{statusText(a)}</span>
                           </span>
                         </span>
