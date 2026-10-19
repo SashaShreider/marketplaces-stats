@@ -5,7 +5,14 @@ services:
     environment:
       POSTGRES_DB: analizer
       POSTGRES_USER: analizer
-      POSTGRES_PASSWORD: analizer
+      # Пароль обязателен: без него compose не запустится, а не возьмёт молчаливый
+      # дефолт. Пароль базы и пароль приложения — одна и та же переменная DB_PASSWORD,
+      # иначе пришлось бы держать в .env два значения, которые обязаны совпадать.
+      #
+      # ВАЖНО для существующей базы: том уже создан со старым паролем, и смена
+      # переменной его не меняет — приложение перестанет подключаться. Новый пароль
+      # действует только на чистом томе.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env — возьмите значение из .env.example}
     ports:
       - "5433:5432"
     volumes:
@@ -35,38 +42,34 @@ services:
       # внутри контейнера другой.
       DB_URL: jdbc:postgresql://postgres:5432/analizer
       DB_USERNAME: analizer
-      DB_PASSWORD: analizer
+      DB_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env — возьмите значение из .env.example}
       # Разрешённые источники задаёт пользователь. Значение по умолчанию пустое:
       # без него приложение отвечает только своему источнику.
       APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-}
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-Lax}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
-      - "8080:8080"
+      # Порт на машине задаётся переменной, а не зашит: у разных развёртываний он
+      # разный. На сервере APP_PORT остаётся 8080 — к нему обращается локальный
+      # прокси из DEPLOY.md, и сдвиг здесь сломал бы сайт молча. Локально порт
+      # занят другим процессом, поэтому задаётся в .env.
+      - "${APP_PORT:-8080}:8080"
     volumes:
       - analizer-gradle-cache:/root/.gradle
 
-  # Веб-интерфейс для просмотра базы: http://localhost:5050
-  # Логин: analizer@example.com, пароль: analizer (см. .env.example и README.md)
-  pgadmin:
-    image: dpage/pgadmin4:9
-    container_name: analizer-pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-analizer@example.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-analizer}
-      # Чтобы сервер подключался по внутренней сети compose, а не через localhost
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    ports:
-      - "5050:80"
-    volumes:
-      - analizer-pgadmin-data:/var/lib/pgadmin
+# Сервиса pgAdmin здесь намеренно нет.
+#
+# Он был локальным инструментом для просмотра базы, но стоил дороже, чем давал:
+# образ около 450 МБ тянулся при каждом развёртывании, а на VPS с 2 ГБ RAM это
+# место и трафик на ровно тот сервер, где ресурсов мало. Смотреть данные удобнее
+# отчётом: `docker compose exec postgres psql -U analizer -d analizer`.
+#
+# Если инструмент всё-таки понадобится локально, не возвращать его в compose, а
+# запустить отдельно — тогда его образ не попадёт в развёртывание:
+#   docker run --rm -p 5050:80 -e PGADMIN_DEFAULT_EMAIL=... dpage/pgadmin4:9
 
 volumes:
   analizer-pgdata:
-  analizer-pgadmin-data:
   # Кэш Gradle для сборки образа. Без него каждая пересборка заново скачивает
   # зависимости, и сборка занимает минуты вместо секунд.
   analizer-gradle-cache:

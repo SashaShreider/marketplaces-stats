@@ -4,10 +4,13 @@
 //  Адрес бэкенда выбирается так (по приоритету):
 //   1. значение, сохранённое на экране входа («Настройки сервера») — localStorage
 //   2. переменная окружения VITE_API_BASE_URL
-//   3. в dev-режиме — http://localhost:8080, в production — тот же origin ('')
+//   3. пустая строка — запрос уходит на тот же источник, откуда открыта страница
 //
-//  Если фронтенд запущен на другом порту, на бэкенде нужно задать
-//  APP_ALLOWED_ORIGINS=http://localhost:5173
+//  Третий пункт и есть обычный режим. В разработке Vite отдаёт страницу на 5173
+//  и проксирует /api на бэкенд, поэтому интерфейс не знает его порта и не должен
+//  знать: адрес меняется при переносе на другой порт, и раньше это требовало правки
+//  кода здесь. Заодно исчезает CORS — браузер видит один источник, и подключать
+//  5173 в APP_ALLOWED_ORIGINS локально больше не требуется.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const LS_KEY = 'ma.apiBaseUrl'
@@ -24,7 +27,7 @@ function resolveBase(): string {
   const env = (import.meta as unknown as EnvShape).env
   const fromEnv = env?.VITE_API_BASE_URL
   if (typeof fromEnv === 'string' && fromEnv) return fromEnv
-  return env?.DEV ? 'http://localhost:8080' : ''
+  return ''
 }
 
 export const API_BASE = resolveBase().replace(/\/+$/, '')

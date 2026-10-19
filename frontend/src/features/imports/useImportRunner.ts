@@ -21,7 +21,7 @@ const POLL_MS = 1500
  * При открытии подхватывает уже идущий импорт (например, после перезагрузки страницы).
  */
 export function useImportRunner(
-  mp: string | null,
+  accountId: number | null,
   onFinished?: (p: ImportProgress) => void,
 ): ImportRunner {
   const [run, setRun] = useState<ImportProgress | null>(null)
@@ -34,9 +34,9 @@ export function useImportRunner(
   useEffect(() => {
     setRun(null)
     setError(null)
-    if (!mp) return
+    if (accountId === null) return
     let cancelled = false
-    listImports(mp)
+    listImports(accountId)
       .then((list) => {
         if (cancelled) return
         const active = list.find((i) => i.inProgress)
@@ -48,16 +48,16 @@ export function useImportRunner(
     return () => {
       cancelled = true
     }
-  }, [mp])
+  }, [accountId])
 
   // опрос прогресса
   const runId = run?.id
   const inProgress = run?.inProgress ?? false
   useEffect(() => {
-    if (!mp || runId === undefined || !inProgress) return
+    if (!accountId || runId === undefined || !inProgress) return
     const timer = window.setInterval(async () => {
       try {
-        const p = await getImport(mp, runId)
+        const p = await getImport(accountId, runId)
         setRun(p)
         if (!p.inProgress && notifiedRef.current !== p.id) {
           notifiedRef.current = p.id
@@ -68,11 +68,11 @@ export function useImportRunner(
       }
     }, POLL_MS)
     return () => window.clearInterval(timer)
-  }, [mp, runId, inProgress])
+  }, [accountId, runId, inProgress])
 
   const start = useCallback(
     async (fn: () => Promise<ImportProgress>) => {
-      if (!mp) return
+      if (accountId === null) return
       setError(null)
       try {
         const p = await fn()
@@ -82,7 +82,7 @@ export function useImportRunner(
         // 409: такой импорт уже идёт — просто присоединяемся к нему
         if (e instanceof ApiError && e.status === 409 && e.problem?.activeImportId) {
           try {
-            const p = await getImport(mp, e.problem.activeImportId)
+            const p = await getImport(accountId, e.problem.activeImportId)
             notifiedRef.current = null
             setRun(p)
             return
@@ -93,14 +93,14 @@ export function useImportRunner(
         setError(describeError(e))
       }
     },
-    [mp],
+    [accountId],
   )
 
   const startFinance = useCallback(
-    (from: string, to: string) => start(() => startFinanceImport(mp!, from, to)),
-    [mp, start],
+    (from: string, to: string) => start(() => startFinanceImport(accountId!, from, to)),
+    [accountId, start],
   )
-  const startCatalog = useCallback(() => start(() => startCatalogImport(mp!)), [mp, start])
+  const startCatalog = useCallback(() => start(() => startCatalogImport(accountId!)), [accountId, start])
 
   const dismiss = useCallback(() => {
     setError(null)

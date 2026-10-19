@@ -7,21 +7,23 @@ import ru.analizer.account.domain.AccountLookup;
 import ru.analizer.account.domain.Marketplace;
 import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.account.repository.MarketplaceRepository;
-import ru.analizer.catalog.repository.OzonProductRepository;
-import ru.analizer.sync.repository.ImportRunRepository;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
 /**
- * Что доступно текущему пользователю.
+ * Какие маркетплейсы поддерживаются системой.
  *
- * <p>Единственный метод без сегмента маркетплейса: он отвечает на вопрос «что у меня уже
- * подключено», поэтому вызывается раньше, чем известен конкретный маркетплейс.
+ * <p>Справочник платформ, а не список магазинов: список магазинов пользователя
+ * возвращает {@link AccountController}. Разделено потому, что справочник отвечает на
+ * вопрос «куда вообще можно подключиться», а список магазинов — «с каким из них я
+ * работаю». Одним ответом это плохо выражалось: у одного маркетплейса теперь может
+ * быть несколько магазинов, и в одном списке они смешались бы с платформами, к
+ * которым ещё даже не подключались.
  *
- * <p>Список показывает все маркетплейсы системы, а не только подключённые: иначе
- * пользователь не увидит, что Wildberries вообще поддерживается, и не поймёт, куда
- * идти подключаться. Отличается поле {@code connected}.
+ * <p>Список показывает все платформы системы, а не только те, что используются:
+ * иначе пользователь не увидит, что Wildberries поддерживается, и не поймёт, куда идти
+ * подключаться. Отличается поле {@code connected}.
  *
  * <p>Собственных запросов к маркетплейсам не выполняет: только состояние нашей базы.
  */
@@ -31,65 +33,45 @@ public class MarketplaceController {
 
     private final MarketplaceRepository marketplaceRepository;
     private final AccountLookup accountLookup;
-    private final ImportRunRepository importRunRepository;
-    private final OzonProductRepository ozonProductRepository;
 
     public MarketplaceController(MarketplaceRepository marketplaceRepository,
-                                 AccountLookup accountLookup,
-                                 ImportRunRepository importRunRepository,
-                                 OzonProductRepository ozonProductRepository) {
+                                 AccountLookup accountLookup) {
         this.marketplaceRepository = marketplaceRepository;
         this.accountLookup = accountLookup;
-        this.importRunRepository = importRunRepository;
-        this.ozonProductRepository = ozonProductRepository;
     }
 
     /**
      * GET /api/marketplaces
      *
-     * <p>Позволяет клиенту построить выбор маркетплейса, не зная заранее кодов.
-     * Поле {@code connected} показывает, можно ли запускать импорт.
+     * <p>Позволяет клиенту построить окно подключения, не зная заранее кодов.
      */
     @GetMapping
     public List<MarketplaceInfo> list() {
+        // Один выбор магазинов пользователя на весь ответ: иначе на каждую платформу
+        // делался бы свой запрос, хотя аккаунты нужны только чтобы отличить «есть
+        // магазин» от «нет ни одного».
+        Set<Long> withShops = accountLookup.findAccounts().stream()
+                .map(a -> a.getMarketplace().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
         return marketplaceRepository.findAll().stream()
-                .map(this::toInfo)
+                .map(m -> toInfo(m, withShops.contains(m.getId())))
                 .toList();
     }
 
-    private MarketplaceInfo toInfo(Marketplace marketplace) {
-        // Ищем аккаунт именно текущего пользователя: чужие подключения в ответе
-        // показывать нельзя, это утечка самого факта работы магазина.
-        Optional<SellerAccount> account = accountLookup.findAccount(marketplace.getCode());
-
-        return new MarketplaceInfo(
-                marketplace.getCode(),
-                marketplace.getName(),
-                account.isPresent(),
-                account.map(SellerAccount::getName).orElse(null),
-                account.map(SellerAccount::getClientId).orElse(null),
-                account.map(a -> ozonProductRepository.countBySellerAccountId(a.getId())).orElse(0L),
-                account.map(a -> importRunRepository.countBySellerAccountId(a.getId())).orElse(0L));
+    private MarketplaceInfo toInfo(Marketplace marketplace, boolean connected) {
+        return new MarketplaceInfo(marketplace.getCode(), marketplace.getName(), connected);
     }
 
     /**
-     * @param code            код маркетплейса; подставляется в путь следующих запросов
-     * @param name            название для интерфейса
-     * @param connected       задан ли аккаунт; при {@code false} импорт вернёт 409
-     *                       с просьбой подключить маркетплейс
-     * @param accountName     имя подключённого аккаунта
-     * @param clientId        идентификатор клиента; секретный ключ не возвращается
-     * @param catalogProducts товаров в каталоге; 0 означает, что каталог ещё не импортирован
-     * @param importRuns      сколько импортов запускалось за всё время
+     * @param code      код маркетплейса; подставляется в тело запроса при подключении
+     * @param name      название для интерфейса
+     * @param connected есть ли у пользователя хотя бы один магазин на этой платформе
      */
     public record MarketplaceInfo(
             String code,
             String name,
-            boolean connected,
-            String accountName,
-            String clientId,
-            long catalogProducts,
-            long importRuns
+            boolean connected
     ) {
     }
 }

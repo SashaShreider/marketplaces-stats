@@ -78,7 +78,7 @@ class CorsIT extends AbstractPostgresIntegrationTest {
         // DELETE меняет данные и потому уходит сначала с проверкой CORS. Если бы он
         // отклонился как подделка CSRF, браузер не отправил бы сам DELETE и отчёт об
         // ошибке был бы пустым — ровно тот случай, который невозможно отладиить.
-        HttpRequest request = HttpRequest.newBuilder().uri(uri("/api/marketplaces/ozon"))
+        HttpRequest request = HttpRequest.newBuilder().uri(uri("/api/accounts/1"))
                 .header("Origin", FRONTEND)
                 .header("Access-Control-Request-Method", "DELETE")
                 .header("Access-Control-Request-Headers", CSRF_HEADER_NAME)

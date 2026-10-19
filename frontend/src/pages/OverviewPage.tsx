@@ -4,7 +4,6 @@ import { getDaily } from '@/api/client'
 import { describeError } from '@/api/http'
 import { mapDaily } from '@/api/mappers'
 import DateRangePicker from '@/components/common/DateRangePicker'
-import EmptyState from '@/components/marketplace/EmptyState'
 import ExpenseDonut from '@/components/finance/ExpenseDonut'
 import FinanceSection from '@/components/finance/FinanceSection'
 import ProgressBar from '@/components/sync/ProgressBar'
@@ -13,9 +12,9 @@ import SyncIndicator from '@/components/sync/SyncIndicator'
 import { MarketplaceLogo, PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
-import type { DailyReport, DateRange, MarketplaceInfo } from '@/types'
+import type { AccountInfo, DailyReport, DateRange } from '@/types'
 import { sumDays } from '@/utils/format'
-import { shopName } from '@/utils/marketplace'
+import { shopLabel } from '@/utils/marketplace'
 
 const EMPTY_TOTALS = sumDays([])
 /** Дней, начиная с которых предупреждаем о большом числе запросов к маркетплейсу.
@@ -23,17 +22,15 @@ const EMPTY_TOTALS = sumDays([])
 /* const BIG_IMPORT_DAYS = 45 */
 
 export default function OverviewPage({
-  mp,
+  account,
   range,
   onRangeChange,
   runner,
-  onConnect,
 }: {
-  mp: MarketplaceInfo
+  account: AccountInfo
   range: DateRange
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
-  onConnect: () => void
 }) {
   const [report, setReport] = useState<DailyReport | null>(null)
   const [loading, setLoading] = useState(false)
@@ -45,7 +42,7 @@ export default function OverviewPage({
       const t = ++token.current
       if (!silent) setLoading(true)
       try {
-        const r = await getDaily(mp.code, range.from, range.to)
+        const r = await getDaily(account.id, range.from, range.to)
         if (token.current !== t) return
         setReport(r)
         setError(null)
@@ -56,13 +53,13 @@ export default function OverviewPage({
         if (token.current === t) setLoading(false)
       }
     },
-    [mp.code, range.from, range.to],
+    [account.id, range.from, range.to],
   )
 
-  // отчёт при смене маркетплейса / периода
+  // отчёт при смене магазина / периода
   useEffect(() => {
-    if (mp.connected) reload()
-  }, [mp.connected, reload])
+    reload()
+  }, [reload])
 
   // по ходу импорта подтягиваем свежие цифры (результат доступен до окончания импорта)
   const run = runner.run
@@ -96,15 +93,15 @@ export default function OverviewPage({
     runner.startFinance(range.from, range.to)
   }
 
-  const auto = useAutoSync({ mp: mp.connected ? mp.code : null, report, range, runner })
+  const auto = useAutoSync({ accountId: account.id, report, range, runner })
 
   const header = (
     <PageHeader
       title="Обзор"
       subtitle={
         <>
-          Финансовые результаты магазина {shopName(mp)}
-          <MarketplaceLogo code={mp.code} size="sm" />
+          Финансовые результаты магазина {shopLabel(account)}
+          <MarketplaceLogo code={account.marketplaceCode} size="sm" />
         </>
       }
     >
@@ -114,15 +111,6 @@ export default function OverviewPage({
       </div>
     </PageHeader>
   )
-
-  if (!mp.connected) {
-    return (
-      <>
-        {header}
-        <EmptyState mp={mp} onConnect={onConnect} />
-      </>
-    )
-  }
 
   return (
     <>

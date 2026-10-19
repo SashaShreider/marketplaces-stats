@@ -112,17 +112,30 @@ public class ApiExceptionHandler {
     }
 
     /**
-     * Маркетплейс не подключён.
+     * Магазина нет или он принадлежит другому пользователю.
      *
-     * <p>409, а не 404: адрес верен, но состояние не позволяет выполнить операцию.
-     * Отдельный тип нужен, чтобы фронтенд показал «подключите маркетплейс», а не
-     * «что-то сломалось».
+     * <p>Отдельный тип нужен, чтобы фронтенд показал «магазин не найден», а не
+     * «что-то сломалось». Ответ на «нет такого» и на «не твой» одинаковый — иначе
+     * перебор идентификаторов показывал бы, какие магазины существуют.
      */
-    @ExceptionHandler(NotConnectedException.class)
-    public ProblemDetail handleNotConnected(NotConnectedException e) {
+    @ExceptionHandler(AccountNotFoundException.class)
+    public ProblemDetail handleAccountNotFound(AccountNotFoundException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        problem.setTitle("Магазин не найден");
+        problem.setType(URI.create("urn:analizer:error:account-not-found"));
+        return problem;
+    }
+
+    /**
+     * Этот кабинет уже подключён.
+     *
+     * <p>Отдельный 409: повторное подключение того же магазина, а не ошибка запроса.
+     */
+    @ExceptionHandler(ShopAlreadyConnectedException.class)
+    public ProblemDetail handleAlreadyConnected(ShopAlreadyConnectedException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
-        problem.setTitle("Маркетплейс не подключён");
-        problem.setType(URI.create("urn:analizer:error:not-connected"));
+        problem.setTitle("Магазин уже подключён");
+        problem.setType(URI.create("urn:analizer:error:shop-already-connected"));
         return problem;
     }
 

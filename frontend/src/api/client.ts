@@ -1,14 +1,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  Типизированные методы REST API. Структура повторяет документацию:
 //   /api/auth/*                          — вход и сессия
-//   /api/marketplaces                    — справочник и подключения
-//   /api/marketplaces/{mp}/imports/*     — команды (тратят квоту маркетплейса!)
-//   /api/marketplaces/{mp}/data/*        — состояние нашей базы (бесплатно)
-//   /api/marketplaces/{mp}/analytics/*   — отчёты (бесплатно)
+//   /api/marketplaces                    — справочник платформ (куда подключаться)
+//   /api/accounts                        — мои магазины
+//   /api/accounts/{id}/imports/*         — команды (тратят квоту маркетплейса!)
+//   /api/accounts/{id}/data/*            — состояние нашей базы (бесплатно)
+//   /api/accounts/{id}/analytics/*       — отчёты (бесплатно)
+//
+//  В путях подставляется идентификатор магазина, а не код платформы. Раньше
+//  магазин выбирался кодом маркетплейса, и это работало, пока он был один на
+//  платформу; с несколькими кабинетами выбор стал неоднозначным.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { forgetCsrf, refreshCsrf, request } from '@/api/http'
 import type {
+  AccountInfo,
   CatalogState,
   Coverage,
   DailyReport,
@@ -18,9 +24,9 @@ import type {
     ProductsReport,
     SalesDynamics,
     User,
-} from '@/types'
+  } from '@/types'
 
-const mpPath = (code: string) => `/api/marketplaces/${encodeURIComponent(code.toLowerCase())}`
+const accountPath = (accountId: number) => `/api/accounts/${accountId}`
 
 // ─── Аутентификация ──────────────────────────────────────────────────────────
 
@@ -50,47 +56,69 @@ export async function logout(): Promise<void> {
   }
 }
 
-// ─── Маркетплейсы ────────────────────────────────────────────────────────────
+// ─── Платформы: справочник для окна подключения ──────────────────────────────
 
 export const listMarketplaces = () => request<MarketplaceInfo[]>('GET', '/api/marketplaces')
 
-export const putCredentials = (code: string, clientId: string, apiKey: string) =>
-  request<{ marketplace: string; clientId: string }>('PUT', `${mpPath(code)}/credentials`, {
+// ─── Мои магазины ─────────────────────────────────────────────────────────────
+
+export const listAccounts = () => request<AccountInfo[]>('GET', '/api/accounts')
+
+/**
+ * Подключает новый магазин. Отдельное действие от замены ключей: подключение
+ * заводит магазин, а замена ключей чинит уже существующий.
+ *
+ * `marketplace` — код платформы из GET /api/marketplaces. В остальных запросах он
+ * не встречается.
+ */
+export const createAccount = (marketplace: string, clientId: string, apiKey: string) =>
+  request<AccountInfo>('POST', '/api/accounts', {
+    body: { marketplace, clientId, apiKey },
+  })
+
+export const putAccountCredentials = (accountId: number, clientId: string, apiKey: string) =>
+  request<AccountInfo>('PUT', `${accountPath(accountId)}/credentials`, {
     body: { clientId, apiKey },
   })
 
-export const deleteMarketplace = (code: string) => request<void>('DELETE', mpPath(code))
+export const deleteAccount = (accountId: number) =>
+  request<void>('DELETE', accountPath(accountId))
 
 // ─── Импорты (расходуют квоту маркетплейса) ──────────────────────────────────
 
-export const startFinanceImport = (code: string, dateFrom: string, dateTo: string) =>
-  request<ImportProgress>('POST', `${mpPath(code)}/imports/finance`, {
+export const startFinanceImport = (accountId: number, dateFrom: string, dateTo: string) =>
+  request<ImportProgress>('POST', `${accountPath(accountId)}/imports/finance`, {
     query: { dateFrom, dateTo },
   })
 
-export const startCatalogImport = (code: string) =>
-  request<ImportProgress>('POST', `${mpPath(code)}/imports/catalog`)
+export const startCatalogImport = (accountId: number) =>
+  request<ImportProgress>('POST', `${accountPath(accountId)}/imports/catalog`)
 
-export const listImports = (code: string) =>
-  request<ImportProgress[]>('GET', `${mpPath(code)}/imports`)
+export const listImports = (accountId: number) =>
+  request<ImportProgress[]>('GET', `${accountPath(accountId)}/imports`)
 
-export const getImport = (code: string, id: number) =>
-  request<ImportProgress>('GET', `${mpPath(code)}/imports/${id}`)
+export const getImport = (accountId: number, id: number) =>
+  request<ImportProgress>('GET', `${accountPath(accountId)}/imports/${id}`)
 
 // ─── Состояние данных ────────────────────────────────────────────────────────
 
-export const getCoverage = (code: string, dateFrom: string, dateTo: string) =>
-  request<Coverage>('GET', `${mpPath(code)}/data/coverage`, { query: { dateFrom, dateTo } })
+export const getCoverage = (accountId: number, dateFrom: string, dateTo: string) =>
+  request<Coverage>('GET', `${accountPath(accountId)}/data/coverage`, {
+    query: { dateFrom, dateTo },
+  })
 
-export const getCatalogState = (code: string) =>
-  request<CatalogState>('GET', `${mpPath(code)}/data/catalog`)
+export const getCatalogState = (accountId: number) =>
+  request<CatalogState>('GET', `${accountPath(accountId)}/data/catalog`)
 
-export const getAuthors = (code: string) => request<string[]>('GET', `${mpPath(code)}/data/authors`)
+export const getAuthors = (accountId: number) =>
+  request<string[]>('GET', `${accountPath(accountId)}/data/authors`)
 
 // ─── Аналитика ───────────────────────────────────────────────────────────────
 
-export const getDaily = (code: string, dateFrom: string, dateTo: string) =>
-  request<DailyReport>('GET', `${mpPath(code)}/analytics/daily`, { query: { dateFrom, dateTo } })
+export const getDaily = (accountId: number, dateFrom: string, dateTo: string) =>
+  request<DailyReport>('GET', `${accountPath(accountId)}/analytics/daily`, {
+    query: { dateFrom, dateTo },
+  })
 
 export interface ProductsQuery {
   dateFrom: string
@@ -102,8 +130,8 @@ export interface ProductsQuery {
   size?: number
 }
 
-export const getProducts = (code: string, q: ProductsQuery) =>
-  request<ProductsReport>('GET', `${mpPath(code)}/analytics/products`, {
+export const getProducts = (accountId: number, q: ProductsQuery) =>
+  request<ProductsReport>('GET', `${accountPath(accountId)}/analytics/products`, {
     query: { ...q },
   })
 
@@ -111,13 +139,13 @@ export const getProducts = (code: string, q: ProductsQuery) =>
  * Динамика продаж по дням.
  *
  * author и sku несовместимы: это два разных отбора, и бэкенд при заданном sku
- * игнорирует автора. Передача обоих сразу означала бы искать товар сразу у двух
+ * игнорирует автора. Передача обоих сразу означало бы искать товар сразу у двух
  * продавцов, а задача у пользователя одна.
  */
 export const getSalesDynamics = (
-  code: string,
+  accountId: number,
   q: { dateFrom: string; dateTo: string; author?: string; sku?: number },
 ) =>
-  request<SalesDynamics>('GET', `${mpPath(code)}/analytics/products/dynamics`, {
+  request<SalesDynamics>('GET', `${accountPath(accountId)}/analytics/products/dynamics`, {
     query: { ...q },
   })
