@@ -28,9 +28,21 @@ const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000
 /** Пауза между попытками догнать один и тот же период, чтобы не крутить цикл. */
 const CATCH_UP_RETRY_MS = 60 * 1000
 
-const PHASE_KEY = 'ma.autoSyncPhase'
-const LAST_REFRESH_KEY = 'ma.lastAutoRefresh'
-const LAST_CATCH_UP_KEY = 'ma.lastCatchUp'
+/**
+ * Ключи localStorage привязаны к магазину.
+ *
+ * <p>Раньше метки были одни на всё приложение, и это работало, пока магазин был
+ * один: у пользователя их теперь несколько, и общие метки стали бы драться между
+ * кабинетами. Первая же отметка «уже уточняли сегодня» от одного магазина отключала
+ * бы уточнение у другого на сутки, а фаза догрузки одного магазина применялась бы к
+ * другому — и тот считал бы, что у него всё загружено, и молчал.
+ *
+ * <p>Префикс идентификатора в ключе, а не в значении: иначе пришлось бы хранить
+ * структуру и разбирать её при чтении, а ключ и так надёжно разделяет данные.
+ */
+function shopKey(key: string, accountId: number): string {
+  return `${key}:${accountId}`
+}
 
 type Phase = 'fresh' | 'initial' | 'deep' | 'settled'
 
@@ -73,12 +85,12 @@ function deepSyncRange(): DateRange {
 }
 
 export function useAutoSync({
-  mp,
+  accountId,
   report,
   range,
   runner,
 }: {
-  mp: string | null
+  accountId: number | null
   /**
    * Отчёт за выбранный период — не обязательно дневной.
    *
@@ -92,16 +104,20 @@ export function useAutoSync({
   runner: ImportRunner
 }): AutoSync {
   const [phase, setPhaseState] = useState<Phase>(() => {
-    const v = read(PHASE_KEY)
+    if (accountId === null) return 'fresh'
+    const v = read(shopKey('ma.autoSyncPhase', accountId))
     return v === 'initial' || v === 'deep' || v === 'settled' ? v : 'fresh'
   })
 
   // Фаза живёт и в памяти, и в localStorage: перезагрузка страницы не должна
   // заново начинать автозагрузку с первого шага.
-  const setPhase = useCallback((next: Phase) => {
-    setPhaseState(next)
-    write(PHASE_KEY, next)
-  }, [])
+  const setPhase = useCallback(
+    (next: Phase) => {
+      setPhaseState(next)
+      if (accountId !== null) write(shopKey('ma.autoSyncPhase', accountId), next)
+    },
+    [accountId],
+  )
 
   // Прогон, который уже обработан. Без него один и тот же завершившийся прогон
   // раз за каждым рендером запускал бы следующий этап.
@@ -148,18 +164,19 @@ export function useAutoSync({
    */
   const launchThrottled = useCallback(
     (from: string, to: string) => {
-      const key = `${LAST_CATCH_UP_KEY}:${from}:${to}`
+      if (accountId === null) return false
+      const key = shopKey(`ma.lastCatchUp:${from}:${to}`, accountId)
       const last = readLast(key)
       if (last > 0 && Date.now() - last < CATCH_UP_RETRY_MS) return false
       if (!launch(from, to)) return false
       write(key, String(Date.now()))
       return true
     },
-    [launch],
+    [launch, accountId],
   )
 
-  // Смена маркетплейса возвращает автоматику к началу: у другого магазина своя база.
-  const lastMp = useRef(mp)
+  // Смена магазина возвращает автоматику к началу: у другого магазина своя база.
+  const lastAccountId = useRef(accountId)
 
   /**
    * Догон недогруженных дней выбранного периода.
@@ -172,7 +189,7 @@ export function useAutoSync({
    * дней, а не готовность периода целиком.
    */
   useEffect(() => {
-    if (!mp || !report || busy) return
+    if (accountId === null || !report || busy) return
 
     const missing = report.coverage.missingDays.length
     const failed = report.coverage.failedDays
@@ -185,11 +202,11 @@ export function useAutoSync({
     }
     // `busy` в зависимостях обязателен: догон должен повториться, когда
     // предыдущий импорт закончился и в базе всё ещё есть недостающие дни.
-  }, [mp, report, busy, range.from, range.to, phase, launchThrottled, setPhase])
+  }, [accountId, report, busy, range.from, range.to, phase, launchThrottled, setPhase])
 
   // Текущий период закрыт — догружаем предыдущие 90 дней.
   useEffect(() => {
-    if (!mp || !report || busy) return
+    if (accountId === null || !report || busy) return
     if (phase !== 'initial') return
     // Ждём именно полной загрузки: при ошибках сначала разбираемся с ними.
     if (report.coverage.needsSync || report.coverage.failedDays > 0) return
@@ -204,7 +221,7 @@ export function useAutoSync({
     launch(deep.from, deep.to)
     // `busy` в зависимостях обязателен: без него эффект не перезапустится в момент,
     // когда импорт текущего периода завершится и снял блокировку.
-  }, [mp, report, busy, phase, range.from, launch, setPhase])
+  }, [accountId, report, busy, phase, range.from, launch, setPhase])
 
   // Прогон завершился: переходим дальше, если это была догрузка.
   useEffect(() => {
@@ -218,20 +235,20 @@ export function useAutoSync({
 
   // Тихое уточнение свежих дней при возврате на страницу.
   useEffect(() => {
-    if (!mp || !report || busy || refreshing.current) return
+    if (accountId === null || !report || busy || refreshing.current) return
     if (report.coverage.provisionalDays.length === 0) return
     // При ошибках сначала разбираются с ними, а не с уточнениями.
     if (report.status === 'HAS_ERRORS' || report.coverage.failedDays > 0) return
 
-    const last = readLast(LAST_REFRESH_KEY)
+    const last = readLast(shopKey('ma.lastAutoRefresh', accountId))
     if (last > 0 && Date.now() - last < REFRESH_INTERVAL_MS) return
 
     refreshing.current = true
     // Метку времени ставим только после успешного старта: если импорт не запустился,
     // не помечаем попытку выполненной, иначе уточнение замолчало бы на сутки.
-    if (launch(range.from, range.to)) write(LAST_REFRESH_KEY, String(Date.now()))
+    if (launch(range.from, range.to)) write(shopKey('ma.lastAutoRefresh', accountId), String(Date.now()))
     else refreshing.current = false
-  }, [mp, report, busy, range.from, range.to, launch])
+  }, [accountId, report, busy, range.from, range.to, launch])
 
   // Запуск мог быть отвергнут сервером: тогда `run` так и не появится, а снять
   // отметку «идёт обновление» больше некому.
@@ -242,13 +259,14 @@ export function useAutoSync({
   }, [runnerError])
 
   useEffect(() => {
-    if (lastMp.current === mp) return
-    lastMp.current = mp
-    write(PHASE_KEY, 'fresh')
+    if (lastAccountId.current === accountId) return
+    lastAccountId.current = accountId
+    // Метки прежнего магазина не трогаем: они его собственные и при возврате
+    // сэкономят запросы. Фазу в памяти сбрасываем — она описывала прежний магазин.
     setPhase('fresh')
     handledRunId.current = null
     refreshing.current = false
-  }, [mp, setPhase])
+  }, [accountId, setPhase])
 
   return { state: syncStateOf(report, run) }
 }

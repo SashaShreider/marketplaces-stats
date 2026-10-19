@@ -1,16 +1,31 @@
-import type { MarketplaceInfo } from '@/types'
+import type { AccountInfo } from '@/types'
 
 /**
- * Название магазина для интерфейса.
+ * Как показать магазин в интерфейсе.
  *
- * <p>У маркетплейса два разных имени, и путать их легко: {@code name} — это название
- * площадки из справочника («OZON»), а {@code accountName} — конкретный подключённый
- * магазин («OZON 1154»). В заголовке «Финансовые результаты магазина …» подразумевается
- * второе: «OZON» отвечало бы на вопрос «какая площадка», а не «чей это магазин».
+ * <p>Название от маркетплейса у двух магазинов одной платформы может совпасть — у двух
+ * кабинетов одного продавца это обычное дело. Поэтому в селекторе рядом с названием
+ * показывается clientId: его продавец узнаёт в своём кабинете, а название может быть
+ * общим.
  *
- * <p>Фолбэк на {@code name} нужен для неподключённого магазина, у которого
- * {@code accountName} пуст: пустое место в заголовке читалось бы как ошибка.
+ * <p>Заголовок и списки берут название из `shopName`, а не из названия платформы: «OZON»
+ * отвечало бы на вопрос «какая площадка», а не «чей это магазин».
  */
-export function shopName(mp: Pick<MarketplaceInfo, 'name' | 'accountName'>): string {
-  return mp.accountName?.trim() || mp.name
+export function shopLabel(account: Pick<AccountInfo, 'shopName' | 'marketplaceName'>): string {
+  return account.shopName?.trim() || account.marketplaceName
+}
+
+/** Идентификатор для интерфейса: название и clientId, чтобы совпадения не путались. */
+export function shopSubLabel(account: Pick<AccountInfo, 'clientId'>): string {
+  return account.clientId
+}
+
+/**
+ * Сравнение магазинов для React-ключа и для поиска выбранного.
+ *
+ * <p>По коду платформы сравнивать нельзя: у одного продавца их несколько, и выбор
+ * оказался бы неоднозначным, а молча показывался бы не тот магазин.
+ */
+export function sameAccount(a: AccountInfo | null, b: AccountInfo | null): boolean {
+  return a !== null && b !== null && a.id === b.id
 }

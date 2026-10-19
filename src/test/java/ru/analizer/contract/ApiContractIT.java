@@ -35,17 +35,52 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
      * методе, который её добавил, а в том, который возвращает сущность целиком.
      */
     @Test
-    @DisplayName("API-ключ не утекает в ответе списка маркетплейсов")
+    @DisplayName("API-ключ не утекает в ответе списка магазинов")
     void apiKeyNeverLeaksToClient() throws Exception {
         account();
 
-        HttpResponse<String> response = get("/api/marketplaces");
+        HttpResponse<String> response = get("/api/accounts");
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body())
-                .as("ответ должен показывать свой аккаунт")
+                .as("ответ должен показывать свой магазин")
                 .contains(CLIENT_ID)
                 .doesNotContain(API_KEY);
+    }
+
+    @Test
+    @DisplayName("Список магазинов отвечает 200 и пустым массивом до подключения")
+    void accountsAreEmptyBeforeConnecting() throws Exception {
+        HttpResponse<String> response = get("/api/accounts");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body())
+                .as("пустой список, а не null: клиенту не приходится различать")
+                .startsWith("[");
+
+        // Справочник платформ при этом остаётся: он отвечает на вопрос «куда подключаться»,
+        // и без него пользователь не увидит, что Wildberries поддерживается.
+        assertThat(get("/api/marketplaces").body()).contains("OZON");
+    }
+
+    @Test
+    @DisplayName("Два магазина одной платформы возвращаются оба")
+    void severalAccountsOnOnePlatform() throws Exception {
+        account();
+        secondAccount("7777");
+
+        HttpResponse<String> response = get("/api/accounts");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body())
+                .as("оба кабинета одного продавца должны быть видны")
+                .contains(CLIENT_ID)
+                .contains("7777");
+        // Платформа в списке магазинов остаётся одна: это справочник платформ, а не
+        // список магазинов, иначе одна площадка занимала бы столько строк, сколько
+        // у продавца кабинетов.
+        assertThat(get("/api/marketplaces").body())
+                .doesNotContain("7777");
     }
 
     private URI uri(String path) {
@@ -62,31 +97,72 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
     }
 
     @Test
-    @DisplayName("Неизвестный маркетплейс — 404, а не пустой отчёт")
-    void unknownMarketplaceIsNotFound() throws Exception {
+    @DisplayName("Несуществующий магазин — 404, а не пустой отчёт")
+    void unknownAccountIsNotFound() throws Exception {
         HttpResponse<String> response = get(
-                "/api/marketplaces/wildberries/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
+                "/api/accounts/999999/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
 
         assertThat(response.statusCode()).isEqualTo(404);
-        assertThat(response.body()).contains("wildberries");
+        assertThat(response.body())
+                .contains("\"type\":\"urn:analizer:error:account-not-found\"")
+                .contains("999999");
+    }
+
+    @Test
+    @DisplayName("Чужой магазин неотличим от несуществующего")
+    void foreignAccountLooksAbsent() throws Exception {
+        // Различая «нет такого» и «не твой», мы пересказывали бы злоумышленнику,
+        // какие магазины существуют. Поэтому код и тип ошибки совпадают, а отличаются
+        // только идентификаторы из самих запросов.
+        account();
+        Long foreignId = otherUsersAccountId();
+
+        HttpResponse<String> absent = get(
+                "/api/accounts/999999/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
+        HttpResponse<String> foreign = get(
+                "/api/accounts/" + foreignId + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10");
+
+        assertThat(foreign.statusCode()).isEqualTo(404);
+        assertThat(foreign.body())
+                .as("ответ на чужой магазин совпадает по типу ошибки, а отличается лишь числом из запроса")
+                .contains("\"type\":\"urn:analizer:error:account-not-found\"")
+                .doesNotContain(CLIENT_ID)
+                .doesNotContain("секретный")
+                .doesNotContain("9999");
+        assertThat(foreign.body().replace(String.valueOf(foreignId), "X"))
+                .isEqualTo(absent.body().replace("999999", "X"));
+    }
+
+    /**
+     * Магазин чужого пользователя.
+     *
+     * <p>Создаётся напрямую в базе: HTTP-запрос на его создание от имени текущего
+     * пользователя по определению невозможен, а проверять надо именно невозможность
+     * добраться до чужого.
+     */
+    private Long otherUsersAccountId() {
+        var otherUser = appUserRepository.save(new ru.analizer.auth.domain.AppUser(
+                "other-seller-" + java.util.UUID.randomUUID().toString().substring(0, 8),
+                passwordEncoder.encode(PASSWORD), "Другой продавец"));
+        return sellerAccountRepository.save(new ru.analizer.account.domain.SellerAccount(
+                otherUser, marketplace(), "Чужой магазин", "9999", "secret")).getId();
     }
 
     @Test
     @DisplayName("Ошибка в формате RFC 7807 с машиночитаемым типом")
     void errorsFollowProblemDetails() throws Exception {
-        HttpResponse<String> response = get("/api/marketplaces/wb/imports");
+        HttpResponse<String> response = get("/api/accounts/999999/imports");
 
         assertThat(response.statusCode()).isEqualTo(404);
         assertThat(response.body())
-                .contains("\"type\":\"urn:analizer:error:unknown-marketplace\"")
-                .contains("\"marketplace\":\"WB\"");
+                .contains("\"type\":\"urn:analizer:error:account-not-found\"");
     }
 
     @Test
     @DisplayName("Покрытие до первой синхронизации — 200 с честными данными, а не ошибка")
     void coverageBeforeAnyImport() throws Exception {
         HttpResponse<String> response = get(
-                "/api/marketplaces/ozon/data/coverage?dateFrom=2026-09-01&dateTo=2026-09-30");
+                "/api/accounts/" + accountId() + "/data/coverage?dateFrom=2026-09-01&dateTo=2026-09-30");
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body())
@@ -99,7 +175,7 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
     @DisplayName("Обратный период — 400 с понятным текстом")
     void reversedPeriodIsBadRequest() throws Exception {
         HttpResponse<String> response = get(
-                "/api/marketplaces/ozon/analytics/daily?dateFrom=2026-09-30&dateTo=2026-09-01");
+                "/api/accounts/" + accountId() + "/analytics/daily?dateFrom=2026-09-30&dateTo=2026-09-01");
 
         assertThat(response.statusCode()).isEqualTo(400);
         assertThat(response.body()).contains("dateTo не может быть раньше dateFrom");
@@ -110,7 +186,7 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
     void importListIsAlwaysArray() throws Exception {
         account();
 
-        HttpResponse<String> response = get("/api/marketplaces/ozon/imports");
+        HttpResponse<String> response = get("/api/accounts/" + accountId() + "/imports");
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).startsWith("[");
@@ -121,7 +197,7 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
     void unknownImportIsNotFound() throws Exception {
         account();
 
-        HttpResponse<String> response = get("/api/marketplaces/ozon/imports/999999");
+        HttpResponse<String> response = get("/api/accounts/" + accountId() + "/imports/999999");
 
         assertThat(response.statusCode()).isEqualTo(404);
     }
@@ -130,7 +206,7 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
     @DisplayName("Отчёт по товарам на пустой базе — NOT_LOADED, а не нули без статуса")
     void productReportBeforeImport() throws Exception {
         HttpResponse<String> response = get(
-                "/api/marketplaces/ozon/analytics/products?dateFrom=2026-09-01&dateTo=2026-09-30");
+                "/api/accounts/" + accountId() + "/analytics/products?dateFrom=2026-09-01&dateTo=2026-09-30");
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body())
@@ -145,9 +221,9 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
         // и переданный параметр не должен влиять на результат.
         account();
         HttpResponse<String> withLegacyParam = get(
-                "/api/marketplaces/ozon/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-10&clientId=9999");
+                "/api/accounts/" + accountId() + "/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-10&clientId=9999");
         HttpResponse<String> withoutParam = get(
-                "/api/marketplaces/ozon/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-10");
+                "/api/accounts/" + accountId() + "/data/coverage?dateFrom=2026-04-10&dateTo=2026-04-10");
 
         assertThat(withLegacyParam.statusCode()).isEqualTo(200);
         assertThat(withLegacyParam.body()).isEqualTo(withoutParam.body());
@@ -158,8 +234,7 @@ class ApiContractIT extends AbstractHttpIntegrationTest {
     void importStartsAsynchronously() throws Exception {
         account();
 
-        HttpResponse<String> response = post(
-                "/api/marketplaces/ozon/imports/catalog");
+        HttpResponse<String> response = post("/api/accounts/" + accountId() + "/imports/catalog");
 
         assertThat(response.statusCode()).as("ответ: %s", response.body()).isEqualTo(202);
         assertThat(response.body())

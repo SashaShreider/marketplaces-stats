@@ -5,16 +5,16 @@ import { getAuthors, getProducts } from '@/api/client'
 import { describeError } from '@/api/http'
 import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
-import EmptyState from '@/components/marketplace/EmptyState'
 import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SyncIndicator from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
-import type { DateRange, MarketplaceInfo, ProductSort, ProductsReport } from '@/types'
+import type { AccountInfo, DateRange, ProductSort, ProductsReport } from '@/types'
 import { cn } from '@/utils/cn'
 import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
+import { shopLabel } from '@/utils/marketplace'
 
 const PAGE_SIZE = 200
 
@@ -92,17 +92,15 @@ function Stat({
 
 
 export default function ProductsPage({
-  mp,
+  account,
   range,
   onRangeChange,
   runner,
-  onConnect,
 }: {
-  mp: MarketplaceInfo
+  account: AccountInfo
   range: DateRange
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
-  onConnect: () => void
 }) {
   const [query, setQuery] = useState('')
   const [author, setAuthor] = useState('')
@@ -118,11 +116,11 @@ export default function ProductsPage({
   const dq = useDebounced(query.trim())
   const da = useDebounced(author.trim())
 
-  // подсказки для фильтра по автору
+  // подсказки для фильтра по автору. Список строится по каталогу магазина, поэтому
+  // после его импорта подсказки меняются — отсюда зависимость от catalogProducts.
   useEffect(() => {
-    if (!mp.connected) return
-    getAuthors(mp.code).then(setAuthors).catch(() => setAuthors([]))
-  }, [mp.code, mp.connected, mp.catalogProducts])
+    getAuthors(account.id).then(setAuthors).catch(() => setAuthors([]))
+  }, [account.id, account.catalogProducts])
 
   // фильтры меняются — возвращаемся на первую страницу
   useEffect(() => setPage(0), [dq, da, sort, range.from, range.to])
@@ -132,7 +130,7 @@ export default function ProductsPage({
       const t = ++token.current
       if (!silent) setLoading(true)
       try {
-        const r = await getProducts(mp.code, {
+        const r = await getProducts(account.id, {
           dateFrom: range.from,
           dateTo: range.to,
           query: dq || undefined,
@@ -151,12 +149,12 @@ export default function ProductsPage({
         if (token.current === t) setLoading(false)
       }
     },
-    [mp.code, range.from, range.to, dq, da, sort, page],
+    [account.id, range.from, range.to, dq, da, sort, page],
   )
 
   useEffect(() => {
-    if (mp.connected) reload()
-  }, [mp.connected, reload])
+    reload()
+  }, [reload])
 
   // обновляем по ходу импортов
   const run = runner.run
@@ -172,15 +170,15 @@ export default function ProductsPage({
   // Без этого страница товаров молча показывала неполные цифры: период в календаре
   // менялся, дни в фоне не грузились, и отчёт выглядел бы готовым при неполных
   // данных. Отчёт по товарам несёт то же покрытие периода, поэтому хуку достаточно.
-  const auto = useAutoSync({ mp: mp.connected ? mp.code : null, report, range, runner })
+  const auto = useAutoSync({ accountId: account.id, report, range, runner })
 
   const header = (
     <PageHeader
       title="Товары"
       subtitle={
         <>
-          Продажи и списания по каждому товару на {mp.name}
-          <MarketplaceLogo code={mp.code} size="sm" />
+          Продажи и списания по каждому товару в магазине {shopLabel(account)}
+          <MarketplaceLogo code={account.marketplaceCode} size="sm" />
         </>
       }
     >
@@ -194,15 +192,6 @@ export default function ProductsPage({
       </div>
     </PageHeader>
   )
-
-  if (!mp.connected) {
-    return (
-      <>
-        {header}
-        <EmptyState mp={mp} onConnect={onConnect} />
-      </>
-    )
-  }
 
   const catalogMissing = report ? !report.catalog.loaded : false
   const totals = report?.totals
@@ -444,7 +433,7 @@ export default function ProductsPage({
           {/* Отдельная карточка, а не часть блока с фильтрами: график читается как
               самостоятельный раздел страницы, и в общую рамку с фильтрами он попадал
               внутрь таблицы. На «Обзоре» так же устроены все блоки. */}
-          <ProductSalesDynamics mp={mp.code} range={range} authors={authors} runner={runner} />
+          <ProductSalesDynamics accountId={account.id} range={range} authors={authors} runner={runner} />
         </div>
       )}
     </>

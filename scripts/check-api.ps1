@@ -127,10 +127,10 @@ function Read-OzonCredentials {
 }
 
 function Wait-Import {
-    param([long]$Id, [int]$Minutes = 30)
+    param([long]$Id, [long]$AccountId, [int]$Minutes = 30)
     $deadline = (Get-Date).AddMinutes($Minutes)
     while ((Get-Date) -lt $deadline) {
-        $progress = Invoke-Api "/api/marketplaces/ozon/imports/$Id"
+        $progress = Invoke-Api "/api/accounts/$AccountId/imports/$Id"
         if (-not $progress.inProgress) { return $progress }
         $done = if ($null -ne $progress.doneUnits) { $progress.doneUnits } else { $progress.doneDays }
         $total = if ($null -ne $progress.totalUnits) { $progress.totalUnits } else { $progress.totalDays }
@@ -159,7 +159,7 @@ try {
 }
 
 Write-Step 'Гость не проходит'
-$guest = Invoke-ApiExpectingFailure '/api/marketplaces'
+$guest = Invoke-ApiExpectingFailure '/api/accounts'
 Assert-True ($guest.Status -eq 401) 'закрытый метод отвечает 401' "ожидался 401, получен $($guest.Status)"
 
 Write-Step 'Пользователь'
@@ -196,34 +196,47 @@ if ($SkipCredentials) {
     Write-Bad 'в .env нет OZON_CLIENT_ID и OZON_API_KEY — подключение проверить нечем'
     $script:Failures++
 } else {
-    $connected = Invoke-Api '/api/marketplaces/ozon/credentials' 'PUT' `
-        @{ clientId = $credentials.ClientId; apiKey = $credentials.ApiKey }
-    Assert-True ($connected.marketplace -eq 'OZON') "реквизиты приняты (clientId=$($connected.clientId))" 'реквизиты не приняты'
+    $connected = Invoke-Api '/api/accounts' 'POST' `
+        @{ marketplace = 'ozon'; clientId = $credentials.ClientId; apiKey = $credentials.ApiKey }
+    Assert-True ($connected.marketplaceCode -eq 'OZON') "реквизиты приняты (clientId=$($connected.clientId))" 'реквизиты не приняты'
     Assert-True ($null -eq $connected.PSObject.Properties['apiKey']) 'секретный ключ не возвращается' 'ответ содержит apiKey'
 }
 
-$marketplaces = Invoke-Api '/api/marketplaces'
-$ozon = $marketplaces | Where-Object { $_.code -eq 'OZON' }
-Assert-True ($null -ne $ozon) 'OZON есть в справочнике' 'OZON не найден'
-Assert-True ($ozon.connected) 'OZON подключён' 'OZON не подключён — задайте реквизиты'
-Assert-True ($null -eq $marketplaces[0].PSObject.Properties['apiKey']) 'в справочнике нет apiKey' 'в справочнике есть apiKey'
+$platforms = Invoke-Api '/api/marketplaces'
+$ozon = $platforms | Where-Object { $_.code -eq 'OZON' }
+Assert-True ($null -ne $ozon) 'OZON есть в справочнике платформ' 'OZON не найден'
+Assert-True ($null -eq $platforms[0].PSObject.Properties['apiKey']) 'в справочнике нет apiKey' 'в справочнике есть apiKey'
+
+# Магазины и платформы — разные списки: у продавца бывает несколько кабинетов на одной
+# площадке, и в справочнике платформ они не различались бы.
+$accounts = Invoke-Api '/api/accounts'
+Assert-True ($accounts.Count -ge 1) "магазинов: $($accounts.Count)" 'ни одного магазина не подключено'
+Assert-True ($null -eq $accounts[0].PSObject.Properties['apiKey']) 'в списке магазинов нет apiKey' 'в списке магазинов есть apiKey'
+
+$shop = $accounts | Where-Object { $_.marketplaceCode -eq 'OZON' } | Select-Object -First 1
+if ($null -eq $shop) {
+    Assert-True $false 'есть магазин на OZON' 'нет магазина на OZON'
+    throw 'проверять дальше нечего: не выбран магазин'
+}
+$AccountId = $shop.id
+Write-Note "проверяем магазин: $($shop.shopName) (id=$AccountId, clientId=$($shop.clientId))"
 
 if ($RunImports) {
     Write-Step 'Импорты'
-    $catalogJob = Invoke-Api '/api/marketplaces/ozon/imports/catalog' 'POST'
-    $catalog = Wait-Import -Id $catalogJob.id
+    $catalogJob = Invoke-Api "/api/accounts/$AccountId/imports/catalog" 'POST'
+    $catalog = Wait-Import -Id $catalogJob.id -AccountId $AccountId
     Assert-True ($catalog.status -eq 'DONE') "каталог загружен (прогон $($catalog.id))" "каталог: $($catalog.status) $($catalog.error)"
 
-    $financeJob = Invoke-Api "/api/marketplaces/ozon/imports/finance?dateFrom=$DateFrom&dateTo=$DateTo&refreshAccrualTypes=true" 'POST'
-    $finance = Wait-Import -Id $financeJob.id
+    $financeJob = Invoke-Api "/api/accounts/$AccountId/imports/finance?dateFrom=$DateFrom&dateTo=$DateTo&refreshAccrualTypes=true" 'POST'
+    $finance = Wait-Import -Id $financeJob.id -AccountId $AccountId
     Assert-True ($finance.status -eq 'DONE') "финансы загружены (прогон $($finance.id))" "финансы: $($finance.status) $($finance.error)"
 }
 
 Write-Step 'Покрытие периода'
-$coverage = Invoke-Api "/api/marketplaces/ozon/data/coverage?dateFrom=$DateFrom&dateTo=$DateTo"
+$coverage = Invoke-Api "/api/accounts/$AccountId/data/coverage?dateFrom=$DateFrom&dateTo=$DateTo"
 Assert-True ($coverage.failedDays -eq 0) "дней с ошибками: $($coverage.failedDays)" "дней с ошибками: $($coverage.failedDays)"
 
-$daily = Invoke-Api "/api/marketplaces/ozon/analytics/daily?dateFrom=$DateFrom&dateTo=$DateTo"
+$daily = Invoke-Api "/api/accounts/$AccountId/analytics/daily?dateFrom=$DateFrom&dateTo=$DateTo"
 $hasData = $coverage.loadedDays -gt 0
 
 if ($hasData) {
@@ -262,7 +275,7 @@ if ($hasData) {
 }
 
 Write-Step 'Отчёт по товарам'
-$products = Invoke-Api "/api/marketplaces/ozon/analytics/products?dateFrom=$DateFrom&dateTo=$DateTo&size=5"
+$products = Invoke-Api "/api/accounts/$AccountId/analytics/products?dateFrom=$DateFrom&dateTo=$DateTo&size=5"
 
 if ($hasData) {
     Assert-True ($products.catalog.loaded) "каталог загружен: $($products.catalog.products) товаров" 'каталог не загружен'

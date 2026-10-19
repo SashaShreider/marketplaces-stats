@@ -288,8 +288,9 @@ class ImportPersistenceIT extends AbstractPostgresIntegrationTest {
     void storesApiKeyOnAccount() {
         sync();
 
-        // Ключ лежит у аккаунта: пользователь вводит его через
-        // PUT /api/marketplaces/ozon/credentials, и импорту он нужен каждый раз.
+        // Ключ лежит у магазина: пользователь вводит его через
+        // POST /api/accounts или PUT /api/accounts/{id}/credentials, и импорту он нужен
+        // каждый раз.
         //
         // TODO(#encrypt-credentials): хранится в открытом виде. Проверка, что ключ
         // не утекает наружу, живёт в ru.analizer.contract.ApiContractIT — там, где есть настоящий HTTP.

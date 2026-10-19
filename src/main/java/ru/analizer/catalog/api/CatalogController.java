@@ -20,7 +20,7 @@ import java.util.List;
  * контроллере значило бы держать здесь зависимости от обеих фич.
  */
 @RestController
-@RequestMapping("/api/marketplaces/{marketplace}/data")
+@RequestMapping("/api/accounts/{accountId}/data")
 public class CatalogController {
 
     private final AccountLookup accountLookup;
@@ -36,7 +36,7 @@ public class CatalogController {
     }
 
     /**
-     * GET /api/marketplaces/ozon/data/catalog
+     * GET /api/accounts/1/data/catalog
      *
      * <p>Сколько товаров и когда каталог обновлялся. Возвращает количество, а не сами
      * товары — чтобы посмотреть товары вместе с финансами, есть
@@ -44,16 +44,18 @@ public class CatalogController {
      *
      * <p>{@code loaded = false} при {@code products = 0} означает «каталог ещё ни разу не
      * импортировался», а не «у продавца нет товаров».
+     *
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      */
     @GetMapping("/catalog")
-    public CatalogState catalog(@PathVariable String marketplace) {
-        SellerAccount account = accountLookup.requireAccount(marketplace);
+    public CatalogState catalog(@PathVariable Long accountId) {
+        SellerAccount account = accountLookup.requireAccount(accountId);
         long products = productRepository.countBySellerAccountId(account.getId());
         return new CatalogState(products, catalogFacts.lastCatalogSync(account.getId()), products > 0);
     }
 
     /**
-     * GET /api/marketplaces/ozon/data/authors
+     * GET /api/accounts/1/data/authors
      *
      * <p>Варианты авторов для подсказок фильтра. Список строится из того, что реально
      * ввёл продавец, поэтому может содержать странные значения: если продавец написал
@@ -64,10 +66,15 @@ public class CatalogController {
      * те же товары. Поэтому рядом могут стоять «Сурцуков А.», «Сурцуков Анатолий» и
      * «А.В. Сурцуков»: это три написания одного человека, и свести их к одному может
      * только продавец, в карточках товара.
+     *
+     * <p>Список строится по каталогу конкретного магазина: у второго кабинета того же
+     * продавца авторы свои.
+     *
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      */
     @GetMapping("/authors")
-    public List<String> authors(@PathVariable String marketplace) {
-        SellerAccount account = accountLookup.requireAccount(marketplace);
+    public List<String> authors(@PathVariable Long accountId) {
+        SellerAccount account = accountLookup.requireAccount(accountId);
         return catalogFacts.authorValues(account.getId());
     }
 

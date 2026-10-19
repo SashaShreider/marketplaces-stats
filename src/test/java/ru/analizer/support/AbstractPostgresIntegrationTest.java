@@ -100,7 +100,7 @@ public abstract class AbstractPostgresIntegrationTest {
     /** Пароль тестового пользователя. */
     protected static final String PASSWORD = "test-password-1";
 
-    /** Код маркетплейса, подставляемый в путь запроса. */
+    /** Код маркетплейса, подставляемый в тело запроса при подключении. */
     protected static final String MARKETPLACE = "OZON";
 
     /** Ключи тестового аккаунта; настоящий адаптер подменён, поэтому значения любые. */
@@ -127,11 +127,28 @@ public abstract class AbstractPostgresIntegrationTest {
      */
     protected ru.analizer.account.domain.SellerAccount account() {
         return sellerAccountRepository
-                .findByUserIdAndMarketplaceId(user().getId(), marketplace().getId())
+                .findOwnedWithMarketplace(
+                        user().getId(), marketplace().getId(), CLIENT_ID)
                 .orElseGet(() -> sellerAccountRepository.save(
                         new ru.analizer.account.domain.SellerAccount(
                                 user(), marketplace(), MARKETPLACE + " " + CLIENT_ID,
                                 CLIENT_ID, API_KEY)));
+    }
+
+    /**
+     * Второй магазин того же пользователя на той же платформе.
+     *
+     * <p>У продавца бывает несколько кабинетов OZON, и проверять это надо тем же
+     * способом, каким проверяется основной аккаунт: настоящей строкой, чтобы
+     * ограничения базы и код решали задачу так же, как в бою.
+     *
+     * @param clientId идентификатор клиента второго кабинета
+     */
+    protected ru.analizer.account.domain.SellerAccount secondAccount(String clientId) {
+        return sellerAccountRepository.save(
+                new ru.analizer.account.domain.SellerAccount(
+                        user(), marketplace(), MARKETPLACE + " " + clientId,
+                        clientId, API_KEY + "-" + clientId));
     }
 
     /**

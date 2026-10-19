@@ -59,27 +59,88 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
         String sessionTwo = login(SECOND, SECOND_PASSWORD);
         Long accountTwo = accountIdOf(SECOND);
 
-        assertThat(accountOne).as("у каждого продавца свой аккаунт").isNotEqualTo(accountTwo);
+        assertThat(accountOne).as("у каждого продавца свой магазин").isNotEqualTo(accountTwo);
 
-        // Покрытие считается по seller_account_id. Если бы выборка шла по маркетплейсу,
+        // Покрытие считается по seller_account_id. Если бы выборка шла по платформе,
         // оба увидели бы два загруженных дня вместо одного, и месяц показался бы
         // загруженным дважды.
-        assertThat(loadedDaysIn(sessionOne, reportCoverage())).isEqualTo(1);
-        assertThat(loadedDaysIn(sessionTwo, reportCoverage())).isEqualTo(1);
+        assertThat(loadedDaysIn(sessionOne, coverageOf(accountOne))).isEqualTo(1);
+        assertThat(loadedDaysIn(sessionTwo, coverageOf(accountTwo))).isEqualTo(1);
 
         // Список прогонов у каждого свой.
-        assertThat(get(sessionOne, "/api/marketplaces/ozon/imports").body())
+        assertThat(get(sessionOne, "/api/accounts/" + accountOne + "/imports").body())
                 .doesNotContain("\"clientId\":\"2\"");
-        assertThat(get(sessionTwo, "/api/marketplaces/ozon/imports").body())
+        assertThat(get(sessionTwo, "/api/accounts/" + accountTwo + "/imports").body())
                 .doesNotContain("\"clientId\":\"1\"");
 
-        // Список маркетплейсов показывает свой аккаунт, а не чужой.
-        assertThat(get(sessionOne, "/api/marketplaces").body())
+        // Список магазинов показывает свои, а не чужие.
+        assertThat(get(sessionOne, "/api/accounts").body())
                 .contains("\"clientId\":\"1\"")
                 .doesNotContain("\"clientId\":\"2\"");
-        assertThat(get(sessionTwo, "/api/marketplaces").body())
+        assertThat(get(sessionTwo, "/api/accounts").body())
                 .contains("\"clientId\":\"2\"")
                 .doesNotContain("\"clientId\":\"1\"");
+    }
+
+    /**
+     * Два магазина одного продавца не должны видеть данные друг друга.
+     *
+     * <p>Проверка появляется вместе с возможностью завести несколько кабинетов, и
+     * она важнее проверки между пользователями: у пользователей разные сессии и
+     * разные магазины в списке, а вот два кабинета одного продавца отличаются одним
+     * числом в пути. Ошибка на границе «идентификатор из пути проверяется на
+     * принадлежность» проявилась бы здесь, и больше нигде.
+     */
+    @Test
+    @DisplayName("Два магазина одного продавца не видят данных друг друга")
+    void shopsOfSameSellerAreIsolated() throws Exception {
+        // Магазины заводим до входа: пользователь должен существовать, иначе войти нечем.
+        Long accountOne = importFor(FIRST, FIRST_PASSWORD, "shop-one", "100.00");
+        Long accountTwo = importFor(FIRST, FIRST_PASSWORD, "shop-two", "250.00");
+        String session = login(FIRST, FIRST_PASSWORD);
+
+        assertThat(accountOne).as("оба магазина принадлежат одному продавцу").isNotEqualTo(accountTwo);
+        // Считаем запросом: у сущности вне сессии ленивый прокси на пользователя уже не
+        // читается, а проверять тут надо связь, а не её отрицание.
+        assertThat(jdbc.queryForObject("""
+                select count(*) from seller_account a
+                join app_user u on u.id = a.app_user_id
+                where u.login = ?
+                """, Long.class, FIRST)).as("у продавца оба магазина").isEqualTo(2L);
+
+        // У каждого магазина ровно один загруженный день — свой.
+        assertThat(loadedDaysIn(session, coverageOf(accountOne))).isEqualTo(1);
+        assertThat(loadedDaysIn(session, coverageOf(accountTwo))).isEqualTo(1);
+
+        // Отчёт по каждому магазину считает только его данные: смешались бы две суммы,
+        // и продавец увидел бы чужой оборот в своём отчёте.
+        HttpResponse<String> first = get(session,
+                "/api/accounts/" + accountOne + "/analytics/daily?dateFrom=" + DAY + "&dateTo=" + DAY);
+        HttpResponse<String> second = get(session,
+                "/api/accounts/" + accountTwo + "/analytics/daily?dateFrom=" + DAY + "&dateTo=" + DAY);
+
+        assertThat(first.body()).isNotEqualTo(second.body());
+        assertThat(totalAmountOf(first.body()))
+                .as("в отчёте первого магазина только его сумма")
+                .isEqualByComparingTo(new BigDecimal("100.00"));
+        assertThat(totalAmountOf(second.body()))
+                .as("во втором — только его")
+                .isEqualByComparingTo(new BigDecimal("250.00"));
+    }
+
+    /**
+     * Сумма к выплате из ответа дневного отчёта — сумма всех его начислений.
+     *
+     * <p>Суммы приходят десятичной точкой, но формат ответа их отдаёт строкой: это
+     * сделано ради точности, и парсер здесь нужен именно для этого.
+     */
+    private BigDecimal totalAmountOf(String body) {
+        var node = mapper.readTree(body);
+        return new BigDecimal(node.get("total").get("payout").asString().replace(',', '.'));
+    }
+
+    private String coverageOf(Long accountId) {
+        return "/api/accounts/" + accountId + "/data/coverage?dateFrom=" + DAY + "&dateTo=" + DAY;
     }
 
     /**
@@ -121,7 +182,7 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
         // запрос и получает 404, а не чужие данные: иначе перебором номеров можно
         // было бы увидеть чужой магазин.
         HttpResponse<String> response = get(sessionTwo,
-                "/api/marketplaces/ozon/imports/" + importId);
+                "/api/accounts/" + accountIdOf(SECOND) + "/imports/" + importId);
 
         assertThat(response.statusCode()).isEqualTo(404);
     }
@@ -134,7 +195,9 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
 
         assertThat(clientIdOf(FIRST)).isEqualTo("1");
         assertThat(clientIdOf(SECOND)).isEqualTo("2");
-        // Один магазин на маркетплейс у пользователя: ограничение в базе, а не в коде.
+        // Каждый магазин принадлежит ровно одному пользователю: ограничение в базе, а не
+        // в коде. Магазинов на платформе у продавца может быть сколько угодно, но
+        // каждый чужой только одному.
         assertThat(loginOfAccount("1")).isEqualTo(FIRST);
         assertThat(loginOfAccount("2")).isEqualTo(SECOND);
         // И ключи разные: если бы адаптер брал реквизиты из бина, оба импорта пошли бы
@@ -144,14 +207,21 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
     }
 
     /**
-     * Заводит продавца, подключает маркетплейс и импортирует один день с суммой {@code total}.
+     * Заводит продавца, подключает магазин и импортирует один день с суммой {@code total}.
+     *
+     * <p>Повторный вызов с тем же логином не заводит второго пользователя, а
+     * подключает ему ещё один магазин: ровно то, что нужно для проверки изоляции
+     * двух кабинетов одного продавца.
      *
      * <p>Сумма кладётся прямо в базу: поднимать фоновую задачу с настоящим адаптером
      * здесь незачем, изоляцию проверяет не источник данных, а чтение.
+     *
+     * @return идентификатор подключённого магазина
      */
-    private void importFor(String login, String password, String clientId, String total) {
-        var user = appUserRepository.save(new ru.analizer.auth.domain.AppUser(
-                login, passwordEncoder.encode(password), login));
+    private Long importFor(String login, String password, String clientId, String total) {
+        var user = appUserRepository.findByLogin(login)
+                .orElseGet(() -> appUserRepository.save(new ru.analizer.auth.domain.AppUser(
+                        login, passwordEncoder.encode(password), login)));
         var account = sellerAccountRepository.save(
                 new ru.analizer.account.domain.SellerAccount(
                         user, marketplace(), "OZON " + clientId, clientId, "key-" + clientId));
@@ -162,6 +232,17 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
                 values (?, ?, 'DONE', true, 1, ?, 0)
                 """, account.getId(), DAY, new BigDecimal(total));
 
+        // Начисление нужно отдельно от загруженного дня: отчёт берёт выплату из
+        // finance_accrual, и без неё оба магазина показали бы одинаковые нули —
+        // а нули не различают «свои данные» и «чужие данные».
+        long externalId = System.identityHashCode(account) % 100000;
+        jdbc.update("""
+                insert into finance_accrual (seller_account_id, external_id, accrual_date,
+                                            unit_number, accrued_category, ozon_type_id,
+                                            total_amount, currency, raw_data)
+                values (?, ?, ?, ?, 'NON_ITEM', 1, ?, 'RUB', '{}'::jsonb)
+                """, account.getId(), externalId, DAY, "u-" + clientId, new BigDecimal(total));
+
         // Прогон нужен отдельной строкой: по нему и проверяется, что чужие прогоны
         // не открываются по номеру.
         jdbc.update("""
@@ -170,11 +251,14 @@ class MultiUserIsolationIT extends AbstractPostgresIntegrationTest {
                                        total_units, done_units, failed_units, skipped_units)
                 values (?, 'OZON', 'FINANCE', ?, ?, 'DONE', 1, 1, 0, 0)
                 """, account.getId(), DAY, DAY);
+
+        return account.getId();
     }
 
-    private String reportCoverage() {
-        return "/api/marketplaces/ozon/data/coverage?dateFrom=" + DAY + "&dateTo=" + DAY;
-    }
+    private static final tools.jackson.databind.ObjectMapper mapper =
+            tools.jackson.databind.json.JsonMapper.builder()
+                    .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .build();
 
     /**
      * Сколько дней покрытие показывает загруженными.

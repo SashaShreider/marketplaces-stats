@@ -12,9 +12,8 @@ import ru.analizer.sync.domain.ImportProgress;
 import java.time.LocalDate;
 import java.util.List;
 
-
 /**
- * Фоновые импорты данных маркетплейса.
+ * Фоновые импорты данных одного магазина.
  *
  * <p>Единственная группа методов с побочными эффектами: она ходит в API маркетплейса и
  * пишет в базу. Все остальные методы API только читают нашу базу, поэтому вызвать их
@@ -24,9 +23,13 @@ import java.util.List;
  * делать это внутри HTTP-запроса, клиент отвалится по таймауту, хотя данные наполовину
  * загрузятся. Поэтому POST сразу возвращает номер прогона, а работа продолжается после
  * ответа.
+ *
+ * <p>Прогон относится ровно к одному магазину, и проверка пересечения периодов тоже
+ * ведётся по магазину: два кабинета одного продавца импортируются независимо и не
+ * мешают друг другу.
  */
 @RestController
-@RequestMapping("/api/marketplaces/{marketplace}/imports")
+@RequestMapping("/api/accounts/{accountId}/imports")
 public class ImportController {
 
     private final ImportService importService;
@@ -38,41 +41,39 @@ public class ImportController {
     }
 
     /**
-     * POST /api/marketplaces/ozon/imports/finance
+     * POST /api/accounts/1/imports/finance
      *
      * <p>Запускает импорт начислений за период и сразу возвращает прогресс.
      *
      * <p>Догружаются только недостающие дни: повторный запуск не создаёт дублей и не
      * ходит в OZON зря. Уже загруженные окончательные дни не запрашиваются заново.
      *
-     * @param dateFrom           начало периода включительно
-     * @param dateTo             конец периода включительно
+     * @param dateFrom             начало периода включительно
+     * @param dateTo               конец периода включительно
      * @param refreshAccrualTypes обновить ли справочник типов начислений; стоит одного
-     *                           дополнительного запроса к OZON
+     *                             дополнительного запроса к OZON
      * @return 202 Accepted и номер прогона
-     * @throws ru.analizer.web.NotConnectedException 409, если маркетплейс не подключён
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      * @throws ru.analizer.sync.domain.ImportConflictException 409, если уже идёт импорт
      *                                              пересекающегося периода
      */
     @PostMapping("/finance")
     public ResponseEntity<ImportProgress> startFinanceImport(
-            @PathVariable String marketplace,
+            @PathVariable Long accountId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(defaultValue = "false") boolean refreshAccrualTypes) {
 
-        // Импорту нужны реквизиты, а они появляются только при подключении.
-        // Раньше здесь был ensureAccount, который создавал аккаунт с ключами из
-        // конфигурации; теперь ключи ввод��т пользователь, и заводить аккаунт
-        // в обход проверки нельзя — иначе импорт стартовал бы с чужими ключами.
-        SellerAccount account = accountLookup.requireAccount(marketplace);
+        // Реквизиты берутся у подключённого магазина. Заводить магазин отсюда нельзя:
+        // ключи вводит пользователь, и импорт в обход проверки стартовал бы с чужими.
+        SellerAccount account = accountLookup.requireAccount(accountId);
         ImportProgress progress = importService.startFinanceImport(
-                account, marketplaceCode(marketplace), dateFrom, dateTo, refreshAccrualTypes);
+                account, account.getMarketplace().getCode(), dateFrom, dateTo, refreshAccrualTypes);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(progress);
     }
 
     /**
-     * POST /api/marketplaces/ozon/imports/catalog
+     * POST /api/accounts/1/imports/catalog
      *
      * <p>Запускает импорт характеристик товаров: названий, ISBN, авторов. Периода у
      * каталога нет, поэтому дат в запросе не бывает.
@@ -81,17 +82,18 @@ public class ImportController {
      * изменились, и выборочный перебор стоил бы столько же запросов.
      *
      * @return 202 Accepted и номер прогона
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      * @throws ru.analizer.sync.domain.ImportConflictException 409, если импорт каталога уже идёт
      */
     @PostMapping("/catalog")
-    public ResponseEntity<ImportProgress> startCatalogImport(@PathVariable String marketplace) {
-        SellerAccount account = accountLookup.requireAccount(marketplace);
+    public ResponseEntity<ImportProgress> startCatalogImport(@PathVariable Long accountId) {
+        SellerAccount account = accountLookup.requireAccount(accountId);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(importService.startCatalogImport(account, marketplaceCode(marketplace)));
+                .body(importService.startCatalogImport(account, account.getMarketplace().getCode()));
     }
 
     /**
-     * GET /api/marketplaces/ozon/imports
+     * GET /api/accounts/1/imports
      *
      * <p>Последние прогоны, новые сверху. Всегда массив, даже если прогонов ещё не было,
      * — чтобы клиенту не приходилось различать пустой список и {@code null}.
@@ -100,29 +102,28 @@ public class ImportController {
      * импорты каталога в одной истории.
      */
     @GetMapping
-    public List<ImportProgress> listImports(@PathVariable String marketplace) {
-        SellerAccount account = accountLookup.requireAccount(marketplace);
+    public List<ImportProgress> listImports(@PathVariable Long accountId) {
+        SellerAccount account = accountLookup.requireAccount(accountId);
         return importService.recentFor(account.getId());
     }
 
     /**
-     * GET /api/marketplaces/ozon/imports/{importId}
+     * GET /api/accounts/1/imports/{importId}
      *
      * <p>Прогресс одного прогона. Опросяте этот метод, пока {@code inProgress} не станет
      * {@code false}, чтобы показать полосу прогресса.
      *
+     * <p>Чужой прогон выглядит как отсутствующий, а не как запрещённый: иначе перебором
+     * номеров можно было бы узнать, сколько у других магазинов загрузок.
+     *
      * @return 200 с прогрессом либо 404, если прогона с таким номером нет
      */
     @GetMapping("/{importId}")
-    public ResponseEntity<ImportProgress> getImport(@PathVariable String marketplace,
+    public ResponseEntity<ImportProgress> getImport(@PathVariable Long accountId,
                                                     @PathVariable Long importId) {
-        SellerAccount account = accountLookup.requireAccount(marketplace);
+        SellerAccount account = accountLookup.requireAccount(accountId);
         return importService.progressOf(importId, account.getId())
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
-    }
-    /** Код маркетплейса в верхнем регистре — так он хранится и возвращается в ответе. */
-    private String marketplaceCode(String marketplace) {
-        return marketplace.trim().toUpperCase(java.util.Locale.ROOT);
     }
 }

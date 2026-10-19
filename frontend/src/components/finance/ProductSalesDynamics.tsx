@@ -23,12 +23,13 @@ type Mode = 'all' | 'author' | 'sku'
  * двух продавцов.
  */
 export default function ProductSalesDynamics({
-  mp,
+  accountId,
   range,
   authors,
   runner,
 }: {
-  mp: string
+  /** Магазин, чьи данные показываются: у каждого кабинеда график свой */
+  accountId: number
   range: DateRange
   authors: string[]
   /** Нужен ради слежения за ходом импорта: догружается период — график должен достраиваться сам */
@@ -62,7 +63,7 @@ export default function ProductSalesDynamics({
     if (!silent) setLoading(true)
     try {
       const parsedSku = mode === 'sku' ? Number(sku.trim()) : undefined
-      const r = await getSalesDynamics(mp, {
+      const r = await getSalesDynamics(accountId, {
         dateFrom: range.from,
         dateTo: range.to,
         author: mode === 'author' && author.trim() ? author.trim() : undefined,
@@ -77,7 +78,7 @@ export default function ProductSalesDynamics({
     } finally {
       if (token.current === t && !silent) setLoading(false)
     }
-  }, [mp, range.from, range.to, mode, author, sku, filterKey])
+  }, [accountId, range.from, range.to, mode, author, sku, filterKey])
 
   useEffect(() => {
     void load()
