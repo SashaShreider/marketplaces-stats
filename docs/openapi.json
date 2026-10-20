@@ -660,9 +660,6 @@
           "requestedDays" : {
             "format" : "int32",
             "type" : "integer"
-          },
-          "suitableForProfit" : {
-            "type" : "boolean"
           }
         },
         "type" : "object"

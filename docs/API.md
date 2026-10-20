@@ -693,8 +693,7 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
     "provisionalDays": [],
     "failedDates": [],
     "fullyFinal": true,
-    "needsSync": false,
-    "suitableForProfit": true
+    "needsSync": false
   },
   "days": [
     {
@@ -781,7 +780,6 @@ ISO 8601, формат `ГГГГ-ММ-ДД`. Обе даты включител�
 | Ключ | Пояснение |
 |---|---|
 | `fullyFinal` | Все дни загружены и окончательные |
-| `suitableForProfit` | Можно ли считать прибыль по этим данным |
 
 **`days[].breakdown`** — раскладка со знаками, как в OZON:
 
