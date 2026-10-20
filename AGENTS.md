@@ -58,6 +58,6 @@ Do not run a watcher and the pre-commit hook against the same graph at the same 
 
 `README.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOY.md`, `docs/VERIFY.md` and
 `frontend/README.md` are human-facing and can lag the code. For behavior trust the
-source and `docs/openapi.json`; for structure trust the graphs above. `docs/API.md`
-duplicates the OpenAPI contract by hand and is scheduled for trimming to semantics
-only — do not treat it as the source of truth.
+source and `docs/openapi.json`; for structure trust the graphs above.
+`docs/API-SEMANTICS.md` explains what the responses mean — it deliberately does not
+repeat the contract, so do not treat it as the source of truth for fields and types.
