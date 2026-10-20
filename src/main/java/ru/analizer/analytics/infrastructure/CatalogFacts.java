@@ -53,19 +53,25 @@ public class CatalogFacts {
      * товары той страницы, на которой они случайно оказались, а лучший продавец
      * окажется на последней странице.
      *
-     * <p>Сумма дохода повторяет формулу {@code FinancialSummary.income()} — продажи плюс
-     * возвраты плюс программа партнёров. Здесь она нужна только чтобы упорядочить строки;
-     * числа в ответе по-прежнему считает {@link FinancialModel}, и тест сверяет, что
-     * порядок из SQL совпадает с порядком по этим числам.
+     * <p>Суммы в подзапросах повторяют формулы {@link FinancialModel} — продажи плюс
+     * возвраты плюс программа партнёров, расходы как сумма модулей комиссии, логистики
+     * и прочих списаний. Здесь они нужны только чтобы упорядочить строки; числа в
+     * ответе по-прежнему считает {@link FinancialModel}, и тест сверяет, что порядок
+     * из SQL совпадает с порядком по этим числам.
      *
      * @param filters фильтры по атрибутам; незаданные ничего не ограничивают
      * @param query   подстрока названия, артикула или ISBN; пустая строка — без фильтра
-     * @param sort    {@code INCOME}, {@code NAME} или {@code SKU}
+     * @param sort    критерий порядка: {@code INCOME}, {@code NAME}, {@code SKU},
+     *                {@code SOLD}, {@code EXPENSES} или {@code GROSS}
+     * @param order   направление: {@code asc} или {@code desc}; пустое — как привычнее
+     *                для этого критерия
+     * @param onlyWithSales оставить только товары, у которых были продажи
      */
     public List<ProductCatalogRow> productsPage(Long accountId, List<ProductAttributeFilter> filters,
                                                 String query,
                                                 LocalDate from, LocalDate to,
-                                                String sort, int offset, int limit) {
+                                                String sort, String order, boolean onlyWithSales,
+                                                int offset, int limit) {
         RowMapper<ProductCatalogRow> mapper = (rs, i) -> new ProductCatalogRow(
                 rs.getLong("id"),
                 rs.getLong("sku"),
@@ -78,33 +84,58 @@ public class CatalogFacts {
         // ORDER BY подставляется по метке, а не склейкой блоков: склейка text block'ов
         // однажды съела перевод строки и дала «order by …offset».
         String sql = """
-                with income as (
+                with posting_totals as (
                     select p.sku,
-                           sum(coalesce(p.sale_price, 0)
-                               + coalesce(p.bonus, 0)
-                               + coalesce(p.coinvestment, 0)) as total
+                           sum(case when p.sale_price > 0 then p.sale_price else 0 end)
+                             + sum(case when p.sale_price < 0 then p.sale_price else 0 end)
+                             + sum(coalesce(p.bonus, 0) + coalesce(p.coinvestment, 0)) as income,
+                           sum(case when p.sale_price > 0 then p.quantity else 0 end) as sold,
+                           sum(coalesce(p.sale_commission, 0)) as commission
                     from finance_accrual a
                     join posting po on po.finance_accrual_id = a.id
                     join posting_product p on p.posting_id = po.id
                     where a.seller_account_id = :account
                       and a.accrual_date between :from and :to
                     group by p.sku
+                ),
+                logistics_totals as (
+                    select p.sku, sum(d.amount) as logistics
+                    from finance_accrual a
+                    join posting po on po.finance_accrual_id = a.id
+                    join posting_product p on p.posting_id = po.id
+                    join delivery_service d on d.posting_product_id = p.id
+                    where a.seller_account_id = :account
+                      and a.accrual_date between :from and :to
+                    group by p.sku
+                ),
+                item_totals as (
+                    select f.sku, sum(d.amount) as item_expenses
+                    from finance_accrual a
+                    join item_fee f on f.finance_accrual_id = a.id
+                    join item_fee_detail d on d.item_fee_id = f.id
+                    where a.seller_account_id = :account
+                      and a.accrual_date between :from and :to
+                    group by f.sku
                 )
                 select pr.id, pr.sku, pr.offer_id, pr.name, pr.primary_image,
                        pr.isbn, pr.type_id, pr.archived
                 from ozon_product pr
-                left join income i on i.sku = pr.sku
+                left join posting_totals pt on pt.sku = pr.sku
+                left join logistics_totals lt on lt.sku = pr.sku
+                left join item_totals it on it.sku = pr.sku
                 where pr.seller_account_id = :account
                   and (cast(:queryText as text) = ''
                        or lower(pr.name) like lower('%' || :queryText || '%')
                        or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
                        or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+                /*WITH_SALES*/
                 /*FILTERS*/
                 /*ORDER_BY*/
                 offset :offset limit :limit
                 """
+                .replace("/*WITH_SALES*/", onlyWithSalesSql(onlyWithSales))
                 .replace("/*FILTERS*/", filterSql(filters, "pr"))
-                .replace("/*ORDER_BY*/", orderBy(sort));
+                .replace("/*ORDER_BY*/", orderBy(sort, order));
 
         return namedJdbc.query(sql, filterParams(accountId, filters, query)
                         .addValue("from", from)
@@ -137,26 +168,90 @@ public class CatalogFacts {
     }
 
     /**
+     * Расходы товара в SQL: модуль комиссии, модуль логистики и модуль прочих
+     * списаний.
+     *
+     * <p>Формула повторяет {@code FinancialSummary.expenses()}, но нужна только для
+     * порядка строк. Числа в ответе считает модель.
+     */
+    private static final String EXPENSES_SQL =
+            "(abs(coalesce(pt.commission, 0))"
+            + " + abs(coalesce(lt.logistics, 0))"
+            + " + abs(coalesce(it.item_expenses, 0)))";
+
+    /**
      * Предложение {@code ORDER BY} по ключу сортировки.
      *
      * <p>Ключ подставляется только из этого списка, а не из значения запроса: иначе
      * подставил бы его прямо в SQL. Второй элемент — SKU — всегда добавляется, чтобы
      * порядок был воспроизводимым: без него товары с одинаковым доходом или названием
      * приходили бы в произвольном порядке и между страницами «прыгали».
+     *
+     * <p>Направление по умолчанию разное у разных критериев: по имени и SKU — по
+     * возрастанию (так их и читают), по деньгам и количествам — по убыванию (так
+     * видно лучших и худших). Явное направление запроса перебивает умолчание.
      */
-    private static String orderBy(String sort) {
+    private static String orderBy(String sort, String order) {
         String key = sort == null ? "INCOME" : sort.trim().toUpperCase(java.util.Locale.ROOT);
-        return switch (key) {
-            case "NAME" -> "order by pr.name, pr.sku";
-            case "SKU" -> "order by pr.sku";
+        String column = switch (key) {
+            case "NAME" -> "pr.name";
+            case "SKU" -> "pr.sku";
+            case "SOLD" -> "coalesce(pt.sold, 0)";
+            case "EXPENSES" -> EXPENSES_SQL;
+            case "GROSS" -> "(coalesce(pt.income, 0) - " + EXPENSES_SQL + ")";
             // Товар без начислений получает доход 0 и уходит в конец, а не пропадает:
             // в каталоге он есть, и молчать о нём значило бы скрыть товар без продаж.
-            default -> "order by coalesce(i.total, 0) desc, pr.sku";
+            default -> "coalesce(pt.income, 0)";
         };
+        boolean ascending = switch (key) {
+            case "NAME", "SKU" -> true;
+            default -> false;
+        };
+        if (order != null) {
+            String direction = order.trim().toLowerCase(java.util.Locale.ROOT);
+            if ("asc".equals(direction)) {
+                ascending = true;
+            } else if ("desc".equals(direction)) {
+                ascending = false;
+            }
+        }
+        return "order by " + column + (ascending ? " asc" : " desc") + ", pr.sku";
     }
 
-    /** Сколько товаров подходит под фильтры — чтобы клиент знал число страниц. */
-    public long productsCount(Long accountId, List<ProductAttributeFilter> filters, String query) {
+    /**
+     * Условие «только товары с продажами».
+     *
+     * <p>Продажа — это строка операции с положительной ценой продажи; счётчик
+     * «товаров с продажами» в отчёте считается по тому же правилу, поэтому цифры
+     * отчёта и отбор совпадают.
+     */
+    private static String onlyWithSalesSql(boolean onlyWithSales) {
+        if (!onlyWithSales) {
+            return "";
+        }
+        return """
+                
+                  and exists (
+                      select 1
+                      from finance_accrual a2
+                      join posting po2 on po2.finance_accrual_id = a2.id
+                      join posting_product p2 on p2.posting_id = po2.id
+                      where a2.seller_account_id = :account
+                        and a2.accrual_date between :from and :to
+                        and p2.sku = pr.sku
+                        and p2.sale_price > 0)
+                """;
+    }
+
+    /**
+     * Сколько товаров подходит под фильтры — чтобы клиент знал число страниц.
+     *
+     * <p>Считает то же, что и выборка страницы: с тем же фильтром «с продажами» и с
+     * теми же условиями. Иначе клиент знал бы одно число страниц, а получил бы
+     * другое.
+     */
+    public long productsCount(Long accountId, List<ProductAttributeFilter> filters, String query,
+                              LocalDate from, LocalDate to, boolean onlyWithSales) {
         Long count = namedJdbc.queryForObject("""
                 select count(*) from ozon_product pr
                 where pr.seller_account_id = :account
@@ -164,31 +259,40 @@ public class CatalogFacts {
                        or lower(pr.name) like lower('%' || :queryText || '%')
                        or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
                        or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+                /*WITH_SALES*/
                 /*FILTERS*/
-                """.replace("/*FILTERS*/", filterSql(filters, "pr")),
-                filterParams(accountId, filters, query), Long.class);
+                """.replace("/*WITH_SALES*/", onlyWithSalesSql(onlyWithSales))
+                        .replace("/*FILTERS*/", filterSql(filters, "pr")),
+                filterParams(accountId, filters, query)
+                        .addValue("from", from)
+                        .addValue("to", to), Long.class);
         return count == null ? 0 : count;
     }
 
     /**
- * SKU всех товаров, попавших в отбор, — без пагинации.
- *
- * <p>Нужен для итогов под фильтром: {@code productsPage} отдаёт только текущую
- * страницу, а сумма по ней — это 25 товаров, а не весь результат отбора.
- */
-public List<Long> selectionSkus(Long accountId, List<ProductAttributeFilter> filters, String query) {
-    return namedJdbc.queryForList("""
-            select pr.sku from ozon_product pr
-            where pr.seller_account_id = :account
-              and (cast(:queryText as text) = ''
-                   or lower(pr.name) like lower('%' || :queryText || '%')
-                   or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
-                   or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
-            /*FILTERS*/
-            """.replace("/*FILTERS*/", filterSql(filters, "pr")),
-            filterParams(accountId, filters, query),
-            Long.class);
-}
+     * SKU всех товаров, попавших в отбор, — без пагинации.
+     *
+     * <p>Нужен для итогов под фильтром: {@code productsPage} отдаёт только текущую
+     * страницу, а сумма по ней — это 25 товаров, а не весь результат отбора.
+     */
+    public List<Long> selectionSkus(Long accountId, List<ProductAttributeFilter> filters, String query,
+                                    LocalDate from, LocalDate to, boolean onlyWithSales) {
+        return namedJdbc.queryForList("""
+                select pr.sku from ozon_product pr
+                where pr.seller_account_id = :account
+                  and (cast(:queryText as text) = ''
+                       or lower(pr.name) like lower('%' || :queryText || '%')
+                       or lower(coalesce(pr.offer_id, '')) like lower('%' || :queryText || '%')
+                       or lower(coalesce(pr.isbn, '')) like lower('%' || :queryText || '%'))
+                /*WITH_SALES*/
+                /*FILTERS*/
+                """.replace("/*WITH_SALES*/", onlyWithSalesSql(onlyWithSales))
+                        .replace("/*FILTERS*/", filterSql(filters, "pr")),
+                filterParams(accountId, filters, query)
+                        .addValue("from", from)
+                        .addValue("to", to),
+                Long.class);
+    }
 
 private static MapSqlParameterSource filterParams(Long accountId,
                                                       List<ProductAttributeFilter> filters,

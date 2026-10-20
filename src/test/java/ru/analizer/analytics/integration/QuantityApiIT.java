@@ -61,7 +61,7 @@ class QuantityApiIT extends AbstractPostgresIntegrationTest {
         importFixture();
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500);
 
         ProductReport.ProductRow row = rowOf(report, SOLD_SKU);
         // Две единицы проданы, и сверху ещё одна строка — удержание за доставку.
@@ -78,7 +78,7 @@ class QuantityApiIT extends AbstractPostgresIntegrationTest {
         importFixture();
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500);
 
         ProductReport.ProductRow row = rowOf(report, RETURNED_SKU);
         assertThat(row.soldQuantity()).isZero();
@@ -93,7 +93,7 @@ class QuantityApiIT extends AbstractPostgresIntegrationTest {
         importFixture();
 
         ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500);
 
         int soldByRows = report.rows().stream().mapToInt(ProductReport.ProductRow::soldQuantity).sum();
         int returnedByRows = report.rows().stream()
@@ -114,7 +114,7 @@ class QuantityApiIT extends AbstractPostgresIntegrationTest {
 
         var daily = analytics.dailyReport(MARKETPLACE, accountIdOpt(), DAY, DAY);
         ProductReport products = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", 0, 500);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500);
 
         // Два пути считают одно и то же по-разному: в дневном отчёте свёртка строк,
         // в товарном — агрегат SQL. Расхождение означало бы, что одно из двух врёт.
