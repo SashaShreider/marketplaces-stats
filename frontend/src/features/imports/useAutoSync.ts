@@ -46,7 +46,7 @@ function shopKey(key: string, accountId: number): string {
 
 type Phase = 'fresh' | 'initial' | 'deep' | 'settled'
 
-export interface AutoSync {
+interface AutoSync {
   /** Что показывать рядом с календарём */
   state: SyncState | null
 }

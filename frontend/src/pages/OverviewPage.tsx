@@ -17,9 +17,6 @@ import { sumDays } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
 
 const EMPTY_TOTALS = sumDays([])
-/** Дней, начиная с которых предупреждаем о большом числе запросов к маркетплейсу.
- *  Сейчас не используется: подтверждение отключено в пользу автозагрузки. */
-/* const BIG_IMPORT_DAYS = 45 */
 
 export default function OverviewPage({
   account,
@@ -77,19 +74,6 @@ export default function OverviewPage({
   const totals = useMemo(() => (days.length ? sumDays(days) : EMPTY_TOTALS), [days])
 
   const startSync = () => {
-    // Подтверждение расхода квоты отключено закомментированным блоком ниже:
-    // автозагрузка и повторный запуск берут только незагруженные дни,
-    // поэтому отдельного диалога не требуется.
-    /**const cov = report?.coverage
-    const toLoad = cov
-      ? cov.missingDays.length + cov.failedDates.length + cov.provisionalDays.length
-      : 0
-    if (toLoad > BIG_IMPORT_DAYS) {
-      const ok = window.confirm(
-        `Для загрузки потребуется около ${toLoad} запросов к API маркетплейса, это расходует квоту. Продолжить?`,
-      )
-      if (!ok) return
-    }*/
     runner.startFinance(range.from, range.to)
   }
 

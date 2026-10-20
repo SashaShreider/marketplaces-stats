@@ -19,13 +19,3 @@ export function shopLabel(account: Pick<AccountInfo, 'shopName' | 'marketplaceNa
 export function shopSubLabel(account: Pick<AccountInfo, 'clientId'>): string {
   return account.clientId
 }
-
-/**
- * Сравнение магазинов для React-ключа и для поиска выбранного.
- *
- * <p>По коду платформы сравнивать нельзя: у одного продавца их несколько, и выбор
- * оказался бы неоднозначным, а молча показывался бы не тот магазин.
- */
-export function sameAccount(a: AccountInfo | null, b: AccountInfo | null): boolean {
-  return a !== null && b !== null && a.id === b.id
-}
