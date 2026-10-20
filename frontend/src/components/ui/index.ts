@@ -10,3 +10,5 @@
 export { AnimatedNumber, useCountUp } from '@/components/ui/AnimatedNumber'
 export { MarketplaceLogo } from '@/components/ui/MarketplaceLogo'
 export { PageHeader } from '@/components/ui/PageHeader'
+export { default as Pager } from '@/components/ui/Pager'
+export { default as StatCard } from '@/components/ui/StatCard'

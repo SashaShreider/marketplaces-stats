@@ -52,7 +52,7 @@ public class OpenApiConfig {
                                 ## Разделение данных
                                 Запросы возвращают только данные текущего пользователя.
                                 Реквизиты OZON задаются через
-                                `PUT /api/marketplaces/{mp}/credentials`.
+                                `PUT /api/accounts/{accountId}/credentials`.
                                 """))
                 .components(new Components().addSecuritySchemes(SESSION_COOKIE,
                         new SecurityScheme()

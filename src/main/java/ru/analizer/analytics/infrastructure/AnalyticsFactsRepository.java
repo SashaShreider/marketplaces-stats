@@ -8,7 +8,6 @@ import ru.analizer.analytics.domain.ProductFact;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -151,20 +150,22 @@ public class AnalyticsFactsRepository {
      * <p>Берутся оба поля. Одного названия мало: маркетплейс отдаёт служебные имена
      * вроде {@code PayPerClick}, а продавцу нужно понимать, за что он платит.
      *
-     * <p>Ключ — только внешний идентификатор, без маркетплейса. Сейчас это верно:
-     * справочник заполнен для одного маркетплейса, и внешние идентификаторы уникальны.
-     * При подключении второго идентификаторы начнут пересекаться, и ключ придётся
-     * сделать составным — тогда здесь же, а не в разборе отчёта, где его не видно.
+     * <p>Фильтр по маркетплейсу обязателен: внешние идентификаторы типов уникальны
+     * только внутри платформы, и без него подпись одного маркетплейса перекрыла бы
+     * одноимённый тип другого.
      */
-    public Map<Integer, FinancialModel.TypeLabels> accrualTypeLabels() {
+    public Map<Integer, FinancialModel.TypeLabels> accrualTypeLabels(String marketplaceCode) {
         Map<Integer, FinancialModel.TypeLabels> labels = new LinkedHashMap<>();
         jdbc.query("""
-                select external_type_id, name, description from accrual_type
-                order by marketplace_id
+                select t.external_type_id, t.name, t.description
+                from accrual_type t
+                join marketplace m on m.id = t.marketplace_id
+                where m.code = ?
+                order by t.external_type_id
                 """, rs -> {
             labels.put(rs.getInt(1),
                     new FinancialModel.TypeLabels(rs.getString(2), rs.getString(3)));
-        });
+        }, marketplaceCode);
         return labels;
     }
 
@@ -203,18 +204,5 @@ public class AnalyticsFactsRepository {
                 where a.seller_account_id = ? and a.accrual_date between ? and ?
                 """, BigDecimal.class, sellerAccountId, from, to);
         return value == null ? BigDecimal.ZERO : value;
-    }
-
-    /** Дни, за которые в базе есть операции, — чтобы отчёт не пропускал пустые дни молча. */
-    public List<LocalDate> datesWithAccruals(Long sellerAccountId, LocalDate from, LocalDate to) {
-        List<LocalDate> dates = new ArrayList<>();
-        jdbc.query("""
-                select distinct accrual_date from finance_accrual
-                where seller_account_id = ? and accrual_date between ? and ?
-                order by accrual_date
-                """, rs -> {
-            dates.add(rs.getObject(1, LocalDate.class));
-        }, sellerAccountId, from, to);
-        return dates;
     }
 }

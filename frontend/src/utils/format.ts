@@ -127,11 +127,6 @@ export function addDaysISO(iso: string, days: number): string {
   return toISO(d)
 }
 
-/** Количество дней в диапазоне включительно */
-export function daysInRange(from: string, to: string): number {
-  return Math.round((fromISO(to).getTime() - fromISO(from).getTime()) / 86400000) + 1
-}
-
 export function todayISO(): string {
   return toISO(new Date())
 }

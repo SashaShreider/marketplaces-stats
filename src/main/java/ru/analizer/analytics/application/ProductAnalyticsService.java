@@ -53,14 +53,19 @@ public class ProductAnalyticsService {
      * @param author что ввёл пользователь в фильтр по автору; сравнивается точным
      *               совпадением с тем, как автор назван в карточке товара, поэтому
      *               «Сурцуков А.» не найдёт «Сурцуков Анатолий»
-     * @param sort как упорядочить: {@code INCOME}, {@code NAME}, {@code SKU}
+     * @param sort как упорядочить строки: {@code INCOME}, {@code NAME}, {@code SKU},
+     *             {@code SOLD}, {@code EXPENSES} или {@code GROSS}
+     * @param order направление порядка: {@code asc} или {@code desc}; пустое — как
+     *              привычнее для выбранного критерия
+     * @param onlyWithSales оставить только товары, у которых были продажи
      */
     @Transactional(readOnly = true)
     public ProductReport productReport(String marketplaceCode,
                                   Optional<Long> accountId,
                                   LocalDate from, LocalDate to,
                                   String author, String query,
-                                  String sort, int page, int size) {
+                                  String sort, String order, boolean onlyWithSales,
+                                  int page, int size) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
@@ -85,7 +90,7 @@ public class ProductAnalyticsService {
         List<ProductAttributeFilter> filters =
                 List.of(ProductAuthorFilter.byValue(author));
 
-        long totalRows = catalogFacts.productsCount(account, filters, query);
+        long totalRows = catalogFacts.productsCount(account, filters, query, from, to, onlyWithSales);
         int totalPages = (int) Math.max(1, Math.ceil(totalRows / (double) pageSize));
         if (pageIndex >= totalPages) {
             pageIndex = Math.max(0, totalPages - 1);
@@ -96,7 +101,7 @@ public class ProductAnalyticsService {
         // которой они случайно оказались.
         List<CatalogFacts.ProductCatalogRow> pageRows = catalogFacts.productsPage(
                 account, filters, query, from, to,
-                sort, pageIndex * pageSize, pageSize);
+                sort, order, onlyWithSales, pageIndex * pageSize, pageSize);
         List<Long> skus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
 
         Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(account, skus);
@@ -150,15 +155,17 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
         // Все товары аккаунта, без фильтров: это состояние каталога, а не результат
         // отбора. Отфильтрованных строк здесь было бы меньше, и клиент принял бы
         // число за размер каталога.
-        long catalogProducts = catalogFacts.productsCount(account, List.of(), null);
+        long catalogProducts = catalogFacts.productsCount(
+                account, List.of(), null, from, to, false);
 
         // Второе число для клиента: итоги по отбору, а не по каталогу. Считаем один раз
         // и сразу по всем SKU отбора, а не по странице, — иначе «Итого» прыгал бы
         // при перелистывании. Без фильтра отбор это весь каталог, и тогда числа
         // совпадают с totals, а не расходятся на пустом месте.
-        Set<Long> selection = filters.isEmpty() && (query == null || query.isBlank())
+        Set<Long> selection = filters.isEmpty() && (query == null || query.isBlank()) && !onlyWithSales
                 ? null
-                : new HashSet<>(catalogFacts.selectionSkus(account, filters, query));
+                : new HashSet<>(catalogFacts.selectionSkus(
+                        account, filters, query, from, to, onlyWithSales));
 
         FinancialSummary selected = FinancialSummary.empty(from, to);
         for (Map.Entry<Long, FinancialSummary> entry : bySku.entrySet()) {

@@ -13,7 +13,7 @@ export type SyncState =
   | { kind: 'failed'; days: number }
   | { kind: 'provisional'; days: number }
 
-export interface SyncIndicatorProps {
+interface SyncIndicatorProps {
   state: SyncState | null
   busy: boolean
   onRetry: () => void

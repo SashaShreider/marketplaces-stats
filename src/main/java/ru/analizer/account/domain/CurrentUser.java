@@ -28,9 +28,4 @@ public final class CurrentUser {
         }
         return authentication.getName();
     }
-
-    public static boolean isAuthenticated() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && authentication.isAuthenticated();
-    }
 }

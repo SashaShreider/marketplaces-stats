@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import ru.analizer.support.AbstractHttpIntegrationTest;
-import ru.analizer.support.CatalogAdapterConfig;
+import ru.analizer.support.FixtureAdapterConfig;
 
 import java.net.URI;
 import java.net.http.HttpResponse;
@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * наружу не ходят по замыслу — если метод начнёт ходить, тесты это покажут.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(CatalogAdapterConfig.class)
+@Import(FixtureAdapterConfig.class)
 class ApiContractIT extends AbstractHttpIntegrationTest {
 
 

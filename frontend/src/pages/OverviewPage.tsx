@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { getDaily } from '@/api/client'
-import { describeError } from '@/api/http'
 import { mapDaily } from '@/api/mappers'
 import DateRangePicker from '@/components/common/DateRangePicker'
 import ExpenseDonut from '@/components/finance/ExpenseDonut'
@@ -12,14 +11,12 @@ import SyncIndicator from '@/components/sync/SyncIndicator'
 import { MarketplaceLogo, PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
-import type { AccountInfo, DailyReport, DateRange } from '@/types'
+import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
+import type { AccountInfo, DateRange } from '@/types'
 import { sumDays } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
 
 const EMPTY_TOTALS = sumDays([])
-/** Дней, начиная с которых предупреждаем о большом числе запросов к маркетплейсу.
- *  Сейчас не используется: подтверждение отключено в пользу автозагрузки. */
-/* const BIG_IMPORT_DAYS = 45 */
 
 export default function OverviewPage({
   account,
@@ -32,64 +29,25 @@ export default function OverviewPage({
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
 }) {
-  const [report, setReport] = useState<DailyReport | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const token = useRef(0)
-
-  const reload = useCallback(
-    async (silent = false) => {
-      const t = ++token.current
-      if (!silent) setLoading(true)
-      try {
-        const r = await getDaily(account.id, range.from, range.to)
-        if (token.current !== t) return
-        setReport(r)
-        setError(null)
-      } catch (e) {
-        if (token.current !== t) return
-        setError(describeError(e))
-      } finally {
-        if (token.current === t) setLoading(false)
-      }
-    },
+  const fetchReport = useCallback(
+    () => getDaily(account.id, range.from, range.to),
     [account.id, range.from, range.to],
   )
 
-  // отчёт при смене магазина / периода
-  useEffect(() => {
-    reload()
-  }, [reload])
-
-  // по ходу импорта подтягиваем свежие цифры (результат доступен до окончания импорта)
+  // по ходу импорта подтягиваем свежие цифры (результат доступен до окончания импорта).
+  // Каталог на дневной отчёт не влияет, поэтому следим только за финансовым прогоном.
   const run = runner.run
-  const progressKey = run
-    ? `${run.id}:${run.doneUnits}:${run.skippedUnits}:${run.failedUnits}:${run.inProgress}`
-    : ''
-  const lastKey = useRef(progressKey)
-  useEffect(() => {
-    if (progressKey === lastKey.current) return
-    lastKey.current = progressKey
-    if (run?.importType === 'FINANCE') reload(true)
-  }, [progressKey, run?.importType, reload])
+  const progressKey = run?.importType === 'FINANCE' ? importProgressKey(run) : ''
+
+  const { data: report, loading, error, reload } = useReportQuery({
+    fetch: fetchReport,
+    progressKey,
+  })
 
   const days = useMemo(() => (report ? mapDaily(report) : []), [report])
   const totals = useMemo(() => (days.length ? sumDays(days) : EMPTY_TOTALS), [days])
 
   const startSync = () => {
-    // Подтверждение расхода квоты отключено закомментированным блоком ниже:
-    // автозагрузка и повторный запуск берут только незагруженные дни,
-    // поэтому отдельного диалога не требуется.
-    /**const cov = report?.coverage
-    const toLoad = cov
-      ? cov.missingDays.length + cov.failedDates.length + cov.provisionalDays.length
-      : 0
-    if (toLoad > BIG_IMPORT_DAYS) {
-      const ok = window.confirm(
-        `Для загрузки потребуется около ${toLoad} запросов к API маркетплейса, это расходует квоту. Продолжить?`,
-      )
-      if (!ok) return
-    }*/
     runner.startFinance(range.from, range.to)
   }
 

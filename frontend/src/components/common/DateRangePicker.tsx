@@ -143,7 +143,7 @@ function MonthView({
 }
 
 /** Ранние начисления OZON не отдаёт — дальше этой даты выбирать бессмысленно */
-export const MIN_DATE = '2022-01-01'
+const MIN_DATE = '2022-01-01'
 
 export default function DateRangePicker({
   from,

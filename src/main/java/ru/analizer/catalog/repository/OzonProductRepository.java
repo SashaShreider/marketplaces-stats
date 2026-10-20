@@ -14,8 +14,6 @@ public interface OzonProductRepository extends JpaRepository<OzonProduct, Long> 
 
     long countBySellerAccountId(Long sellerAccountId);
 
-    Optional<OzonProduct> findFirstBySellerAccountIdAndOfferId(Long sellerAccountId, String offerId);
-
     /**
      * SKU из начислений, которых нет в каталоге.
      *

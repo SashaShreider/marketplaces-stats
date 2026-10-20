@@ -1,6 +1,7 @@
 package ru.analizer.catalog.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import ru.analizer.account.domain.SellerAccount;
@@ -10,18 +11,19 @@ import java.time.Instant;
 /**
  * Товар каталога.
  *
- * <p>Хранит и общие поля товара, и характеристики в общем виде
- * ({@link OzonProductAttribute}), и авторов ({@link ProductAuthor}). Последние два
- * вынесены в отдельные таблицы не для красоты, а по двум причинам: у товара их
- * произвольное число, а авторов нужно искать точной строкой по индексу.
+ * <p>Хранит общие поля товара, а характеристики и авторы лежат в отдельных таблицах
+ * ({@code ozon_product_attribute} и {@code product_author}). Это не для красоты, а по
+ * двум причинам: у товара их произвольное число, а авторов нужно искать точной
+ * строкой по индексу.
  *
- * <p>Фильтр по автору идёт прямо по строкам {@link ProductAuthor}: это и источник
+ * <p>Фильтр по автору идёт прямо по строкам {@code product_author}: это и источник
  * истины, и единственное место, где хранится написание имени. Дублировать его в
  * производные массивы на товаре незачем — раньше такие массивы были и
  * складывались из сведённых ключей, но при строгом поиске они стали бы второй
  * копией одних и тех же данных, которую придётся синхронизировать.
  */
 @Entity
+@Getter
 @Table(name = "ozon_product")
 public class OzonProduct {
 
@@ -113,7 +115,7 @@ public class OzonProduct {
      * меняет название, цену и характеристики, и каталог должен показывать текущее
      * состояние, иначе фильтр по автору перестал бы работать после правки карточки.
      */
-public void refreshFrom(Long ozonProductId, String offerId, String name, String barcode,
+    public void refreshFrom(Long ozonProductId, String offerId, String name, String barcode,
                               Long typeId, Long descriptionCategoryId, String primaryImage,
                               String isbn, Integer weightGrams, Integer widthMm, Integer heightMm,
                               Integer depthMm, Long modelId, String rawData, Instant now) {
@@ -147,94 +149,14 @@ public void refreshFrom(Long ozonProductId, String offerId, String name, String 
         this.widthMm = widthMm;
         this.heightMm = heightMm;
         this.depthMm = depthMm;
-          this.modelId = modelId;
-          this.rawData = rawData;
-          this.lastSyncedAt = now;
-          this.archived = archived;
-      }
-
-      /** Товар снят с продажи и убран в архив OZON. */
-      public boolean isArchived() {
-          return archived;
-      }
-
-    public Long getId() {
-        return id;
+        this.modelId = modelId;
+        this.rawData = rawData;
+        this.lastSyncedAt = now;
+        this.archived = archived;
     }
 
-    public SellerAccount getSellerAccount() {
-        return sellerAccount;
-    }
-
-    public long getSku() {
-        return sku;
-    }
-
-    public Long getOzonProductId() {
-        return ozonProductId;
-    }
-
-    public String getOfferId() {
-        return offerId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getBarcode() {
-        return barcode;
-    }
-
-    public Long getTypeId() {
-        return typeId;
-    }
-
-    public Long getDescriptionCategoryId() {
-        return descriptionCategoryId;
-    }
-
-    public String getPrimaryImage() {
-        return primaryImage;
-    }
-
-    public String getIsbn() {
-        return isbn;
-    }
-
-    public Integer getWeightGrams() {
-        return weightGrams;
-    }
-
-    public Integer getWidthMm() {
-        return widthMm;
-    }
-
-    public Integer getHeightMm() {
-        return heightMm;
-    }
-
-    public Integer getDepthMm() {
-        return depthMm;
-    }
-
-    public Long getModelId() {
-        return modelId;
-    }
-
-      public String getRawData() {
-          return rawData;
-      }
-
-      public boolean getArchived() {
-          return archived;
-      }
-
-    public Instant getFirstSeenAt() {
-        return firstSeenAt;
-    }
-
-    public Instant getLastSyncedAt() {
-        return lastSyncedAt;
+    /** Товар снят с продажи и убран в архив OZON. */
+    public boolean isArchived() {
+        return archived;
     }
 }

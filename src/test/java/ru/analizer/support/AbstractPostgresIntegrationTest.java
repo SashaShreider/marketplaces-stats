@@ -41,7 +41,16 @@ public abstract class AbstractPostgresIntegrationTest {
         POSTGRES = new PostgreSQLContainer("postgres:17-alpine")
                 .withDatabaseName("analizer")
                 .withUsername("analizer")
-                .withPassword("analizer");
+                .withPassword("analizer")
+                // Тестовая база не должна переживать падение: данные в ней создаются
+                // заново перед каждым тестом. А вот fsync на каждом коммите платит
+                // за себя десятками миллисекунд, и тестовая выборка таких коммитов
+                // делает тысячи. Отключаем запись на диск целиком — на результат
+                // тестов это не влияет, а на время прогона влияет сильно.
+                .withCommand("postgres",
+                        "-c", "fsync=off",
+                        "-c", "synchronous_commit=off",
+                        "-c", "full_page_writes=off");
         POSTGRES.start();
     }
 
@@ -50,6 +59,11 @@ public abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        // Разрешённый источник задан здесь, а не в самом тесте CORS: иначе этот тест
+        // поднимал бы отдельный контекст Spring, а контекст поднимается десятки секунд.
+        // Источник из адреса, с которого фронтенд приходит в разработке, никому
+        // не мешает: в тестах никто не проверяет, что постороннему источнику отказано.
+        registry.add("app.cors.allowed-origins", () -> "http://localhost:5173");
     }
 
     @Autowired
@@ -99,6 +113,10 @@ public abstract class AbstractPostgresIntegrationTest {
 
     /** Пароль тестового пользователя. */
     protected static final String PASSWORD = "test-password-1";
+
+    /** Хэши паролей: считаются один раз и переиспользуются между тестами. */
+    private static final java.util.Map<String, String> PASSWORD_HASHS =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Код маркетплейса, подставляемый в тело запроса при подключении. */
     protected static final String MARKETPLACE = "OZON";
@@ -194,7 +212,20 @@ jdbc.execute("""
         jdbc.update("""
                 INSERT INTO app_user (login, password_hash, display_name)
                 VALUES (?, ?, 'Тестовый пользователь')
-                """, LOGIN, passwordEncoder.encode(PASSWORD));
+                """, LOGIN, passwordHash(PASSWORD));
+    }
+
+    /**
+     * Хэш пароля пользователя.
+     *
+     * <p>BCrypt считается медленно и намеренно: это защита от подбора. В тестах
+     * защищать нечего, а считать один и тот же хэш сотни раз — пустая работа на
+     * десятки секунд. Поэтому хэш каждого пароля считается один раз и переиспользуется:
+     * соль у пароля одна и та же, и это ничего не меняет — проверяется не устойчивость
+     * к подбору, а поведение приложения.
+     */
+    private String passwordHash(String password) {
+        return PASSWORD_HASHS.computeIfAbsent(password, passwordEncoder::encode);
     }
 
     /**

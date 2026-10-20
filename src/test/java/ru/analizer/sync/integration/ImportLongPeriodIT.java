@@ -21,19 +21,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Загрузка длинного периода: полгода, 184 дня.
+ * Загрузка длинного периода: месяц, 30 дней.
  *
  * <p>Данные синтетические и живут в отдельной базе Testcontainers — база разработки
  * не затрагивается. Проверяется ровно то поведение, ради которого всё затевалось:
  * задача уходит в фон, прогресс виден по запросу, повторный запуск пересекающегося
  * периода запрещён, а после загрузки отчёт показывает полное покрытие.
+ *
+ * <p>Период взят месяцем, а не полугодием: смысл проверки в длинной загрузке, а не в
+ * её длине. Полугодие в тестах стоило бы минуты прогона и ничего не проверяло бы
+ * сверх того, что проверяет месяц.
  */
 @Import(BulkAdapterConfig.class)
 class ImportLongPeriodIT extends AbstractPostgresIntegrationTest {
 
-    /** Полгода: 1 апреля — 30 сентября. */
+    /** Месяц: 1 апреля — 30 апреля. */
     private static final LocalDate FROM = LocalDate.of(2026, 4, 1);
-    private static final LocalDate TO = LocalDate.of(2026, 9, 30);
+    private static final LocalDate TO = LocalDate.of(2026, 4, 30);
     /**
      * Число дней в периоде считается из самих дат, а не задаётся константой:
      * ручной подсчёт дней в полугодии уже один раз дал ошибку.
@@ -47,12 +51,12 @@ class ImportLongPeriodIT extends AbstractPostgresIntegrationTest {
     BulkFixtureAdapter adapter;
 
     @Test
-    @DisplayName("Задача на полгода возвращается сразу и выполняется в фоне")
+    @DisplayName("Задача на длинный период возвращается сразу и выполняется в фоне")
     void longPeriodJobRunsInBackground() {
         Instant start = Instant.now();
         ImportProgress accepted = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true);
 
-        // Запрос не ждёт завершения: 184 дня грузились бы месяцами, а ответ приходит сразу.
+        // Запрос не ждёт завершения: месяц грузился бы минутами, а ответ приходит сразу.
         assertThat(Duration.between(start, Instant.now()))
                 .as("POST-запрос обязан вернуться немедленно")
                 .isLessThan(Duration.ofSeconds(10));
@@ -135,12 +139,14 @@ class ImportLongPeriodIT extends AbstractPostgresIntegrationTest {
         adapter.setDelayPerDayMillis(15);
         ImportProgress first = importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, false);
 
+        // Период внутри первого — тоже конфликтует.
         assertThatThrownBy(() -> importService.startFinanceImport(account(), MARKETPLACE,
                 FROM.plusDays(10), FROM.plusDays(20), false))
                 .isInstanceOf(ImportConflictException.class);
 
+        // Период, наезжающий на конец первого, — тоже.
         assertThatThrownBy(() -> importService.startFinanceImport(account(), MARKETPLACE,
-                FROM.plusDays(30), FROM.plusDays(40), false))
+                TO.minusDays(5), TO.plusDays(10), false))
                 .isInstanceOf(ImportConflictException.class);
 
         // Период шире первого — тоже конфликтует.
@@ -168,8 +174,8 @@ class ImportLongPeriodIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("После загрузки полугода отчёт показывает READY и полное покрытие")
-    void reportForLoadedHalfYearIsReady() {
+    @DisplayName("После загрузки месяца отчёт показывает READY и полное покрытие")
+    void reportForLoadedMonthIsReady() {
         awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
 
         var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(), FROM, TO);
@@ -240,16 +246,16 @@ class ImportLongPeriodIT extends AbstractPostgresIntegrationTest {
         ReportCoverage coverage = ReportCoverage.from(
                 dayStateService.coverage(accountId(), FROM, TO));
 
-        // Период апрель–сентябрь, а «сегодня» в тестах — осень 2026: часть дней
-        // окажется внутри окна зрелости, и это должно быть честно отражено.
+        // Период — апрель, а «сегодня» в тестах — осень 2026: все дни периода
+        // старше окна зрелости, и это должно быть честно отражено.
         assertThat(coverage.finalDays()).isLessThanOrEqualTo(DAYS);
         assertThat(coverage.finalDays() + coverage.provisionalDays().size())
                 .isEqualTo(DAYS);
     }
 
     @Test
-    @DisplayName("Покрытие полугода считается мгновенно, без обращения к маркетплейсу")
-    void coverageForHalfYearIsCheap() {
+    @DisplayName("Покрытие месяца считается мгновенно, без обращения к маркетплейсу")
+    void coverageForMonthIsCheap() {
         awaitFinished(importService.startFinanceImport(account(), MARKETPLACE, FROM, TO, true).id());
         int before = adapter.daysRequested();
 

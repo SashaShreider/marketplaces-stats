@@ -46,6 +46,35 @@ public final class FixtureAdapters {
      */
     public static final String REJECTED_KEY = "reject-me";
 
+    /**
+     * Искусственная задержка на день, в миллисекундах.
+     *
+     * <p>Нужна тестам, которые проверяют поведение <b>во время</b> загрузки:
+     * повторный запуск пересекающегося периода должен быть отклонён, а это
+     * проверяется только пока первая загрузка ещё идёт. Без задержки загрузка
+     * успевает закончиться, и проверка начинает зависеть от того, как быстро
+     * повезло машине.
+     */
+    private static volatile long delayPerDayMillis = 0;
+
+    /** Задержка перед ответом за день: см. {@link #delayPerDayMillis}. */
+    public static void setDelayPerDayMillis(long millis) {
+        delayPerDayMillis = millis;
+    }
+
+    /** Пауза перед ответом за день. */
+    static void delay() {
+        long millis = delayPerDayMillis;
+        if (millis <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private static BulkFixtureAdapter bulk;
 
     private FixtureAdapters() {
@@ -61,20 +90,26 @@ public final class FixtureAdapters {
 
     public static void clearAll() {
         FIXTURES.clear();
+        delayPerDayMillis = 0;
         if (bulk != null) {
             bulk.reset();
         }
     }
 
     static String typesJson() {
-        try (InputStream in = open(TYPES_FIXTURE)) {
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IllegalStateException("Не найдена фикстура справочника типов", e);
-        }
+        return readText(TYPES_FIXTURE);
     }
 
     public static List<AccrualTypeInfo> types() {
+        List<AccrualTypeInfo> cached = typesCache;
+        if (cached == null) {
+            cached = parseTypes();
+            typesCache = cached;
+        }
+        return cached;
+    }
+
+    private static List<AccrualTypeInfo> parseTypes() {
         try {
             var root = MAPPER.readTree(typesJson());
             List<AccrualTypeInfo> types = new ArrayList<>();
@@ -83,24 +118,24 @@ public final class FixtureAdapters {
                         ru.analizer.integration.ozon.dto.finance.AccrualType.class);
                 types.add(new AccrualTypeInfo(type.id(), type.name(), type.description()));
             }
-            return types;
+            return List.copyOf(types);
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось разобрать справочник типов", e);
         }
     }
 
     public static List<ru.analizer.integration.model.AccrualDto> parse(String resource) {
-        try (InputStream in = open(resource)) {
-            var root = MAPPER.readTree(new String(in.readAllBytes(), StandardCharsets.UTF_8));
-            List<ru.analizer.integration.model.AccrualDto> result = new ArrayList<>();
-            for (var node : root.get("accruals")) {
-                result.add(OzonMapper.toAccrualDto(
-                        MAPPER.treeToValue(node, FinanceAccrual.class), node.toString()));
-            }
-            return result;
-        } catch (IOException e) {
-            throw new IllegalStateException("Не удалось прочитать фикстуру " + resource, e);
+        return PARSED.computeIfAbsent(resource, FixtureAdapters::parseAccruals);
+    }
+
+    private static List<ru.analizer.integration.model.AccrualDto> parseAccruals(String resource) {
+        var root = MAPPER.readTree(readText(resource));
+        List<ru.analizer.integration.model.AccrualDto> result = new ArrayList<>();
+        for (var node : root.get("accruals")) {
+            result.add(OzonMapper.toAccrualDto(
+                    MAPPER.treeToValue(node, FinanceAccrual.class), node.toString()));
         }
+        return List.copyOf(result);
     }
 
     /** Сравнение JSON по значению: jsonb нормализует пробелы и порядок ключей. */
@@ -129,6 +164,27 @@ public final class FixtureAdapters {
             }
         }
         return skus;
+    }
+
+    /**
+     * Разобранные начисления по имени файла-фикстуры.
+     *
+     * <p>Разбор ответа — самая дорогая часть подготовки теста, а файлы фикстур не
+     * меняются между тестами. Поэтому разобранное хранится один раз: без кэша
+     * каждый тест разбирал бы заново десятки тысяч операций JSON.
+     */
+    private static final Map<String, List<ru.analizer.integration.model.AccrualDto>> PARSED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Справочник типов начислений: разбирается один раз. */
+    private static volatile List<AccrualTypeInfo> typesCache;
+
+    private static String readText(String resource) {
+        try (InputStream in = open(resource)) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Не найдена фикстура " + resource, e);
+        }
     }
 
     private static InputStream open(String resource) throws IOException {

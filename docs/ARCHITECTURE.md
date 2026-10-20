@@ -19,13 +19,13 @@
 
 | Пакет | Что делает |
 |---|---|
-| [`auth`](#auth) | Регистрация, вход, сессия |
-| [`account`](#account) | Кто пользователь и какие у него магазины |
-| [`sync`](#sync) | Загрузка данных с маркетплейса |
-| [`catalog`](#catalog) | Каталог товаров и авторы |
-| [`analytics`](#analytics) | Отчёты по нашим данным |
-| [`integration`](#integration) | Общение с внешним API маркетплейсов |
-| [`web`](#web) | Общий HTTP-слой: формат ошибок |
+| [`auth`](#auth--вход-и-выход) | Регистрация, вход, сессия |
+| [`account`](#account--кто-пользователь-и-какие-у-него-магазины) | Кто пользователь и какие у него магазины |
+| [`sync`](#sync--загрузка-данных-с-маркетплейса) | Загрузка данных с маркетплейса |
+| [`catalog`](#catalog--каталог-товаров-и-авторы) | Каталог товаров и авторы |
+| [`analytics`](#analytics--отчёты-по-нашим-данным) | Отчёты по нашим данным |
+| [`integration`](#integration--общение-с-внешним-миром) | Общение с внешним API маркетплейсов |
+| [`web`](#web--общий-http-слой) | Общий HTTP-слой: формат ошибок |
 
 ---
 
@@ -67,7 +67,7 @@
 ```
 auth/
 ├── api/        AuthController
-├── config/     SecurityConfig
+├── config/     SecurityConfig, CookieProperties, CorsProperties
 ├── domain/     AppUser, AuthService, AppUserDetailsService
 └── repository/ AppUserRepository
 ```
@@ -76,8 +76,8 @@ auth/
 она нужна ровно для входа. Продавец — другое дело: он может быть не один, у него есть
 клиентский идентификатор и ключ от маркетплейса.
 
-**Почему `SecurityConfig` в `auth/config`, а не в общем `config`.** Отдельного пакета
-`config` в проекте нет: выносить настройку одной фичи в общий пакет — значит
+**Почему `SecurityConfig` в `auth/config`, а не в общем `config`.** Общего корневого
+пакета `config` в проекте нет: выносить настройку одной фичи в общий пакет — значит
 добавить indirection без выгоды. Когда появится вторая настройка, не связанная с
 фичей, тогда и понадобится.
 
@@ -85,7 +85,7 @@ auth/
 
 ```
 account/
-├── api/        MarketplaceController, MarketplaceConnectionController
+├── api/        AccountController, MarketplaceController
 ├── domain/     AccountLookup, CurrentUser, Marketplace, MarketplaceCredentials,
 │               MarketplaceProvisioner, SellerAccount
 └── repository/ MarketplaceRepository, SellerAccountRepository
@@ -159,7 +159,7 @@ analytics/
 ├── application/     DailyAnalyticsService, ProductAnalyticsService
 ├── domain/          DailyReport, DailyRow, FeeFact, FinancialModel,
 │                    FinancialSummary, ProductFact, ProductReport,
-│                    ReportCoverage, ReportStatus
+│                    ReportCoverage, ReportStatus, SalesDynamicsReport
 └── infrastructure/  AnalyticsFactsRepository, CatalogFacts
 │   └── filter/      ProductAttributeFilter, ProductAuthorFilter
 ```
@@ -191,6 +191,7 @@ integration/
     ├── OzonAdapter, OzonCatalogAdapter, OzonClient, OzonMapper, … (9 файлов)
     ├── dto/catalog/   ответ /v4/product/info/attributes
     ├── dto/finance/   ответы финансовых методов
+    ├── dto/seller/    ответ /v1/seller/info
     └── json/          десериализаторы, которыми OZON отвечает неожиданно
 ```
 
@@ -202,13 +203,14 @@ integration/
 нашей схеме.
 
 `dto/finance` и `dto/catalog` разведены, потому что это ответы **разных методов
-API**. Раньше все 24 DTO лежали в одной папке, и принадлежность к методу приходилось
-выводить по имени файла.
+API**. Раньше все 26 DTO лежали в одной папке, и принадлежность к методу
+приходилось выводить по имени файла.
 
 ## web — общий HTTP-слой
 
 ```
-web/  ApiExceptionHandler, NotConnectedException, UnknownMarketplaceException
+web/  AccountNotFoundException, ApiExceptionHandler, OpenApiConfig,
+      ShopAlreadyConnectedException, UnknownMarketplaceException
 ```
 
 Здесь только то, что общее для всех фич: единый формат ошибок RFC 7807 и два
@@ -273,7 +275,7 @@ test/java/ru/analizer/
 ```powershell
 .\gradlew.bat compileJava          # компиляция
 .\gradlew.bat test -Pfast          # модульные тесты, секунды
-.\gradlew.bat test                 # всё, около 7 минут
+.\gradlew.bat test                 # всё, около 3 минут
 .\scripts\check-api.ps1           # работающее приложение и честность цифр
 ```
 

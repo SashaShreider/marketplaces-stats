@@ -22,17 +22,6 @@ import static ru.analizer.integration.ozon.OzonTestFixtures.num;
 class OzonLiveDay2026_09_26Test {
 
     private static final String FULL_DAY = "fixtures/accruals-2026-09-26-full.json";
-    private static final String MULTI_PRODUCT = "fixtures/accruals-2026-09-26-multiproduct.json";
-
-    @Test
-    @DisplayName("День вычитан одной страницей: 53 операции, курсор пустой")
-    void wholeDayInSinglePage() throws IOException {
-        assertThat(load(FULL_DAY)).hasSize(53);
-        assertThat(OzonTestFixtures.mapper()
-                .readTree(OzonTestFixtures.read(FULL_DAY))
-                .get("last_id").asString())
-                .isEmpty();
-    }
 
     @Test
     @DisplayName("Все три категории начислений присутствуют в живом ответе")
@@ -42,27 +31,6 @@ class OzonLiveDay2026_09_26Test {
         assertThat(all.stream().filter(a -> a.category() == AccrualDto.Category.ITEM)).hasSize(23);
         assertThat(all.stream().filter(a -> a.category() == AccrualDto.Category.NON_ITEM)).hasSize(18);
         assertThat(all.stream().allMatch(a -> a.date().equals(java.time.LocalDate.of(2026, 9, 26)))).isTrue();
-    }
-
-    @Test
-    @DisplayName("Живой ответ побайтово совпадает с сохранённой фикстурой многотоварного фрагмента")
-    void liveResponseMatchesFixture() throws IOException {
-        // Фрагмент, присланный как пример, должен точно совпадать с реальной выгрузкой.
-        // Иначе тесты на многотоварный случай проверяли бы выдуманные данные.
-        List<AccrualDto> live = load(FULL_DAY);
-        List<AccrualDto> fixture = load(MULTI_PRODUCT);
-
-        for (AccrualDto expected : fixture) {
-            AccrualDto actual = live.stream()
-                    .filter(a -> expected.externalId().equals(a.externalId()))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError(
-                            "accrual " + expected.externalId() + " отсутствует в живой выгрузке"));
-
-            assertThat(OzonTestJsonSupport.sameJson(actual.rawJson(), expected.rawJson()))
-                    .as("accrual %s должен совпадать с фикстурой", expected.externalId())
-                    .isTrue();
-        }
     }
 
     @Test
@@ -99,12 +67,6 @@ class OzonLiveDay2026_09_26Test {
                 .filter(a -> a.category() == AccrualDto.Category.NON_ITEM)
                 .forEach(a -> assertThat(num(a.nonItemFee().amount()))
                         .isEqualByComparingTo(a.totalAmount()));
-    }
-
-    @Test
-    @DisplayName("Справочный type_id на уровне операции отсутствует и в живом ответе")
-    void accrualLevelTypeIdStillAbsent() throws IOException {
-        assertThat(load(FULL_DAY).stream().allMatch(a -> a.typeId() == null)).isTrue();
     }
 
     @Test

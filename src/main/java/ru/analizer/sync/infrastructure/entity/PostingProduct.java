@@ -1,6 +1,7 @@
 package ru.analizer.sync.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -14,6 +15,7 @@ import java.util.List;
  * {@code /v1/finance/accrual/by-day}. Если поле не пришло, считаем строки единицами товара.
  */
 @Entity
+@Getter
 @Table(name = "posting_product")
 public class PostingProduct {
 
@@ -96,61 +98,5 @@ public class PostingProduct {
     public void addDeliveryService(DeliveryService service) {
         service.attachTo(this);
         this.deliveryServices.add(service);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Posting getPosting() {
-        return posting;
-    }
-
-    public Long getSku() {
-        return sku;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public BigDecimal getSellerPrice() {
-        return sellerPrice;
-    }
-
-    public BigDecimal getSalePrice() {
-        return salePrice;
-    }
-
-    public BigDecimal getSaleAmount() {
-        return saleAmount;
-    }
-
-    public BigDecimal getSaleCommission() {
-        return saleCommission;
-    }
-
-    public BigDecimal getCommission() {
-        return commission;
-    }
-
-    public String getCommissionRatio() {
-        return commissionRatio;
-    }
-
-    public BigDecimal getCoinvestment() {
-        return coinvestment;
-    }
-
-    public BigDecimal getBonus() {
-        return bonus;
-    }
-
-    public String getCurrency() {
-        return currency;
-    }
-
-    public List<DeliveryService> getDeliveryServices() {
-        return deliveryServices;
     }
 }

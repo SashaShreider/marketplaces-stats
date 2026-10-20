@@ -1,6 +1,7 @@
 package ru.analizer.sync.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import ru.analizer.account.domain.SellerAccount;
 
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.time.LocalDate;
  * {@link #importType}.
  */
 @Entity
+@Getter
 @Table(name = "import_run")
 public class ImportRun {
 
@@ -111,10 +113,6 @@ public class ImportRun {
         this.doneUnits++;
     }
 
-    public void unitSkipped() {
-        this.skippedUnits++;
-    }
-
     public void unitFailed() {
         this.failedUnits++;
     }
@@ -135,69 +133,5 @@ public class ImportRun {
             return null;
         }
         return value.length() <= 2000 ? value : value.substring(0, 2000);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public SellerAccount getSellerAccount() {
-        return sellerAccount;
-    }
-
-    public String getMarketplaceCode() {
-        return marketplaceCode;
-    }
-
-    public ImportType getImportType() {
-        return importType;
-    }
-
-    public LocalDate getDateFrom() {
-        return dateFrom;
-    }
-
-    public LocalDate getDateTo() {
-        return dateTo;
-    }
-
-    public RunState getStatus() {
-        return status;
-    }
-
-    public int getTotalUnits() {
-        return totalUnits;
-    }
-
-    public int getDoneUnits() {
-        return doneUnits;
-    }
-
-    public int getSkippedUnits() {
-        return skippedUnits;
-    }
-
-    public int getFailedUnits() {
-        return failedUnits;
-    }
-
-    public String getCurrentUnit() {
-        return currentUnit;
-    }
-
-    public String getError() {
-        return error;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getStartedAt() {
-        return startedAt;
-    }
-
-    public Instant getFinishedAt() {
-        return finishedAt;
     }
 }

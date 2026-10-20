@@ -89,7 +89,11 @@ public class AnalyticsController {
      *
      * @param author автор ровно в том написании, в каком он указан в карточке товара
      * @param query  подстрока названия, своего артикула или ISBN
-     * @param sort   INCOME (по умолчанию), NAME или SKU
+     * @param sort   критерий порядка строк: INCOME (по умолчанию), NAME, SKU, SOLD,
+     *               EXPENSES или GROSS
+     * @param order  направление порядка: asc или desc; не задан — как привычнее для
+     *               выбранного критерия
+     * @param onlyWithSales оставить только товары, у которых были продажи
      * @param page   номер страницы с нуля
      * @param size   размер страницы, максимум 500
      */
@@ -101,12 +105,15 @@ public class AnalyticsController {
             @RequestParam(required = false) String author,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String order,
+            @RequestParam(defaultValue = "false") boolean onlyWithSales,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
 
         SellerAccount account = accountLookup.requireAccount(accountId);
         return productAnalytics.productReport(account.getMarketplace().getCode(),
-                Optional.of(account.getId()), dateFrom, dateTo, author, query, sort, page, size);
+                Optional.of(account.getId()), dateFrom, dateTo, author, query,
+                sort, order, onlyWithSales, page, size);
     }
 
     /**

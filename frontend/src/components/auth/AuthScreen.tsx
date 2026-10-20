@@ -63,44 +63,6 @@ export default function AuthScreen({
 
   return (
     <div className="flex min-h-screen">
-      {/* Бренд-панель */}
-      {/* 
-      <div className="relative hidden w-[46%] overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-[#14296b] lg:block">
-        <div className="absolute -left-20 -top-20 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-24 right-0 h-96 w-96 rounded-full bg-indigo-400/30 blur-3xl" />
-        <div className="relative flex h-full flex-col justify-between p-12 text-white">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M4 18V7l5.5 7L12 9.5 14.5 14 20 6v12" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <span className="text-[19px] font-extrabold tracking-tight">MarketAnalytics</span>
-          </div>
-
-          <div>
-            <h2 className="text-[34px] font-extrabold leading-[1.15] tracking-tight">
-              Доходы, расходы и прибыль
-              <br />
-              вашего магазина — по дням
-            </h2>
-            <p className="mt-4 max-w-[400px] text-[14px] leading-relaxed text-white/70">
-              Подключите кабинет Ozon по API-ключу и смотрите динамику финансов, структуру расходов и
-              продажи по каждому товару.
-            </p>
-            <div className="mt-8 flex gap-3">
-              {['Динамика по дням', 'Сверка с кабинетом', 'Аналитика по SKU'].map((t) => (
-                <span key={t} className="rounded-full bg-white/10 px-3.5 py-1.5 text-[12px] font-semibold ring-1 ring-white/15">
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="text-[12px] font-medium text-white/40">Данные только на чтение</div>
-        </div>
-      </div>*/}
-
       {/* Форма */}
       <div className="flex flex-1 items-center justify-center p-6">
         <motion.div
@@ -123,12 +85,6 @@ export default function AuthScreen({
           <h1 className="text-[26px] font-extrabold tracking-tight text-slate-900">
             {mode === 'login' ? 'Вход в аккаунт' : 'Создать аккаунт'}
           </h1>
-          {/** 
-          <p className="mt-1.5 text-[13.5px] font-medium text-slate-500">
-            {mode === 'login'
-              ? 'Войдите, чтобы увидеть аналитику вашего магазина'
-              : 'Регистрация занимает меньше минуты'}
-          </p>*/}
 
           <div className="mt-6 flex rounded-xl bg-slate-100 p-1">
             {(['login', 'register'] as const).map((m) => (
@@ -217,56 +173,6 @@ export default function AuthScreen({
               {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
             </button>
           </form>
-
-          {/* Настройки сервера */}
-          {/**  
-          <div className="mt-8 border-t border-slate-200/70 pt-4">
-            <button
-              onClick={() => setShowServer(!showServer)}
-              className="flex items-center gap-2 text-[12px] font-bold text-slate-400 transition-colors hover:text-slate-600"
-            >
-              <Server size={13} />
-              Настройки сервера
-              <ChevronDown size={13} className={cn('transition-transform', showServer && 'rotate-180')} />
-            </button>
-            <AnimatePresence initial={false}>
-              {showServer && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="pt-3">
-                    <label className="mb-1.5 block text-[11px] font-bold text-slate-400">
-                      Адрес API (пусто — тот же origin, что у этой страницы)
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        value={serverUrl}
-                        onChange={(e) => setServerUrl(e.target.value)}
-                        placeholder="http://localhost:8080"
-                        className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[12.5px] font-semibold text-slate-700 outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-500/10"
-                      />
-                      <button
-                        onClick={saveServer}
-                        className="rounded-xl bg-slate-800 px-4 text-[12px] font-bold text-white transition-colors hover:bg-slate-900"
-                      >
-                        Сохранить
-                      </button>
-                    </div>
-                    <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-                      Если фронтенд на другом порту, задайте на бэкенде{' '}
-                      <code className="rounded bg-slate-100 px-1 py-0.5 font-semibold text-slate-500">
-                        APP_ALLOWED_ORIGINS={window.location.origin}
-                      </code>
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          */}
         </motion.div>
       </div>
     </div>

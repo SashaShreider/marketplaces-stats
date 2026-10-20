@@ -65,7 +65,7 @@ public class DailyAnalyticsService {
             return emptyReport(marketplaceCode, from, to, coverage, periodCoverage);
         }
 
-        Map<Integer, FinancialModel.TypeLabels> typeLabels = facts.accrualTypeLabels();
+        Map<Integer, FinancialModel.TypeLabels> typeLabels = facts.accrualTypeLabels(marketplaceCode);
 
         List<ProductFact> products = facts.products(account, from, to);
         List<FeeFact> fees = new ArrayList<>();

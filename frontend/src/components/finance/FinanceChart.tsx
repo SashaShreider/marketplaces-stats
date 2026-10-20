@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { DayFinance } from '@/types'
+import { chartScales, tooltipPosition, useChartWidth } from '@/components/finance/barChartBase'
 import { clamp, fmtAxis, fmtDateLong, fmtDayShort, fmtMoney, niceMax } from '@/utils/format'
 
 export type MetricKey = 'income' | 'expenses' | 'profit'
@@ -77,37 +78,27 @@ function TipRow({
 
 export default function FinanceChart({ days, metric }: { days: DayFinance[]; metric: MetricKey }) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(760)
+  const width = useChartWidth(wrapRef)
   const [hover, setHover] = useState<number | null>(null)
 
-  useLayoutEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0].contentRect.width
-      if (w > 0) setWidth(w)
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
   const n = days.length
-  const innerW = Math.max(10, width - PAD_L - PAD_R)
-  const innerH = H - PAD_T - PAD_B
-  const slot = innerW / Math.max(1, n)
-  const barW = clamp(slot * 0.56, 2, 20)
 
   const maxIncome = n ? Math.max(...days.map((d) => d.income)) : 0
   const yMax = maxIncome > 0 ? niceMax(maxIncome * 1.08) : 100000
-  const y = (v: number) => PAD_T + innerH * (1 - clamp(v, 0, yMax) / yMax)
-  const x = (i: number) => PAD_L + slot * (i + 0.5)
+  const { x, y, slot, innerW, innerH, gridLines } = chartScales({
+    count: n,
+    width,
+    height: H,
+    pad: { left: PAD_L, right: PAD_R, top: PAD_T, bottom: PAD_B },
+    maxValue: yMax,
+  })
+  const barW = clamp(slot * 0.56, 2, 20)
 
   const cfg = METRIC_CONFIG[metric]
   const pts = days.map((d, i) => ({ x: x(i), y: y(cfg.get(d)) }))
   const path = smoothPath(pts)
 
   const labelStep = Math.max(1, Math.ceil(n / 10))
-  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax)
 
   const hovered = hover !== null ? days[hover] : null
   const hoverX = hover !== null ? x(hover) : 0
@@ -115,11 +106,16 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
   // тултип сбоку от точки (не перекрывая её) и в пределах графика
   const TIP_W = 248
   const TIP_H = 252
-  const tipOnRight = hoverX + 16 + TIP_W < width - PAD_R
-  const tipLeft = tipOnRight
-    ? Math.min(hoverX + 16, width - TIP_W - 4)
-    : Math.max(hoverX - 16 - TIP_W, 4)
-  const tipTop = clamp(hoverY - TIP_H / 2, 4, H - TIP_H - 4)
+  const { left: tipLeft, top: tipTop } = tooltipPosition({
+    hoverX,
+    hoverY,
+    width,
+    height: H,
+    tipWidth: TIP_W,
+    tipHeight: TIP_H,
+    offset: 16,
+    padRight: PAD_R,
+  })
 
   const onMove = (e: React.MouseEvent<SVGRectElement>) => {
     const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect()

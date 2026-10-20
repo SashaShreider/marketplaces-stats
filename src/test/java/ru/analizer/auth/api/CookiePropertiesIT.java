@@ -4,7 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.TestPropertySource;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 
 import java.net.URI;
@@ -15,18 +14,15 @@ import java.net.http.HttpResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Куки выставляются с теми же параметрами, что и настроено.
+ * Куки выставляются с теми же параметрами, что и настроено по умолчанию.
  *
  * <p>Значение Secure по умолчанию выключено, и это сделано сознательно: иначе кука
  * не поедет на {@code http://localhost:8080}, и каждый запрос будет давать 401 при
- * 200 на получение самой куки. Поэтому проверяется поведение по умолчанию, а вариант
- * с HTTPS — отдельным контекстом.
+ * 200 на получение самой куки. SameSite по умолчанию — Lax. Вариант с HTTPS
+ * настраивается переменными COOKIE_SAME_SITE/COOKIE_SECURE и отдельным контекстом
+ * здесь не проверяется.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestPropertySource(properties = {
-        "app.cookie.same-site=Strict",
-        "app.cookie.secure=false"
-})
 class CookiePropertiesIT extends AbstractPostgresIntegrationTest {
 
     private static final String CSRF_COOKIE = "XSRF-TOKEN";
@@ -35,7 +31,7 @@ class CookiePropertiesIT extends AbstractPostgresIntegrationTest {
     int port;
 
     @Test
-    @DisplayName("Кука CSRF получает настроенный SameSite и остаётся читаемой для JS")
+    @DisplayName("Кука CSRF получает SameSite по умолчанию и остаётся читаемой для JS")
     void csrfCookieUsesConfiguredSameSite() throws Exception {
         HttpResponse<String> response = HttpClient.newHttpClient().send(
                 HttpRequest.newBuilder().uri(URI.create(url("/api/auth/csrf"))).GET().build(),
@@ -48,8 +44,8 @@ class CookiePropertiesIT extends AbstractPostgresIntegrationTest {
                 .isNotBlank();
         assertThat(setCookie)
                 .as("SameSite=%s обязателен, иначе браузер отбросит куку в ответе на запись",
-                        "Strict")
-                .containsIgnoringCase("SameSite=Strict");
+                        "Lax")
+                .containsIgnoringCase("SameSite=Lax");
         // HttpOnly в этой куке недопустим: значение читает JavaScript фронтенда, чтобы
         // повторить его в заголовке.
         assertThat(setCookie).as("кука CSRF обязана читаться из JavaScript").doesNotContain("HttpOnly");

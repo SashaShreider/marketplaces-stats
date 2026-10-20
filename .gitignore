@@ -53,3 +53,10 @@ replay_pid*.log
 .opencode/
 opencode.jsonc
 .qodo/
+
+# Knowledge graphs (generated locally)
+.code-review-graph/
+graphify-out/
+ai-vault/
+
+.graphifyignore

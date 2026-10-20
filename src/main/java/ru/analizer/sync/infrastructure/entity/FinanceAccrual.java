@@ -1,6 +1,7 @@
 package ru.analizer.sync.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import ru.analizer.account.domain.SellerAccount;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
  * на одно отправление приходится несколько операций (продажа, комиссия, логистика и т.д.).
  */
 @Entity
+@Getter
 @Table(name = "finance_accrual")
 public class FinanceAccrual {
 
@@ -98,53 +100,5 @@ public class FinanceAccrual {
 
     public void linkAccrualType(AccrualType accrualType) {
         this.accrualType = accrualType;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public SellerAccount getSellerAccount() {
-        return sellerAccount;
-    }
-
-    public Long getExternalId() {
-        return externalId;
-    }
-
-    public AccrualType getAccrualType() {
-        return accrualType;
-    }
-
-    public LocalDate getAccrualDate() {
-        return accrualDate;
-    }
-
-    public String getUnitNumber() {
-        return unitNumber;
-    }
-
-    public String getAccruedCategory() {
-        return accruedCategory;
-    }
-
-    public Integer getOzonTypeId() {
-        return ozonTypeId;
-    }
-
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public String getCurrency() {
-        return currency;
-    }
-
-    public String getRawData() {
-        return rawData;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
     }
 }

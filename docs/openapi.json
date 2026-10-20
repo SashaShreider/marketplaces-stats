@@ -660,9 +660,6 @@
           "requestedDays" : {
             "format" : "int32",
             "type" : "integer"
-          },
-          "suitableForProfit" : {
-            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -757,7 +754,7 @@
     }
   },
   "info" : {
-    "description" : "Анализ начислений и каталога товаров OZON.\n\n## Как устроен доступ\nАвторизация по сессии в куке, а не по токену:\n1. `GET /api/auth/csrf` — получить куку XSRF-TOKEN.\n2. `POST /api/auth/register` или `POST /api/auth/login`.\n3. Дальше каждый запрос сам приносит куку JSESSIONID.\n\n## CSRF\nКука XSRF-TOKEN обязана быть продублирована в заголовке\n`X-XSRF-TOKEN` для всех методов, меняющих состояние\n(POST, PUT, DELETE). Публичный метод тоже защищён.\n\n## Разделение данных\nЗапросы возвращают только данные текущего пользователя.\nРеквизиты OZON задаются через\n`PUT /api/marketplaces/{mp}/credentials`.\n",
+    "description" : "Анализ начислений и каталога товаров OZON.\n\n## Как устроен доступ\nАвторизация по сессии в куке, а не по токену:\n1. `GET /api/auth/csrf` — получить куку XSRF-TOKEN.\n2. `POST /api/auth/register` или `POST /api/auth/login`.\n3. Дальше каждый запрос сам приносит куку JSESSIONID.\n\n## CSRF\nКука XSRF-TOKEN обязана быть продублирована в заголовке\n`X-XSRF-TOKEN` для всех методов, меняющих состояние\n(POST, PUT, DELETE). Публичный метод тоже защищён.\n\n## Разделение данных\nЗапросы возвращают только данные текущего пользователя.\nРеквизиты OZON задаются через\n`PUT /api/accounts/{accountId}/credentials`.\n",
     "title" : "OZON Analizer API",
     "version" : "1.0"
   },
@@ -920,6 +917,21 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "order",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "onlyWithSales",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
           }
         }, {
           "in" : "query",
