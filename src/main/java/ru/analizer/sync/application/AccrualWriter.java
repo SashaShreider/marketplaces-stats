@@ -9,8 +9,10 @@ import ru.analizer.sync.infrastructure.entity.*;
 import ru.analizer.sync.infrastructure.repository.*;
 import ru.analizer.sync.repository.AccrualTypeRepository;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 
 /**
  * Запись начислений одного дня в базу — в одной транзакции.
@@ -50,10 +52,14 @@ public class AccrualWriter {
     @Transactional
     public DayCounts persistDay(SellerAccount account,
                                 Map<Integer, AccrualType> types,
-                                java.util.List<AccrualDto> accruals) {
+                                List<AccrualDto> accruals) {
         int inserted = 0;
         int updated = 0;
         int skipped = 0;
+
+        // Существующие начисления загружаются одним запросом: при повторной загрузке
+        // дня их сотни, и выборка по одному превращала импорт в N+1.
+        Map<Long, FinanceAccrual> existingById = loadExisting(account, accruals);
 
         for (AccrualDto dto : accruals) {
             if (dto.externalId() == null) {
@@ -62,18 +68,16 @@ public class AccrualWriter {
                 skipped++;
                 continue;
             }
-            Optional<FinanceAccrual> existing = financeAccrualRepository
-                    .findBySellerAccountIdAndExternalId(account.getId(), dto.externalId());
+            FinanceAccrual existing = existingById.get(dto.externalId());
 
-            if (existing.isPresent()) {
-                FinanceAccrual accrual = existing.get();
-                accrual.refreshFrom(dto.date(), dto.unitNumber(), dto.category().name(),
+            if (existing != null) {
+                existing.refreshFrom(dto.date(), dto.unitNumber(), dto.category().name(),
                         dto.typeId(), dto.totalAmount(), dto.currency(), dto.rawJson());
                 if (dto.typeId() != null) {
-                    accrual.linkAccrualType(types.get(dto.typeId()));
+                    existing.linkAccrualType(types.get(dto.typeId()));
                 }
-                clearChildren(accrual);
-                createChildren(accrual, dto);
+                clearChildren(existing);
+                createChildren(existing, dto);
                 updated++;
             } else {                FinanceAccrual accrual = new FinanceAccrual(
                         account, dto.externalId(), dto.date(), dto.unitNumber(),
@@ -83,11 +87,26 @@ public class AccrualWriter {
                     accrual.linkAccrualType(types.get(dto.typeId()));
                 }
                 financeAccrualRepository.save(accrual);
+                existingById.put(dto.externalId(), accrual);
                 createChildren(accrual, dto);
                 inserted++;
             }
         }
         return new DayCounts(inserted, updated, skipped);
+    }
+
+    private Map<Long, FinanceAccrual> loadExisting(SellerAccount account, List<AccrualDto> accruals) {
+        List<Long> externalIds = accruals.stream()
+                .map(AccrualDto::externalId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (externalIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        Map<Long, FinanceAccrual> byId = new HashMap<>();
+        financeAccrualRepository.findByExternalIds(account.getId(), externalIds)
+                .forEach(accrual -> byId.put(accrual.getExternalId(), accrual));
+        return byId;
     }
 
     private void createChildren(FinanceAccrual accrual, AccrualDto dto) {
