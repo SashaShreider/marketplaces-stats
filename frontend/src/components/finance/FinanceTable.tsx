@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { Pager } from '@/components/ui'
 import type { DayFinance, DayState, FinanceTotals } from '@/types'
 import { fmtDayShort, fmtMoney, fmtNum, sumDays, weekdayShort } from '@/utils/format'
 
@@ -206,28 +206,7 @@ export default function FinanceTable({ days }: { days: DayFinance[] }) {
           <span className="tnum font-bold text-slate-600">{days.length}</span> дней
         </span>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] font-semibold text-slate-500">
-            Страница <span className="tnum font-extrabold text-slate-800">{safePage + 1}</span> из{' '}
-            <span className="tnum font-extrabold text-slate-800">{pages}</span>
-          </span>
-          <div className="flex gap-1">
-            <button
-              disabled={safePage === 0}
-              onClick={() => setPage(safePage - 1)}
-              title="Предыдущая страница"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
-            >
-            <ChevronLeft size={15} />
-            </button>
-            <button
-              disabled={safePage >= pages - 1}
-              onClick={() => setPage(safePage + 1)}
-              title="Следующая страница"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
+          <Pager page={safePage} pages={pages} onPageChange={setPage} />
         </div>
       </div>
     </div>

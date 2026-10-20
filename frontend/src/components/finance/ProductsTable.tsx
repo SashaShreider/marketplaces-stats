@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ExternalLink, Package } from 'lucide-react'
+import { ExternalLink, Package } from 'lucide-react'
 import type { ProductRow, SelectionTotals } from '@/types'
 import { cn } from '@/utils/cn'
+import { Pager } from '@/components/ui'
 import { fmtMoney, fmtNum, revenue } from '@/utils/format'
 
 /**
@@ -249,30 +250,7 @@ export default function ProductsTable({
             )}
           </span>
           {showPager && (
-          <div className="flex items-center gap-3">
-          <span className="text-[12px] font-semibold text-slate-500">
-            Страница <span className="tnum font-extrabold text-slate-800">{page + 1}</span> из{' '}
-            <span className="tnum font-extrabold text-slate-800">{Math.max(1, totalPages)}</span>
-          </span>
-          <div className="flex gap-1">
-            <button
-              disabled={page === 0}
-              onClick={() => onPageChange(page - 1)}
-              title="Предыдущая страница"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              <ChevronLeft size={15} />
-            </button>
-            <button
-              disabled={page >= totalPages - 1}
-              onClick={() => onPageChange(page + 1)}
-              title="Следующая страница"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              <ChevronRight size={15} />
-            </button>
-          </div>
-          </div>
+            <Pager page={page} pages={totalPages} onPageChange={onPageChange} />
           )}
         </div>
       )}

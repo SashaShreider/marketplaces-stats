@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, CloudDownload, Info, Package, RefreshCw, Search, X } from 'lucide-react'
+import { AlertTriangle, CloudDownload, Package, RefreshCw, Search, X } from 'lucide-react'
 import { getAuthors, getProducts } from '@/api/client'
-import { describeError } from '@/api/http'
 import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SyncIndicator from '@/components/sync/SyncIndicator'
-import { AnimatedNumber, MarketplaceLogo, PageHeader } from '@/components/ui'
+import { AnimatedNumber, MarketplaceLogo, PageHeader, StatCard } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
-import type { AccountInfo, DateRange, ProductSort, ProductsReport } from '@/types'
+import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
+import type { AccountInfo, DateRange, ProductSort } from '@/types'
 import { cn } from '@/utils/cn'
 import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
@@ -40,57 +40,6 @@ function useDebounced<T>(value: T, ms = 350): T {
  * перерисовку страницы, а появление и скрытие подсказки не должно требовать
  * обработчиков, которые нужно не забыть снять.
  */
-function Hint({ text }: { text: string }) {
-  return (
-    <span className="group/hint relative inline-flex align-middle">
-      <Info
-        size={13}
-        className="cursor-help text-slate-400 transition-colors group-hover/hint:text-slate-600"
-      />
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[12px] font-medium normal-case leading-relaxed tracking-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/hint:opacity-100"
-      >
-        {text}
-      </span>
-    </span>
-  )
-}
-
-function Stat({
-  label,
-  hint,
-  children,
-  sub,
-  tone,
-  delay,
-}: {
-  label: string
-  /** Объяснение подписи, если её нельзя прочитать буквально */
-  hint?: string
-  children: React.ReactNode
-  sub?: React.ReactNode
-  tone: string
-  delay: number
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay }}
-      className={cn('rounded-2xl border p-4', tone)}
-    >
-      <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
-        {label}
-        {hint && <Hint text={hint} />}
-      </div>
-      <div className="mt-2 text-[24px] font-extrabold leading-none tracking-tight text-slate-900">{children}</div>
-      {sub && <div className="mt-2 text-[12px] font-medium text-slate-500">{sub}</div>}
-    </motion.div>
-  )
-}
-
-
 export default function ProductsPage({
   account,
   range,
@@ -108,11 +57,6 @@ export default function ProductsPage({
   const [page, setPage] = useState(0)
   const [authors, setAuthors] = useState<string[]>([])
 
-  const [report, setReport] = useState<ProductsReport | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const token = useRef(0)
-
   const dq = useDebounced(query.trim())
   const da = useDebounced(author.trim())
 
@@ -125,46 +69,26 @@ export default function ProductsPage({
   // фильтры меняются — возвращаемся на первую страницу
   useEffect(() => setPage(0), [dq, da, sort, range.from, range.to])
 
-  const reload = useCallback(
-    async (silent = false) => {
-      const t = ++token.current
-      if (!silent) setLoading(true)
-      try {
-        const r = await getProducts(account.id, {
-          dateFrom: range.from,
-          dateTo: range.to,
-          query: dq || undefined,
-          author: da || undefined,
-          sort,
-          page,
-          size: PAGE_SIZE,
-        })
-        if (token.current !== t) return
-        setReport(r)
-        setError(null)
-      } catch (e) {
-        if (token.current !== t) return
-        setError(describeError(e))
-      } finally {
-        if (token.current === t) setLoading(false)
-      }
-    },
+  const fetchReport = useCallback(
+    () =>
+      getProducts(account.id, {
+        dateFrom: range.from,
+        dateTo: range.to,
+        query: dq || undefined,
+        author: da || undefined,
+        sort,
+        page,
+        size: PAGE_SIZE,
+      }),
     [account.id, range.from, range.to, dq, da, sort, page],
   )
 
-  useEffect(() => {
-    reload()
-  }, [reload])
-
   // обновляем по ходу импортов
   const run = runner.run
-  const progressKey = run ? `${run.id}:${run.doneUnits}:${run.failedUnits}:${run.inProgress}` : ''
-  const lastKey = useRef(progressKey)
-  useEffect(() => {
-    if (progressKey === lastKey.current) return
-    lastKey.current = progressKey
-    reload(true)
-  }, [progressKey, reload])
+  const { data: report, loading, error, reload } = useReportQuery({
+    fetch: fetchReport,
+    progressKey: importProgressKey(run),
+  })
 
   // Догружаем недостающие дни выбранного периода, как это делает обзор.
   // Без этого страница товаров молча показывала неполные цифры: период в календаре
@@ -261,10 +185,11 @@ export default function ProductsPage({
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           {totals && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Stat
+              <StatCard
                 label="Доходы"
                 tone="border-emerald-200/60 bg-emerald-50/60"
                 delay={0.05}
+                value={<AnimatedNumber value={totals.income} />}
                 sub={
                   <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
                     <span>продано {fmtNum(totals.soldQuantity ?? 0)} шт</span>
@@ -273,37 +198,32 @@ export default function ProductsPage({
                     )}
                   </span>
                 }
-              >
-                <AnimatedNumber value={totals.income} />
-              </Stat>
-              <Stat
+              />
+              <StatCard
                 label="Расходы по товарам"
                 hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
                 delay={0.1}
+                value={<AnimatedNumber value={totals.expenses} />}
                 sub={
                   report.unallocatedExpenses > 0
                     ? `ещё ${fmtMoney(report.unallocatedExpenses)} без привязки к товару`
                     : undefined
                 }
-              >
-                <AnimatedNumber value={totals.expenses} />
-              </Stat>
-              <Stat
+              />
+              <StatCard
                 label="Выручка"
                 tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
                 delay={0.1}
-              >
-                <AnimatedNumber value={gross} />
-              </Stat>
-              <Stat
+                value={<AnimatedNumber value={gross} />}
+              />
+              <StatCard
                 label="Товаров с продажами"
                 tone="border-slate-200/80 bg-white"
                 delay={0.2}
+                value={<AnimatedNumber value={totals.productsWithSales} suffix="" />}
                 sub={`из ${fmtNum(totals.productsInCatalog)} в каталоге`}
-              >
-                <AnimatedNumber value={totals.productsWithSales} suffix="" />
-              </Stat>
+              />
             </div>
           )}
 

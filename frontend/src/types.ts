@@ -119,7 +119,21 @@ export interface DailyReport {
   income: number
   expenses: number
   payout: number
-  total: DailyBreakdown & { payout: number; reconciles: boolean }
+  /**
+   * Итог за период: раскладка по статьям плюс количество за период.
+   *
+   * <p>Количество есть только здесь — на верхнем уровне отчёта его нет, в отличие
+   * от денег. Это известная непоследовательность формы ответа, помечена
+   * `TODO(#response-duplication)` в коде сервера.
+   */
+  total: DailyBreakdown & {
+    dateFrom: string
+    dateTo: string
+    payout: number
+    reconciles: boolean
+    soldQuantity: number
+    returnedQuantity: number
+  }
   reconciled: boolean
   final: boolean
 }
