@@ -81,6 +81,11 @@ jobs:
       - name: Установка зависимостей
         run: npm ci --no-audit --no-fund
 
+      # Типы интерфейса сверяются с машинным контрактом. Если сервер изменил
+      # ответ, а типы интерфейса — нет, сборка падает здесь, а не в браузере.
+      - name: Типы соответствуют контракту
+        run: npm run gen:types && git diff --exit-code -- src/api/schema.d.ts
+
       - name: Проверка типов
         run: npm run typecheck
 

@@ -1,6 +1,7 @@
 package ru.analizer.auth.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.Instant;
 
@@ -14,6 +15,7 @@ import java.time.Instant;
  * адреса почты нет, подтверждения нет.
  */
 @Entity
+@Getter
 @Table(name = "app_user")
 public class AppUser {
 
@@ -40,25 +42,5 @@ public class AppUser {
         this.login = login;
         this.passwordHash = passwordHash;
         this.displayName = displayName == null || displayName.isBlank() ? login : displayName;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getLogin() {
-        return login;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 }

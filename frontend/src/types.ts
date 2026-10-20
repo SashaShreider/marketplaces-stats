@@ -80,7 +80,6 @@ export interface Coverage {
   failedDates: string[]
   fullyFinal: boolean
   needsSync: boolean
-  suitableForProfit: boolean
 }
 
 export interface DailyBreakdown {
@@ -120,7 +119,21 @@ export interface DailyReport {
   income: number
   expenses: number
   payout: number
-  total: DailyBreakdown & { payout: number; reconciles: boolean }
+  /**
+   * Итог за период: раскладка по статьям плюс количество за период.
+   *
+   * <p>Количество есть только здесь — на верхнем уровне отчёта его нет, в отличие
+   * от денег. Это известная непоследовательность формы ответа, помечена
+   * `TODO(#response-duplication)` в коде сервера.
+   */
+  total: DailyBreakdown & {
+    dateFrom: string
+    dateTo: string
+    payout: number
+    reconciles: boolean
+    soldQuantity: number
+    returnedQuantity: number
+  }
   reconciled: boolean
   final: boolean
 }
@@ -145,9 +158,8 @@ export interface ProductRow {
   isbn: string | null
   typeId: number | null
   authors: ProductAuthor[]
-  soldQuantity?: number
-  returnedQuantity?: number
-  quantity?: number
+  soldQuantity: number
+  returnedQuantity: number
   accrualCount: number
   financial: DailyBreakdown & { payout: number; reconciles: boolean }
   income: number
@@ -209,7 +221,16 @@ export interface SelectionTotals {
   soldQuantity: number
 }
 
-export type ProductSort = 'INCOME' | 'NAME' | 'SKU'
+/**
+ * Критерии сортировки таблицы товаров.
+ *
+ * <p>По одному на колонку: так заголовок таблицы и есть выбор критерия, а список
+ * критериев в отдельном месте не нужен.
+ */
+export type ProductSort = 'INCOME' | 'NAME' | 'SKU' | 'SOLD' | 'EXPENSES' | 'GROSS'
+
+/** Направление сортировки: по возрастанию или по убыванию. */
+export type ProductSortOrder = 'asc' | 'desc'
 
 export interface ProductsReport {
   marketplace: string

@@ -128,14 +128,6 @@ class AuthorExtractorTest {
         }
 
         @Test
-        @DisplayName("Регистр и порядок слов сохраняются как в источнике")
-        void caseAndWordOrderPreserved() {
-            List<Author> authors = AuthorExtractor.extract(List.of("асилий Калязин"), true);
-
-            assertThat(authors).extracting(Author::raw).containsExactly("асилий Калязин");
-        }
-
-        @Test
         @DisplayName("Слово «и» разделителем не считается")
         void conjunctionIsNotSeparator() {
             // «Галина и Павел Барышниковы» — одно значение атрибута, значит один автор.

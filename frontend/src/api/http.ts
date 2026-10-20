@@ -1,44 +1,26 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  Низкоуровневый HTTP-клиент: сессионная кука, CSRF, ошибки RFC 7807.
 //
-//  Адрес бэкенда выбирается так (по приоритету):
-//   1. значение, сохранённое на экране входа («Настройки сервера») — localStorage
-//   2. переменная окружения VITE_API_BASE_URL
-//   3. пустая строка — запрос уходит на тот же источник, откуда открыта страница
+//  Адрес бэкенда: переменная окружения VITE_API_BASE_URL, если задана, иначе
+//  пустая строка — запрос уходит на тот же источник, откуда открыта страница.
 //
-//  Третий пункт и есть обычный режим. В разработке Vite отдаёт страницу на 5173
+//  Второй вариант и есть обычный режим. В разработке Vite отдаёт страницу на 5173
 //  и проксирует /api на бэкенд, поэтому интерфейс не знает его порта и не должен
 //  знать: адрес меняется при переносе на другой порт, и раньше это требовало правки
 //  кода здесь. Заодно исчезает CORS — браузер видит один источник, и подключать
 //  5173 в APP_ALLOWED_ORIGINS локально больше не требуется.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LS_KEY = 'ma.apiBaseUrl'
-
 type EnvShape = { env?: Record<string, string | boolean | undefined> }
 
 function resolveBase(): string {
-  try {
-    const saved = localStorage.getItem(LS_KEY)
-    if (saved !== null) return saved
-  } catch {
-    /* localStorage недоступен */
-  }
   const env = (import.meta as unknown as EnvShape).env
   const fromEnv = env?.VITE_API_BASE_URL
   if (typeof fromEnv === 'string' && fromEnv) return fromEnv
   return ''
 }
 
-export const API_BASE = resolveBase().replace(/\/+$/, '')
-
-export function saveApiBase(value: string) {
-  localStorage.setItem(LS_KEY, value.trim())
-}
-
-export function resetApiBase() {
-  localStorage.removeItem(LS_KEY)
-}
+const API_BASE = resolveBase().replace(/\/+$/, '')
 
 // ─── Ошибки ──────────────────────────────────────────────────────────────────
 
@@ -88,7 +70,16 @@ export function describeError(e: unknown): string {
 
 let csrf: { header: string; token: string } | null = null
 
-function url(path: string, query?: Record<string, string | number | null | undefined>): string {
+/**
+ * Параметры запроса.
+ *
+ * <p>Логическое значение разрешено: сервер ждёт `?onlyWithSales=true`, а не
+ * `?onlyWithSales`, и передавать его вручную строкой в каждом месте — верный
+ * способ забыть про единицу в одной из выдающих.
+ */
+type QueryValue = string | number | boolean | null | undefined
+
+function url(path: string, query?: Record<string, QueryValue>): string {
   let u = `${API_BASE}${path}`
   if (query) {
     const sp = new URLSearchParams()
@@ -140,9 +131,9 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 interface Options {
-  query?: Record<string, string | number | null | undefined>
+  query?: Record<string, QueryValue>
   body?: unknown
-  /** не вызывать глобальный обработчик 401 (для /auth/login, /auth/me) */
+  /** не спрашивать про ошибку входа (401 /auth/login, /auth/me) */
   silent401?: boolean
 }
 

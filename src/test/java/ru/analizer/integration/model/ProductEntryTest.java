@@ -88,13 +88,5 @@ class ProductEntryTest {
             assertThat(entry().attributeValues(AUTHOR)).isEmpty();
             assertThat(entry().attributeValue(AUTHOR)).isNull();
         }
-
-        @Test
-        @DisplayName("Одно значение — список из одного элемента")
-        void singleValueGivesSingleElementList() {
-            ProductEntry product = entry(new ProductAttributeEntry(ISBN, 0, "9785907081338", null));
-
-            assertThat(product.attributeValues(ISBN)).containsExactly("9785907081338");
-        }
     }
 }

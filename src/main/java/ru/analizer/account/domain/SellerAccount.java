@@ -1,6 +1,7 @@
 package ru.analizer.account.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import ru.analizer.auth.domain.AppUser;
 
 import java.time.Instant;
@@ -9,8 +10,9 @@ import java.time.Instant;
  * Подключённый аккаунт продавца.
  *
  * <p>Принадлежит пользователю: через эту связь изолируются начисления, каталог
- * и прогоны импортов. Один магазин на маркетплейс у пользователя — ограничение
- * в базе, а не в коде.
+ * и прогоны импортов. Магазинов у пользователя может быть несколько, в том числе
+ * несколько кабинетов одного маркетплейса; повторно подключить один и тот же
+ * кабинет запрещает уникальный индекс по (пользователь, маркетплейс, client_id).
  *
  * <p>API-ключ хранится в базе, чтобы пользователь мог подключить маркетплейс
  * из интерфейса, и потому приложение разворачивается на любом числе продавцов.
@@ -20,6 +22,7 @@ import java.time.Instant;
  * APP_ENCRYPTION_KEY; см. V9__users_and_credentials.sql.
  */
 @Entity
+@Getter
 @Table(name = "seller_account")
 public class SellerAccount {
 
@@ -109,29 +112,5 @@ public class SellerAccount {
                     "У аккаунта " + id + " не задан api_key: сначала подключите маркетплейс");
         }
         return new ru.analizer.account.domain.MarketplaceCredentials(clientId, apiKey);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public AppUser getUser() {
-        return user;
-    }
-
-    public Marketplace getMarketplace() {
-        return marketplace;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getClientId() {
-        return clientId;
-    }
-
-    public String getApiKey() {
-        return apiKey;
     }
 }

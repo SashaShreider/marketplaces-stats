@@ -1,6 +1,7 @@
 package ru.analizer.sync.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.time.Instant;
  * Конкретные {@code type_id} в бизнес-логику не зашиваются.
  */
 @Entity
+@Getter
 @Table(name = "delivery_service")
 public class DeliveryService {
 
@@ -44,25 +46,5 @@ public class DeliveryService {
 
     void attachTo(PostingProduct postingProduct) {
         this.postingProduct = postingProduct;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public PostingProduct getPostingProduct() {
-        return postingProduct;
-    }
-
-    public Integer getTypeId() {
-        return typeId;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public String getCurrency() {
-        return currency;
     }
 }

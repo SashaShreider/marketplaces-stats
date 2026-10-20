@@ -1,13 +1,12 @@
 package ru.analizer.catalog.application;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import ru.analizer.account.domain.SellerAccount;
 import ru.analizer.catalog.domain.*;
 import ru.analizer.catalog.domain.AuthorExtractor.Author;
-import ru.analizer.catalog.repository.OzonProductAttributeRepository;
 import ru.analizer.catalog.repository.OzonProductRepository;
-import ru.analizer.catalog.repository.ProductAuthorRepository;
 import ru.analizer.integration.model.ProductAttributeEntry;
 import ru.analizer.integration.model.ProductEntry;
 import ru.analizer.integration.ozon.OzonProductAttributes;
@@ -16,6 +15,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Запись товаров каталога — по одному товару в своей транзакции.
@@ -27,22 +27,44 @@ import java.util.List;
  *
  * <p>Транзакция на товар, а не на страницу: каталог — это сотни товаров, и одна
  * транзакция на всю страницу держала бы себя при обрыве связи целиком.
+ *
+ * <p>Характеристики и авторы пишутся обычным SQL, а не через JPA. У товара их
+ * восемнадцать и единица, и через JPA это двадцать отдельных запросов на товар:
+ * загрузка каталога в сотни товаров упиралась не в OZON, а в сотни обращений к базе.
+ * Одним запросом на товар вместо двадцати каталог грузится в разы быстрее.
  */
 @Component
 public class ProductWriter {
 
+    private static final String INSERT_ATTRIBUTE = """
+            insert into ozon_product_attribute
+                (seller_account_id, sku, attribute_id, position, value, dictionary_value_id)
+            values (?, ?, ?, ?, ?, ?)
+            """;
+
+    private static final String INSERT_AUTHOR = """
+            insert into product_author
+                (seller_account_id, sku, author_raw, source, is_primary, position)
+            values (?, ?, ?, ?, ?, ?)
+            """;
+
+    private static final String DELETE_ATTRIBUTES = """
+            delete from ozon_product_attribute
+            where seller_account_id = ? and sku = ?
+            """;
+
+    private static final String DELETE_AUTHORS = """
+            delete from product_author
+            where seller_account_id = ? and sku = ?
+            """;
+
     private final OzonProductRepository productRepository;
-    private final OzonProductAttributeRepository attributeRepository;
-    private final ProductAuthorRepository authorRepository;
+    private final JdbcTemplate jdbc;
     private final Clock clock;
 
-    public ProductWriter(OzonProductRepository productRepository,
-                         OzonProductAttributeRepository attributeRepository,
-                         ProductAuthorRepository authorRepository,
-                         Clock clock) {
+    public ProductWriter(OzonProductRepository productRepository, JdbcTemplate jdbc, Clock clock) {
         this.productRepository = productRepository;
-        this.attributeRepository = attributeRepository;
-        this.authorRepository = authorRepository;
+        this.jdbc = jdbc;
         this.clock = clock;
     }
 
@@ -51,35 +73,52 @@ public class ProductWriter {
         Long accountId = account.getId();
         Instant now = Instant.now(clock);
 
-        OzonProduct product = productRepository
-                .findBySellerAccountIdAndSku(accountId, entry.sku())
-                .orElseGet(() -> new OzonProduct(account, entry.sku(), now));
+        Optional<OzonProduct> stored = productRepository
+                .findBySellerAccountIdAndSku(accountId, entry.sku());
+        OzonProduct product = stored.orElseGet(() -> new OzonProduct(account, entry.sku(), now));
 
         List<Author> authors = extractAuthors(entry);
-          product.refreshFrom(entry.ozonProductId(), entry.offerId(), entry.name(), entry.barcode(),
-                  entry.typeId(), entry.descriptionCategoryId(), entry.primaryImage(),
-                  entry.attributeValue(OzonProductAttributes.ISBN),
-                  entry.weightGrams(), entry.widthMm(), entry.heightMm(), entry.depthMm(),
-                  entry.modelId(), entry.rawJson(), now, entry.archived());
+        product.refreshFrom(entry.ozonProductId(), entry.offerId(), entry.name(), entry.barcode(),
+                entry.typeId(), entry.descriptionCategoryId(), entry.primaryImage(),
+                entry.attributeValue(OzonProductAttributes.ISBN),
+                entry.weightGrams(), entry.widthMm(), entry.heightMm(), entry.depthMm(),
+                entry.modelId(), entry.rawJson(), now, entry.archived());
         productRepository.save(product);
         productRepository.flush();
 
-        // Удаления и вставки в одном порядке требуют flush между ними, иначе новая
-        // строка встанет раньше удалённой и упадёт на уникальном индексе.
-        attributeRepository.deleteForProduct(accountId, entry.sku());
-        authorRepository.deleteForProduct(accountId, entry.sku());
-        attributeRepository.flush();
-        authorRepository.flush();
+        // Прежние строки удаляются только у товара, который в базе уже был: у нового
+        // товара строк не бывает, а удалять всё подряд — значит ещё и спрашивать базу
+        // о том, чего нет.
+        if (stored.isPresent()) {
+            jdbc.update(DELETE_ATTRIBUTES, accountId, entry.sku());
+            jdbc.update(DELETE_AUTHORS, accountId, entry.sku());
+        }
 
+        insertAttributes(accountId, entry);
+        insertAuthors(accountId, entry, authors);
+    }
+
+    private void insertAttributes(Long accountId, ProductEntry entry) {
+        List<Object[]> batch = new ArrayList<>();
         for (ProductAttributeEntry attribute : entry.attributes()) {
-            attributeRepository.save(new OzonProductAttribute(accountId, entry.sku(),
-                    attribute.attributeId(), attribute.position(),
-                    attribute.value(), attribute.dictionaryValueId()));
+            batch.add(new Object[]{accountId, entry.sku(), attribute.attributeId(),
+                    attribute.position(), attribute.value(), attribute.dictionaryValueId()});
         }
+        if (!batch.isEmpty()) {
+            jdbc.batchUpdate(INSERT_ATTRIBUTE, batch);
+        }
+    }
+
+    private void insertAuthors(Long accountId, ProductEntry entry, List<Author> authors) {
+        if (authors.isEmpty()) {
+            return;
+        }
+        List<Object[]> batch = new ArrayList<>(authors.size());
         for (Author author : authors) {
-            authorRepository.save(new ProductAuthor(accountId, entry.sku(), author.raw(),
-                    author.primary() ? "DECLARED" : "COVER", author.primary(), author.position()));
+            batch.add(new Object[]{accountId, entry.sku(), author.raw(),
+                    author.primary() ? "DECLARED" : "COVER", author.primary(), author.position()});
         }
+        jdbc.batchUpdate(INSERT_AUTHOR, batch);
     }
 
     /**

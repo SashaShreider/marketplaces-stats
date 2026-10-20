@@ -15,12 +15,11 @@
 import { forgetCsrf, refreshCsrf, request } from '@/api/http'
 import type {
   AccountInfo,
-  CatalogState,
-  Coverage,
   DailyReport,
   ImportProgress,
   MarketplaceInfo,
   ProductSort,
+  ProductSortOrder,
     ProductsReport,
     SalesDynamics,
     User,
@@ -102,14 +101,6 @@ export const getImport = (accountId: number, id: number) =>
 
 // ─── Состояние данных ────────────────────────────────────────────────────────
 
-export const getCoverage = (accountId: number, dateFrom: string, dateTo: string) =>
-  request<Coverage>('GET', `${accountPath(accountId)}/data/coverage`, {
-    query: { dateFrom, dateTo },
-  })
-
-export const getCatalogState = (accountId: number) =>
-  request<CatalogState>('GET', `${accountPath(accountId)}/data/catalog`)
-
 export const getAuthors = (accountId: number) =>
   request<string[]>('GET', `${accountPath(accountId)}/data/authors`)
 
@@ -120,12 +111,17 @@ export const getDaily = (accountId: number, dateFrom: string, dateTo: string) =>
     query: { dateFrom, dateTo },
   })
 
-export interface ProductsQuery {
+interface ProductsQuery {
   dateFrom: string
   dateTo: string
   author?: string
   query?: string
+  /** Критерий сортировки: по одному на колонку таблицы */
   sort?: ProductSort
+  /** Направление сортировки */
+  order?: ProductSortOrder
+  /** Оставить только товары, у которых были продажи */
+  onlyWithSales?: boolean
   page?: number
   size?: number
 }

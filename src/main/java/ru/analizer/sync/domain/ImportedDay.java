@@ -1,6 +1,7 @@
 package ru.analizer.sync.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import ru.analizer.account.domain.SellerAccount;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import java.time.LocalDate;
  * и чтобы знать, какие дни периода осталось догрузить.
  */
 @Entity
+@Getter
 @Table(name = "imported_day")
 public class ImportedDay {
 
@@ -154,53 +156,5 @@ public class ImportedDay {
             return null;
         }
         return value.length() <= 2000 ? value : value.substring(0, 2000);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public SellerAccount getSellerAccount() {
-        return sellerAccount;
-    }
-
-    public LocalDate getDay() {
-        return day;
-    }
-
-    public DayStatus getStatus() {
-        return status;
-    }
-
-    public boolean isFinalDay() {
-        return finalDay;
-    }
-
-    public int getAccrualCount() {
-        return accrualCount;
-    }
-
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public Instant getFirstSyncedAt() {
-        return firstSyncedAt;
-    }
-
-    public Instant getLastSyncedAt() {
-        return lastSyncedAt;
-    }
-
-    public Instant getUnchangedSince() {
-        return unchangedSince;
-    }
-
-    public int getChangeCount() {
-        return changeCount;
-    }
-
-    public String getLastError() {
-        return lastError;
     }
 }

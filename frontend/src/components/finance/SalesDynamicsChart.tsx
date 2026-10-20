@@ -1,6 +1,7 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { DayState } from '@/types'
+import { chartScales, tooltipPosition, useChartWidth } from '@/components/finance/barChartBase'
 import { clamp, fmtDateLong, fmtDayShort, niceMax } from '@/utils/format'
 import { cn } from '@/utils/cn'
 
@@ -39,36 +40,25 @@ export default function SalesDynamicsChart({
   loading?: boolean
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(760)
+  const width = useChartWidth(wrapRef)
   const [hover, setHover] = useState<number | null>(null)
 
-  useLayoutEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0].contentRect.width
-      if (w > 0) setWidth(w)
-    })
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
   const n = points.length
-  const innerW = Math.max(10, width - PAD_L - PAD_R)
-  const innerH = H - PAD_T - PAD_B
-  const slot = innerW / Math.max(1, n)
 
   // Возвраты рисуются отдельными полосками внутри дня, поэтому они в масштабе не
   // участвуют: иначе один возврат на 500 единиц растянул бы шкалу так, что продажи
   // стали бы неразличимы.
   const maxSold = n ? Math.max(...points.map((p) => p.sold)) : 0
   const yMax = maxSold > 0 ? niceMax(maxSold * 1.08) : 10
+  const { x, y, slot, innerW, innerH, gridLines } = chartScales({
+    count: n,
+    width,
+    height: H,
+    pad: { left: PAD_L, right: PAD_R, top: PAD_T, bottom: PAD_B },
+    maxValue: yMax,
+  })
   const barW = clamp(slot * 0.6, 3, 22)
 
-  const x = (i: number) => PAD_L + slot * (i + 0.5)
-  const y = (v: number) => PAD_T + innerH * (1 - clamp(v, 0, yMax) / yMax)
-
-  const gridLines = useMemo(() => [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax), [yMax])
   const labelStep = Math.max(1, Math.ceil(n / 10))
 
   const hovered = hover !== null ? points[hover] : null
@@ -76,10 +66,16 @@ export default function SalesDynamicsChart({
   const TIP_H = 116
   const hoverX = hover !== null ? x(hover) : 0
   const hoverY = hover !== null ? y(points[hover].sold) : 0
-  const tipLeft = hoverX + 14 + TIP_W < width - PAD_R
-    ? Math.min(hoverX + 14, width - TIP_W - 4)
-    : Math.max(hoverX - 14 - TIP_W, 4)
-  const tipTop = clamp(hoverY - TIP_H / 2, 4, H - TIP_H - 4)
+  const { left: tipLeft, top: tipTop } = tooltipPosition({
+    hoverX,
+    hoverY,
+    width,
+    height: H,
+    tipWidth: TIP_W,
+    tipHeight: TIP_H,
+    offset: 14,
+    padRight: PAD_R,
+  })
 
   const onMove = (e: React.MouseEvent<SVGRectElement>) => {
     if (n === 0) return

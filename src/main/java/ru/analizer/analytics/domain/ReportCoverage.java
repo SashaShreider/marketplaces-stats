@@ -34,19 +34,6 @@ public record ReportCoverage(
         return failedDays > 0 || loadedDays < requestedDays;
     }
 
-    /**
-     * Годится ли период для расчёта прибыли.
-     *
-     * <p>Прибыль сейчас не считается: в отчётах есть доходы, расходы и выплаты, но не
-     * их разность. Метод оставлен, чтобы признак «данные окончательные» был посчитан
-     * уже сейчас, а не пришлось бы додумывать его позже — когда период окончателен,
-     * прибыль можно считать сразу, не дожидаясь обновления начислений.
-     */
-    @com.fasterxml.jackson.annotation.JsonProperty
-    public boolean suitableForProfit() {
-        return fullyFinal();
-    }
-
     public static ReportCoverage from(PeriodCoverage coverage) {
         return new ReportCoverage(coverage.requestedDays(), coverage.loadedDays(),
                 coverage.finalDays(), coverage.failedDays(), coverage.percentLoaded(),

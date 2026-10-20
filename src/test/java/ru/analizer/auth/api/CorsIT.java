@@ -4,7 +4,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.TestPropertySource;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 
 import java.net.URI;
@@ -22,11 +21,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * умолчанию) ответов CORS нет вообще — это тоже верное поведение, но проверить его
  * таким тестом нельзя, не убрав саму настройку.
  *
+ * <p>Список источников задан в общем для интеграционных тестов
+ * {@link AbstractPostgresIntegrationTest}: собственное свойство здесь поднимало бы
+ * отдельный контекст Spring, а контекст поднимается десятки секунд.
+ *
  * <p>Отдельно проверяется предварительный запрос: без него не работает ничего, а
  * увидеть его вручную почти невозможно — браузер сообщает «ошибка сети» без кода.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestPropertySource(properties = "app.cors.allowed-origins=http://localhost:5173")
 class CorsIT extends AbstractPostgresIntegrationTest {
 
     private static final String FRONTEND = "http://localhost:5173";
