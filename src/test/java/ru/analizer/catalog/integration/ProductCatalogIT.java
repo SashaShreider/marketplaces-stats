@@ -848,6 +848,12 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     void conflictCarriesMachineReadableReason() {
         // Клиент должен отличать «дождаться текущего импорта» от «несколько аккаунтов»
         // по значению поля, а не по разбору текста сообщения.
+        //
+        // Загрузка задержана на полсекунды: отказ положен ровно на время, пока идёт
+        // первая загрузка. Без задержки она успевает закончиться раньше, чем
+        // придёт второй запрос, и проверка зависела бы от того, как быстро
+        // повезло машине.
+        FixtureAdapters.setDelayPerDayMillis(500);
         var first = importService.startFinanceImport(account(), MARKETPLACE, DAY, DAY, true);
 
         try {

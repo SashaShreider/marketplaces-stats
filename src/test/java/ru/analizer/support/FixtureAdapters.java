@@ -46,6 +46,35 @@ public final class FixtureAdapters {
      */
     public static final String REJECTED_KEY = "reject-me";
 
+    /**
+     * Искусственная задержка на день, в миллисекундах.
+     *
+     * <p>Нужна тестам, которые проверяют поведение <b>во время</b> загрузки:
+     * повторный запуск пересекающегося периода должен быть отклонён, а это
+     * проверяется только пока первая загрузка ещё идёт. Без задержки загрузка
+     * успевает закончиться, и проверка начинает зависеть от того, как быстро
+     * повезло машине.
+     */
+    private static volatile long delayPerDayMillis = 0;
+
+    /** Задержка перед ответом за день: см. {@link #delayPerDayMillis}. */
+    public static void setDelayPerDayMillis(long millis) {
+        delayPerDayMillis = millis;
+    }
+
+    /** Пауза перед ответом за день. */
+    static void delay() {
+        long millis = delayPerDayMillis;
+        if (millis <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private static BulkFixtureAdapter bulk;
 
     private FixtureAdapters() {
@@ -61,6 +90,7 @@ public final class FixtureAdapters {
 
     public static void clearAll() {
         FIXTURES.clear();
+        delayPerDayMillis = 0;
         if (bulk != null) {
             bulk.reset();
         }

@@ -66,7 +66,11 @@ public class FixtureAdapterConfig {
             @Override
             public List<AccrualDto> fetchAccrualsByDay(ru.analizer.account.domain.MarketplaceCredentials credentials, LocalDate date) {
                 String resource = FixtureAdapters.FIXTURES.get(date);
-                return resource == null ? List.of() : FixtureAdapters.parse(resource);
+                if (resource == null) {
+                    return List.of();
+                }
+                FixtureAdapters.delay();
+                return FixtureAdapters.parse(resource);
             }
         };
     }
