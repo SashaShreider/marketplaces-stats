@@ -59,4 +59,5 @@ Do not run a watcher and the pre-commit hook against the same graph at the same 
 `README.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOY.md`, `docs/VERIFY.md` and
 `frontend/README.md` are human-facing and can lag the code. For behavior trust the
 source and `docs/openapi.json`; for structure trust the graphs above. `docs/API.md`
-was removed because it duplicated the OpenAPI contract.
+duplicates the OpenAPI contract by hand and is scheduled for trimming to semantics
+only — do not treat it as the source of truth.

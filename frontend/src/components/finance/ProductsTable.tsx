@@ -35,8 +35,8 @@ function Thumb({ src, name }: { src: string | null; name: string }) {
 
 /** Порядковый номер строки на текущей странице: нужен, чтобы о ссылку на позицию можно было сказать вслух. */
 function Row({ r, n }: { r: ProductRow; n: number }) {
-  const sold = r.soldQuantity ?? r.quantity ?? 0
-  const returned = r.returnedQuantity ?? 0
+  const sold = r.soldQuantity
+  const returned = r.returnedQuantity
   const authors = r.authors.map((a) => a.raw)
   const gross = revenue(r.income, r.expenses)
   // Минус у расходов ставим сами, а не берём из fmtMoney. Проверять надо

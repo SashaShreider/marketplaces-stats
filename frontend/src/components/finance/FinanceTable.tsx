@@ -217,7 +217,7 @@ export default function FinanceTable({ days }: { days: DayFinance[] }) {
               title="Предыдущая страница"
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
             >
-            <ChevronLeft size={PAGE_SIZE} />
+            <ChevronLeft size={15} />
             </button>
             <button
               disabled={safePage >= pages - 1}
@@ -225,7 +225,7 @@ export default function FinanceTable({ days }: { days: DayFinance[] }) {
               title="Следующая страница"
               className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
             >
-              <ChevronRight size={PAGE_SIZE} />
+              <ChevronRight size={15} />
             </button>
           </div>
         </div>

@@ -145,9 +145,8 @@ export interface ProductRow {
   isbn: string | null
   typeId: number | null
   authors: ProductAuthor[]
-  soldQuantity?: number
-  returnedQuantity?: number
-  quantity?: number
+  soldQuantity: number
+  returnedQuantity: number
   accrualCount: number
   financial: DailyBreakdown & { payout: number; reconciles: boolean }
   income: number

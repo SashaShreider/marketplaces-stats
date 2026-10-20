@@ -757,7 +757,7 @@
     }
   },
   "info" : {
-    "description" : "Анализ начислений и каталога товаров OZON.\n\n## Как устроен доступ\nАвторизация по сессии в куке, а не по токену:\n1. `GET /api/auth/csrf` — получить куку XSRF-TOKEN.\n2. `POST /api/auth/register` или `POST /api/auth/login`.\n3. Дальше каждый запрос сам приносит куку JSESSIONID.\n\n## CSRF\nКука XSRF-TOKEN обязана быть продублирована в заголовке\n`X-XSRF-TOKEN` для всех методов, меняющих состояние\n(POST, PUT, DELETE). Публичный метод тоже защищён.\n\n## Разделение данных\nЗапросы возвращают только данные текущего пользователя.\nРеквизиты OZON задаются через\n`PUT /api/marketplaces/{mp}/credentials`.\n",
+    "description" : "Анализ начислений и каталога товаров OZON.\n\n## Как устроен доступ\nАвторизация по сессии в куке, а не по токену:\n1. `GET /api/auth/csrf` — получить куку XSRF-TOKEN.\n2. `POST /api/auth/register` или `POST /api/auth/login`.\n3. Дальше каждый запрос сам приносит куку JSESSIONID.\n\n## CSRF\nКука XSRF-TOKEN обязана быть продублирована в заголовке\n`X-XSRF-TOKEN` для всех методов, меняющих состояние\n(POST, PUT, DELETE). Публичный метод тоже защищён.\n\n## Разделение данных\nЗапросы возвращают только данные текущего пользователя.\nРеквизиты OZON задаются через\n`PUT /api/accounts/{accountId}/credentials`.\n",
     "title" : "OZON Analizer API",
     "version" : "1.0"
   },

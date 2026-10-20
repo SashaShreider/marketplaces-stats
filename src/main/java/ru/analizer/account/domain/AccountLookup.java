@@ -89,7 +89,7 @@ public class AccountLookup {
      * чужие начисления. Проверка входит в сам запрос
      * ({@code findByIdAndUser_Id}), а не делается сравнением потом.
      *
-     * @throws ru.analizer.web.NotConnectedException магазина нет или он не этот
+     * @throws ru.analizer.web.AccountNotFoundException магазина нет или он не этот
      */
     public SellerAccount requireAccount(Long accountId) {
         if (accountId == null) {
