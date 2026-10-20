@@ -105,8 +105,8 @@ public class AccountLookup {
      * Магазин, созданный или обновлённый, с уже прочитанными полями.
      *
      * <p>Отдельная запись вместо самой сущности: контроллеру нужен код маркетплейса, а
-     * читать его на ленивом прокси вне транзакции нельзя — запрос упал бы с 500. Здесь
-     * сессия ещё открыта, и всё, что нужно наружу, извлекается один раз.
+     * отдавать наружу JPA-сущность с ленивыми связями нельзя — сериализация упала бы
+     * с 500. Поэтому всё нужное копируется в запись сразу.
      *
      * @param id              идентификатор магазина; подставляется в путь следующих запросов
      * @param marketplaceCode код маркетплейса в верхнем регистре
@@ -128,9 +128,8 @@ public class AccountLookup {
      *
      * @throws ru.analizer.web.ShopAlreadyConnectedException этот кабинет уже подключён
      */
-    @Transactional
     public ConnectedAccount createAccount(String marketplaceCode,
-                                           MarketplaceCredentials credentials) {
+                                          MarketplaceCredentials credentials) {
         AppUser user = requireUser();
         Marketplace marketplace = requireMarketplace(marketplaceCode);
 
@@ -142,11 +141,11 @@ public class AccountLookup {
                     marketplace.getCode(), credentials.clientId());
         }
 
+        // Название магазина запрашивается у маркетплейса. Транзакция здесь намеренно
+        // не открыта: сетевой вызов не должен держать соединение с базой.
         SellerAccount account = provisionerFor(marketplace.getCode())
                 .provision(marketplace, user, credentials);
 
-        // Код читается здесь, пока сессия открыта: возврат сущности наружу приводил бы к
-        // 500 при попытке открыть ленивый прокси за пределами транзакции.
         return new ConnectedAccount(account.getId(), marketplace.getCode(), account.getClientId());
     }
 
@@ -164,9 +163,9 @@ public class AccountLookup {
      * магазины остались бы с техническим идентификатором навсегда — переименовать их
      * можно было бы только удалением вместе с нагрузкой.
      */
-    @Transactional
     public ConnectedAccount updateCredentials(Long accountId, MarketplaceCredentials credentials) {
         SellerAccount account = requireAccount(accountId);
+        // Запрос названия — до записи: транзакции нет, сетевой вызов не держит базу.
         account.updateCredentials(credentials.clientId(), credentials.apiKey());
         account.updateName(provisionerFor(account.getMarketplace().getCode())
                 .resolveShopName(account.getMarketplace(), credentials));
