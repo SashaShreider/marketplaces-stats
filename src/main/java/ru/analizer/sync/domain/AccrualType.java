@@ -1,6 +1,7 @@
 package ru.analizer.sync.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import ru.analizer.account.domain.Marketplace;
 
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.time.Instant;
  * бизнес-логика не должна опираться на захардкоженный список type_id.
  */
 @Entity
+@Getter
 @Table(name = "accrual_type")
 public class AccrualType {
 
@@ -49,25 +51,5 @@ public class AccrualType {
     public void updateFrom(String name, String description) {
         this.name = name;
         this.description = description;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Marketplace getMarketplace() {
-        return marketplace;
-    }
-
-    public Integer getExternalTypeId() {
-        return externalTypeId;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getDescription() {
-        return description;
     }
 }

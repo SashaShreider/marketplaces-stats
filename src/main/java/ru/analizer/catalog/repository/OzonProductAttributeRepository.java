@@ -12,8 +12,6 @@ public interface OzonProductAttributeRepository extends JpaRepository<OzonProduc
 
     List<OzonProductAttribute> findBySellerAccountIdAndSku(Long sellerAccountId, long sku);
 
-    List<OzonProductAttribute> findBySellerAccountIdAndAttributeId(Long sellerAccountId, long attributeId);
-
     /**
      * Перезаписывает характеристики товара целиком.
      *

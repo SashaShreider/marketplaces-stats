@@ -1,15 +1,18 @@
 package ru.analizer.catalog.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 /**
  * Значение характеристики товара.
  *
  * <p>Отдельная строка на каждое значение: у товара их 18, и состав меняется при смене
- * категории. Общий вид хранения выбран сознательно — сегодня нужны четыре атрибута,
- * завтра понадобится пятый, и перезагружать каталог ради него не захочется.
+ * категории. Общий вид хранения выбран сознательно — сегодня нужны три атрибута
+ * (автор, автор на обложке, ISBN), завтра понадобится четвёртый, и перезагружать
+ * каталог ради него не захочется.
  */
 @Entity
+@Getter
 @Table(name = "ozon_product_attribute")
 public class OzonProductAttribute {
 
@@ -46,38 +49,5 @@ public class OzonProductAttribute {
         this.position = position;
         this.value = value;
         this.dictionaryValueId = dictionaryValueId;
-    }
-
-    public void updateValue(String value, Long dictionaryValueId) {
-        this.value = value;
-        this.dictionaryValueId = dictionaryValueId;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getSellerAccountId() {
-        return sellerAccountId;
-    }
-
-    public long getSku() {
-        return sku;
-    }
-
-    public long getAttributeId() {
-        return attributeId;
-    }
-
-    public int getPosition() {
-        return position;
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    public Long getDictionaryValueId() {
-        return dictionaryValueId;
     }
 }

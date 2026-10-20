@@ -12,11 +12,4 @@ public record FinanceAccrualByDayRequest(
         @JsonProperty("date") String date,
         @JsonProperty("last_id") String lastId
 ) {
-    public static FinanceAccrualByDayRequest firstPage(String date) {
-        return new FinanceAccrualByDayRequest(date, "");
-    }
-
-    public static FinanceAccrualByDayRequest nextPage(String date, String lastId) {
-        return new FinanceAccrualByDayRequest(date, lastId);
-    }
 }

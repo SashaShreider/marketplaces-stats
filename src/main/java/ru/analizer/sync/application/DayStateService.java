@@ -59,11 +59,7 @@ public class DayStateService {
                 : DEFAULT_MATURITY_DAYS;
     }
 
-    public int maturityInDays() {
-        return maturityInDays;
-    }
-
-    public LocalDate today() {
+    private LocalDate today() {
         return LocalDate.now(clock);
     }
 

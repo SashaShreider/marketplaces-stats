@@ -16,14 +16,25 @@ dependencies {
     // Spring Boot 4 управляет версиями через Gradle-платформу, а не через отдельный плагин
     // io.spring.dependency-management: тот конфликтует с platform()-зависимостями
     // (например, с BOM Testcontainers ниже).
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
-    testImplementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
+    val springBootBom = platform("org.springframework.boot:spring-boot-dependencies:4.1.1")
+    implementation(springBootBom)
+    testImplementation(springBootBom)
+
+    // Без platform() в этих конфигурациях версия Lombok не разрешается: BOM действует
+    // только на те конфигурации, куда добавлен явно.
+    compileOnly(springBootBom)
+    annotationProcessor(springBootBom)
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-security")
+
+    // Геттеры JPA-сущностей и DTO-классов: без Lombok это ~200 строк
+    // однотипного кода, который приходится править вручную при каждом новом поле.
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
 
     // В Boot 4 автоконфигурации вынесены в отдельные модули и не подтягиваются транзитивно.
     implementation("org.springframework.boot:spring-boot-restclient")
@@ -48,7 +59,7 @@ dependencies {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:deprecation", "-Xlint:unchecked"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:deprecation", "-Xlint:unchecked", "-Xlint:-processing"))
 }
 
 tasks.withType<Test>().configureEach {

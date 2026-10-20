@@ -80,7 +80,6 @@ export interface Coverage {
   failedDates: string[]
   fullyFinal: boolean
   needsSync: boolean
-  suitableForProfit: boolean
 }
 
 export interface DailyBreakdown {

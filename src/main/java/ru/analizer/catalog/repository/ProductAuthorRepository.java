@@ -6,11 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ru.analizer.catalog.domain.ProductAuthor;
 
-import java.util.List;
-
 public interface ProductAuthorRepository extends JpaRepository<ProductAuthor, Long> {
-
-    List<ProductAuthor> findBySellerAccountIdAndSkuOrderByPositionAsc(Long sellerAccountId, long sku);
 
     /**
      * Перезаписывает авторов товара целиком.

@@ -1,6 +1,7 @@
 package ru.analizer.account.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import ru.analizer.auth.domain.AppUser;
 
 import java.time.Instant;
@@ -21,6 +22,7 @@ import java.time.Instant;
  * APP_ENCRYPTION_KEY; см. V9__users_and_credentials.sql.
  */
 @Entity
+@Getter
 @Table(name = "seller_account")
 public class SellerAccount {
 
@@ -110,29 +112,5 @@ public class SellerAccount {
                     "У аккаунта " + id + " не задан api_key: сначала подключите маркетплейс");
         }
         return new ru.analizer.account.domain.MarketplaceCredentials(clientId, apiKey);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public AppUser getUser() {
-        return user;
-    }
-
-    public Marketplace getMarketplace() {
-        return marketplace;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getClientId() {
-        return clientId;
-    }
-
-    public String getApiKey() {
-        return apiKey;
     }
 }

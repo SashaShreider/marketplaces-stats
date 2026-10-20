@@ -1,6 +1,7 @@
 package ru.analizer.sync.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.List;
  * Один ITEM может содержать несколько SKU — это отдельные строки {@code item_fee}.
  */
 @Entity
+@Getter
 @Table(name = "item_fee")
 public class ItemFee {
 
@@ -49,25 +51,5 @@ public class ItemFee {
     public void addDetail(ItemFeeDetail detail) {
         detail.attachTo(this);
         this.details.add(detail);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public FinanceAccrual getFinanceAccrual() {
-        return financeAccrual;
-    }
-
-    public Long getSku() {
-        return sku;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public List<ItemFeeDetail> getDetails() {
-        return details;
     }
 }

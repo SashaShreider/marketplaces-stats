@@ -8,7 +8,6 @@ import ru.analizer.analytics.domain.ProductFact;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -203,18 +202,5 @@ public class AnalyticsFactsRepository {
                 where a.seller_account_id = ? and a.accrual_date between ? and ?
                 """, BigDecimal.class, sellerAccountId, from, to);
         return value == null ? BigDecimal.ZERO : value;
-    }
-
-    /** Дни, за которые в базе есть операции, — чтобы отчёт не пропускал пустые дни молча. */
-    public List<LocalDate> datesWithAccruals(Long sellerAccountId, LocalDate from, LocalDate to) {
-        List<LocalDate> dates = new ArrayList<>();
-        jdbc.query("""
-                select distinct accrual_date from finance_accrual
-                where seller_account_id = ? and accrual_date between ? and ?
-                order by accrual_date
-                """, rs -> {
-            dates.add(rs.getObject(1, LocalDate.class));
-        }, sellerAccountId, from, to);
-        return dates;
     }
 }

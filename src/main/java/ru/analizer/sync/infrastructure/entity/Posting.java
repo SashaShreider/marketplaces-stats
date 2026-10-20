@@ -1,6 +1,7 @@
 package ru.analizer.sync.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.Instant;
 
@@ -8,6 +9,7 @@ import java.time.Instant;
  * Отправление внутри операции категории POSTING. Связь 1:1 с {@link FinanceAccrual}.
  */
 @Entity
+@Getter
 @Table(name = "posting")
 public class Posting {
 
@@ -38,21 +40,5 @@ public class Posting {
         this.financeAccrual = financeAccrual;
         this.deliverySchema = deliverySchema;
         this.deliverySpeed = deliverySpeed;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public FinanceAccrual getFinanceAccrual() {
-        return financeAccrual;
-    }
-
-    public String getDeliverySchema() {
-        return deliverySchema;
-    }
-
-    public Integer getDeliverySpeed() {
-        return deliverySpeed;
     }
 }

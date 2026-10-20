@@ -1,6 +1,7 @@
 package ru.analizer.sync.infrastructure.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -9,6 +10,7 @@ import java.time.Instant;
  * Детализация расхода по товару: тип начисления + сумма.
  */
 @Entity
+@Getter
 @Table(name = "item_fee_detail")
 public class ItemFeeDetail {
 
@@ -43,25 +45,5 @@ public class ItemFeeDetail {
 
     void attachTo(ItemFee itemFee) {
         this.itemFee = itemFee;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public ItemFee getItemFee() {
-        return itemFee;
-    }
-
-    public Integer getTypeId() {
-        return typeId;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public String getCurrency() {
-        return currency;
     }
 }

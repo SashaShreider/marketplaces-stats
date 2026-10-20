@@ -13,8 +13,8 @@ import java.util.List;
  * {@code id} — внутренний идентификатор (не равен {@code sku}), {@code sku} —
  * идентификатор товара, связывающий каталог с начислениями.
  *
- * <p>Пустые списки и {@code null} приходят штатно: {@code images} в выгрузке пуст,
- * {@code complex_attributes} — пустой массив. Для них есть {@code safeXxx()}.
+ * <p>Пустые списки и {@code null} приходят штатно: {@code attributes} может прийти
+ * {@code null}, для него есть {@code safeAttributes()}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ProductInfoV4(
@@ -40,10 +40,6 @@ public record ProductInfoV4(
 
     public List<ProductAttributeV4> safeAttributes() {
         return attributes == null ? List.of() : attributes;
-    }
-
-    public List<JsonNode> safeComplexAttributes() {
-        return complexAttributes == null ? List.of() : complexAttributes;
     }
 
     public Long modelId() {

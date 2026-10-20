@@ -1,6 +1,7 @@
 package ru.analizer.catalog.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 /**
  * Автор товара — одна строка на одного автора в одном поле.
@@ -10,6 +11,7 @@ import jakarta.persistence.*;
  * поздно станет причиной спора «это один автор или два».
  */
 @Entity
+@Getter
 @Table(name = "product_author")
 public class ProductAuthor {
 
@@ -47,33 +49,5 @@ public class ProductAuthor {
         this.source = source;
         this.primary = primary;
         this.position = position;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getSellerAccountId() {
-        return sellerAccountId;
-    }
-
-    public long getSku() {
-        return sku;
-    }
-
-    public String getAuthorRaw() {
-        return authorRaw;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public boolean isPrimary() {
-        return primary;
-    }
-
-    public int getPosition() {
-        return position;
     }
 }

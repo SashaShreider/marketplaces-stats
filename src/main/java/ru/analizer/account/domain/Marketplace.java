@@ -1,10 +1,12 @@
 package ru.analizer.account.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.Instant;
 
 @Entity
+@Getter
 @Table(name = "marketplace")
 public class Marketplace {
 
@@ -30,17 +32,5 @@ public class Marketplace {
     public Marketplace(String code, String name) {
         this.code = code;
         this.name = name;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
     }
 }
