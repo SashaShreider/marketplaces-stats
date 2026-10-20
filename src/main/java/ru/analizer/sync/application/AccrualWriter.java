@@ -9,10 +9,14 @@ import ru.analizer.sync.infrastructure.entity.*;
 import ru.analizer.sync.infrastructure.repository.*;
 import ru.analizer.sync.repository.AccrualTypeRepository;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Запись начислений одного дня в базу — в одной транзакции.
@@ -61,6 +65,19 @@ public class AccrualWriter {
         // дня их сотни, и выборка по одному превращала импорт в N+1.
         Map<Long, FinanceAccrual> existingById = loadExisting(account, accruals);
 
+        // Начисления, детализация которых уже лежит в базе: их прежние строки
+        // надо удалить, иначе новая интерпретация ответа встанет рядом со старой.
+        Set<Long> persistedIds = existingById.values().stream()
+                .map(FinanceAccrual::getId)
+                .collect(Collectors.toSet());
+        List<Long> replacedIds = new ArrayList<>();
+
+        // Начисление и его детализация: сначала собираются все начисления дня,
+        // потом одним проходом удаляется прежняя детализация, потом пишется новая.
+        // Поштучное удаление по каждому начислению превращало повторную загрузку
+        // дня в сотни запросов к базе.
+        Map<Long, Pending> pending = new LinkedHashMap<>();
+
         for (AccrualDto dto : accruals) {
             if (dto.externalId() == null) {
                 // Без accrual_id операцию нельзя идентифицировать, повторный запуск
@@ -76,10 +93,12 @@ public class AccrualWriter {
                 if (dto.typeId() != null) {
                     existing.linkAccrualType(types.get(dto.typeId()));
                 }
-                clearChildren(existing);
-                createChildren(existing, dto);
+                if (persistedIds.contains(existing.getId())) {
+                    replacedIds.add(existing.getId());
+                }
                 updated++;
-            } else {                FinanceAccrual accrual = new FinanceAccrual(
+            } else {
+                FinanceAccrual accrual = new FinanceAccrual(
                         account, dto.externalId(), dto.date(), dto.unitNumber(),
                         dto.category().name(), dto.typeId(), dto.totalAmount(),
                         dto.currency(), dto.rawJson());
@@ -88,11 +107,22 @@ public class AccrualWriter {
                 }
                 financeAccrualRepository.save(accrual);
                 existingById.put(dto.externalId(), accrual);
-                createChildren(accrual, dto);
                 inserted++;
             }
+            FinanceAccrual target = existingById.get(dto.externalId());
+            pending.put(target.getId(), new Pending(target, dto));
+        }
+
+        clearChildren(replacedIds);
+
+        for (Pending item : pending.values()) {
+            createChildren(item.accrual(), item.dto());
         }
         return new DayCounts(inserted, updated, skipped);
+    }
+
+    /** Начисление и его детализация из ответа API. */
+    private record Pending(FinanceAccrual accrual, AccrualDto dto) {
     }
 
     private Map<Long, FinanceAccrual> loadExisting(SellerAccount account, List<AccrualDto> accruals) {
@@ -156,21 +186,27 @@ public class AccrualWriter {
     }
 
     /**
-     * Детализация при обновлении пересобирается целиком, иначе в базе остались бы строки,
+     * Прежняя детализация заменяется целиком, иначе в базе остались бы строки,
      * порождённые прежней интерпретацией ответа API.
      *
-     * <p>После удалений нужен явный {@code flush}: Hibernate выполняет операции в порядке
-     * вставки, обновления, удаления, поэтому без сброса новая строка вставилась бы раньше,
-     * чем удалилась прежняя, и упала бы на уникальном индексе.
+     * <p>Удаление идёт одним запросом на таблицу, а не по одному на начисление:
+     * повторная загрузка дня переписывает сотни начислений, и поштучные удаления
+     * превращали её в сотни же запросов.
+     *
+     * <p>Строки-детали уходят каскадом: у операции нет строки — нет и её
+     * расшифровки, поэтому удаления по одной таблице достаточно.
      */
-    private void clearChildren(FinanceAccrual accrual) {
-        postingRepository.findByFinanceAccrualId(accrual.getId()).ifPresent(posting -> {
-            postingProductRepository.deleteByPostingId(posting.getId());
-            postingRepository.delete(posting);
-        });
-        itemFeeRepository.deleteByFinanceAccrualId(accrual.getId());
-        nonItemFeeRepository.deleteByFinanceAccrualId(accrual.getId());
-        containerFeeRepository.deleteByFinanceAccrualId(accrual.getId());
+    private void clearChildren(List<Long> accrualIds) {
+        if (accrualIds.isEmpty()) {
+            return;
+        }
+        postingRepository.deleteByFinanceAccrualIds(accrualIds);
+        itemFeeRepository.deleteByFinanceAccrualIds(accrualIds);
+        nonItemFeeRepository.deleteByFinanceAccrualIds(accrualIds);
+        containerFeeRepository.deleteByFinanceAccrualIds(accrualIds);
+        // После удалений нужен явный flush: Hibernate выполняет операции в порядке
+        // вставки, обновления, удаления, поэтому без сброса новая строка вставилась бы
+        // раньше, чем удалилась прежняя, и упала бы на уникальном индексе.
         financeAccrualRepository.flush();
     }
 
