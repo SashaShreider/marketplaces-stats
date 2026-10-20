@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import ru.analizer.analytics.domain.ProductReport;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
-import ru.analizer.support.CatalogAdapterConfig;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
 
@@ -29,7 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * возврат. Товары в каталоге настоящие, но нужны только их идентификаторы, чтобы строки
  * отчёта существовали: без каталога отчёт по товарам пуст, и проверять нечего.
  */
-@Import({CatalogAdapterConfig.class, FixtureAdapterConfig.class})
+@Import(FixtureAdapterConfig.class)
 class QuantityApiIT extends AbstractPostgresIntegrationTest {
 
     private static final String MARKETPLACE = "OZON";

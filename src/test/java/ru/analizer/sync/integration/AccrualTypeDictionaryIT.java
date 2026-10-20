@@ -47,6 +47,10 @@ class AccrualTypeDictionaryIT extends AbstractPostgresIntegrationTest {
                 "select name from accrual_type where external_type_id = 69", String.class))
                 .as("SaleCommission понадобится аналитике на этапе расчёта комиссии")
                 .isEqualTo("SaleCommission");
+        assertThat(jdbc.queryForObject(
+                "select name from accrual_type where external_type_id = 1", String.class))
+                .as("название пришло из API, а не из кода: угадать его было бы невозможно")
+                .isEqualTo("Acquiring");
     }
 
     @Test

@@ -4,6 +4,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import ru.analizer.integration.MarketplaceAdapter;
+import ru.analizer.integration.ProductCatalogAdapter;
 import ru.analizer.integration.ozon.OzonClient;
 import ru.analizer.integration.model.AccrualDto;
 import ru.analizer.integration.model.AccrualTypeInfo;
@@ -12,10 +13,15 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Адаптер, отдающий сохранённые ответы OZON за конкретные даты.
+ * Адаптеры, отдающие сохранённые ответы OZON за конкретные даты и по каталогу.
  *
  * <p>Используется тестами одиночных дней: берёт файл-фикстуру и подставляет его как
  * ответ настоящего API. Реальные обращения к OZON не выполняются.
+ *
+ * <p>Каталог живёт здесь же, а не в отдельной конфигурации: каждый набор
+ * {@code @Import} — это отдельный контекст Spring, а контекст поднимается десятки
+ * секунд. Конфигураций было три, контекстов выходило семь; сейчас конфигурация одна
+ * (кроме отдельной для длинных периодов), и контекстов вдвое меньше.
  */
 @TestConfiguration
 public class FixtureAdapterConfig {
@@ -24,6 +30,12 @@ public class FixtureAdapterConfig {
     @Primary
     OzonClient stubOzonClient() {
         return new StubOzonClient();
+    }
+
+    @Bean
+    @Primary
+    ProductCatalogAdapter fixtureCatalogAdapter() {
+        return CatalogFixtureAdapter.create();
     }
 
     @Bean

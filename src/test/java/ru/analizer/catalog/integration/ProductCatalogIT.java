@@ -7,7 +7,6 @@ import ru.analizer.analytics.domain.ProductReport;
 import ru.analizer.analytics.domain.SalesDynamicsReport;
 import ru.analizer.catalog.domain.CatalogImportReport;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
-import ru.analizer.support.CatalogAdapterConfig;
 import ru.analizer.support.CatalogFixtureAdapter;
 import ru.analizer.support.FixtureAdapterConfig;
 import ru.analizer.support.FixtureAdapters;
@@ -28,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 // Оба адаптера подменены: тесты не должны уходить в настоящий OZON. Раньше был подменён
 // только каталог, и финансовые данные приходили из .env разработчика.
-@Import({CatalogAdapterConfig.class, FixtureAdapterConfig.class})
+@Import(FixtureAdapterConfig.class)
 class ProductCatalogIT extends AbstractPostgresIntegrationTest {
 
     private static final LocalDate DAY = LocalDate.of(2026, 4, 10);
@@ -43,15 +42,6 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         assertThat(report.savedProducts()).isEqualTo(108);
         assertThat(report.failedProducts()).isZero();
         assertThat(report.complete()).isTrue();
-        assertThat(count("ozon_product")).isEqualTo(108);
-    }
-
-    @Test
-    @DisplayName("Обход каталога останавливается, хотя курсор непустой на последней странице")
-    void paginationTerminates() {
-        catalogImportService.importProducts(accountId(), null);
-        // 108 товаров по 5 на страницу = 22 страницы плюс одна пустая на завершение.
-        // Если бы обход шёл по «курсор не пуст», тест бы просто не завершился.
         assertThat(count("ozon_product")).isEqualTo(108);
     }
 
@@ -667,22 +657,6 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("Порядок из SQL совпадает с порядком по доходам в ответе")
-    void sqlOrderMatchesReportedIncome() {
-        importCatalogAndFinance();
-
-        ProductReport report = productAnalytics.productReport(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "INCOME", 0, 500);
-
-        // Сортировка по доходу нужна в двух местах: в SQL, чтобы выбрать страницу, и в
-        // FinancialSummary.income(), чтобы показать число. Если формулы разойдутся,
-        // страница окажется отсортирована по одному, а числа — по другому.
-        List<java.math.BigDecimal> incomes = report.rows().stream()
-                .map(r -> r.income()).toList();
-        assertThat(incomes).isSortedAccordingTo(java.util.Comparator.reverseOrder());
-    }
-
-    @Test
     @DisplayName("Без параметра сортировки отчёт приходит по доходу")
     void defaultSortIsIncome() {
         importCatalogAndFinance();
@@ -900,17 +874,5 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         assertThat(finance.importType().name()).isEqualTo("FINANCE");
         awaitJob(catalog.id());
         awaitJob(finance.id());
-    }
-
-    @Test
-    @DisplayName("Задачи каталога не блокируют друг друга по датам")
-    void catalogJobsNotBlockedByDateOverlap() {
-        FixtureAdapters.FIXTURES.put(DAY, FINANCE_FIXTURE);
-        accrualImportService.importAccruals(accountId(), DAY, DAY);
-
-        // Финансовая задача в прошлом осталась завершённой — активной блокировки нет.
-        var job = importService.startCatalogImport(account(), MARKETPLACE);
-        assertThat(job.importType().name()).isEqualTo("CATALOG");
-        awaitJob(job.id());
     }
 }

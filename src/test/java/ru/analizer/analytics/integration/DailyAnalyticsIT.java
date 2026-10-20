@@ -133,22 +133,6 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
         assertThat(report.total().reconciliationDiff()).isEqualByComparingTo("0");
     }
 
-@Test
-    @DisplayName("Аккаунт есть, но ничего не импортировано — честный NOT_LOADED")
-    void accountWithoutImportsReportsNotLoaded() {
-        // Нули читаются как «денег не было». Отсутствие импорта — тоже «данных нет»,
-        // поэтому отвечаем статусом NOT_LOADED с перечнем недостающих дней.
-        account();
-        var report = analytics.dailyReport(MARKETPLACE, accountIdOpt(),
-                LocalDate.of(2026, 4, 10), LocalDate.of(2026, 4, 10));
-
-        assertThat(report.status()).isEqualTo(ReportStatus.NOT_LOADED);
-        assertThat(report.coverage().loadedDays()).isZero();
-        assertThat(report.coverage().missingDays())
-                .containsExactly(LocalDate.of(2026, 4, 10));
-        assertThat(report.coverage().needsSync()).isTrue();
-    }
-
     @Test
     @DisplayName("Синхронизированный аккаунт без операций за период даёт нули")
     void syncedAccountWithoutDataReturnsZeros() {

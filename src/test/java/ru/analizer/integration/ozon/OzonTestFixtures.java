@@ -20,6 +20,15 @@ final class OzonTestFixtures {
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
+    /**
+     * Разобранные начисления по имени файла-фикстуры.
+     *
+     * <p>Файлы не меняются между тестами, а разбор ответа дорог: без кэша каждый
+     * тест разбирал бы один и тот же JSON заново.
+     */
+    private static final java.util.Map<String, List<AccrualDto>> PARSED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private OzonTestFixtures() {
     }
 
@@ -32,6 +41,10 @@ final class OzonTestFixtures {
      *                 {@code fixtures/accruals-2026-04-10.json}
      */
     static List<AccrualDto> load(String resource) throws IOException {
+        List<AccrualDto> cached = PARSED.get(resource);
+        if (cached != null) {
+            return cached;
+        }
         String raw = read(resource);
         var root = MAPPER.readTree(raw);
         List<AccrualDto> result = new ArrayList<>();
@@ -40,7 +53,9 @@ final class OzonTestFixtures {
                     MAPPER.treeToValue(node, ru.analizer.integration.ozon.dto.finance.FinanceAccrual.class),
                     node.toString()));
         }
-        return result;
+        List<AccrualDto> parsed = List.copyOf(result);
+        PARSED.put(resource, parsed);
+        return parsed;
     }
 
     static AccrualDto byExternalId(String resource, Long externalId) throws IOException {
