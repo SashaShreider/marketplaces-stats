@@ -221,7 +221,16 @@ export interface SelectionTotals {
   soldQuantity: number
 }
 
-export type ProductSort = 'INCOME' | 'NAME' | 'SKU'
+/**
+ * Критерии сортировки таблицы товаров.
+ *
+ * <p>По одному на колонку: так заголовок таблицы и есть выбор критерия, а список
+ * критериев в отдельном месте не нужен.
+ */
+export type ProductSort = 'INCOME' | 'NAME' | 'SKU' | 'SOLD' | 'EXPENSES' | 'GROSS'
+
+/** Направление сортировки: по возрастанию или по убыванию. */
+export type ProductSortOrder = 'asc' | 'desc'
 
 export interface ProductsReport {
   marketplace: string

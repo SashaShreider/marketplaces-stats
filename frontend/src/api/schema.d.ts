@@ -702,6 +702,8 @@ export interface operations {
                 author?: string;
                 query?: string;
                 sort?: string;
+                order?: string;
+                onlyWithSales?: boolean;
                 page?: number;
                 size?: number;
             };

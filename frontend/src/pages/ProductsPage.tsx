@@ -11,17 +11,32 @@ import { AnimatedNumber, MarketplaceLogo, PageHeader, StatCard } from '@/compone
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
-import type { AccountInfo, DateRange, ProductSort } from '@/types'
+import type { AccountInfo, DateRange, ProductSort, ProductSortOrder } from '@/types'
 import { cn } from '@/utils/cn'
 import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
 
 const PAGE_SIZE = 200
 
-const SORTS: { id: ProductSort; label: string }[] = [
-  { id: 'INCOME', label: 'По доходу' },
-  { id: 'NAME', label: 'По названию' },
-  { id: 'SKU', label: 'По SKU' },
+/**
+ * Направление по умолчанию для каждого критерия.
+ *
+ * <p>По деньгам и количествам — от большего: так видно лучших и худших. По имени и
+ * SKU — от меньшего: так их и читают.
+ */
+const NATURAL_ORDER: Record<ProductSort, ProductSortOrder> = {
+  INCOME: 'desc',
+  SOLD: 'desc',
+  EXPENSES: 'desc',
+  GROSS: 'desc',
+  NAME: 'asc',
+  SKU: 'asc',
+}
+
+/** Отбор: все товары каталога или только те, у которых были продажи. */
+const SALES_FILTERS: { id: boolean; label: string }[] = [
+  { id: false, label: 'Все' },
+  { id: true, label: 'С продажами' },
 ]
 
 function useDebounced<T>(value: T, ms = 350): T {
@@ -54,6 +69,8 @@ export default function ProductsPage({
   const [query, setQuery] = useState('')
   const [author, setAuthor] = useState('')
   const [sort, setSort] = useState<ProductSort>('INCOME')
+  const [order, setOrder] = useState<ProductSortOrder>('desc')
+  const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [page, setPage] = useState(0)
   const [authors, setAuthors] = useState<string[]>([])
 
@@ -66,8 +83,8 @@ export default function ProductsPage({
     getAuthors(account.id).then(setAuthors).catch(() => setAuthors([]))
   }, [account.id, account.catalogProducts])
 
-  // фильтры меняются — возвращаемся на первую страницу
-  useEffect(() => setPage(0), [dq, da, sort, range.from, range.to])
+  // фильтры и порядок меняются — возвращаемся на первую страницу
+  useEffect(() => setPage(0), [dq, da, sort, order, onlyWithSales, range.from, range.to])
 
   const fetchReport = useCallback(
     () =>
@@ -77,11 +94,29 @@ export default function ProductsPage({
         query: dq || undefined,
         author: da || undefined,
         sort,
+        order,
+        onlyWithSales,
         page,
         size: PAGE_SIZE,
       }),
-    [account.id, range.from, range.to, dq, da, sort, page],
+    [account.id, range.from, range.to, dq, da, sort, order, onlyWithSales, page],
   )
+
+  /**
+   * Заголовок таблицы выбирает критерий сортировки.
+   *
+   * <p>Повторный клик по тому же заголовку переворачивает направление: «по расходам
+   * от большего» и «по расходам от меньшего» — это два разных вопроса, и оба
+   * спрашивают про один и тот же столбец.
+   */
+  const onSort = (criterion: ProductSort) => {
+    if (criterion === sort) {
+      setOrder(order === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSort(criterion)
+      setOrder(NATURAL_ORDER[criterion])
+    }
+  }
 
   // обновляем по ходу импортов
   const run = runner.run
@@ -122,7 +157,7 @@ export default function ProductsPage({
   // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
   const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
-  const hasFilter = Boolean(dq || da)
+  const hasFilter = Boolean(dq || da || onlyWithSales)
   // Подсказка объясняет, почему расходы по товарам меньше, чем в «Обзоре».
   // Раньше это был абзац под таблицей: он висел на странице постоянно и описывал
   // ситуацию, заметную только при сравнении двух экранов. По наведению он
@@ -281,21 +316,22 @@ export default function ProductsPage({
               </div>
 
               <div className="flex rounded-full bg-slate-100 p-1">
-                {SORTS.map((s) => (
+                {SALES_FILTERS.map((f) => (
                   <button
-                    key={s.id}
-                    onClick={() => setSort(s.id)}
+                    key={f.id ? 'sold' : 'all'}
+                    onClick={() => setOnlyWithSales(f.id)}
+                    title={f.id ? 'Только товары, у которых были продажи' : 'Все товары каталога'}
                     className="relative rounded-full px-3.5 py-1.5 text-[12px] font-bold"
                   >
-                    {sort === s.id && (
+                    {onlyWithSales === f.id && (
                       <motion.span
-                        layoutId="sort-pill"
+                        layoutId="sales-pill"
                         className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/70"
                         transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                       />
                     )}
-                    <span className={cn('relative z-10', sort === s.id ? 'text-brand-700' : 'text-slate-500')}>
-                      {s.label}
+                    <span className={cn('relative z-10', onlyWithSales === f.id ? 'text-brand-700' : 'text-slate-500')}>
+                      {f.label}
                     </span>
                   </button>
                 ))}
@@ -326,6 +362,9 @@ export default function ProductsPage({
               totalPages={report.totalPages}
               filtered={hasFilter}
               onPageChange={setPage}
+              sort={sort}
+              order={order}
+              onSort={onSort}
             />
 
             {report.skusMissingFromCatalog.length > 0 && (

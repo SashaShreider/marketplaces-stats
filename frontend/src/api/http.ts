@@ -70,7 +70,16 @@ export function describeError(e: unknown): string {
 
 let csrf: { header: string; token: string } | null = null
 
-function url(path: string, query?: Record<string, string | number | null | undefined>): string {
+/**
+ * Параметры запроса.
+ *
+ * <p>Логическое значение разрешено: сервер ждёт `?onlyWithSales=true`, а не
+ * `?onlyWithSales`, и передавать его вручную строкой в каждом месте — верный
+ * способ забыть про единицу в одной из выдающих.
+ */
+type QueryValue = string | number | boolean | null | undefined
+
+function url(path: string, query?: Record<string, QueryValue>): string {
   let u = `${API_BASE}${path}`
   if (query) {
     const sp = new URLSearchParams()
@@ -122,9 +131,9 @@ export function setUnauthorizedHandler(fn: (() => void) | null) {
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 interface Options {
-  query?: Record<string, string | number | null | undefined>
+  query?: Record<string, QueryValue>
   body?: unknown
-  /** не вызывать глобальный обработчик 401 (для /auth/login, /auth/me) */
+  /** не спрашивать про ошибку входа (401 /auth/login, /auth/me) */
   silent401?: boolean
 }
 

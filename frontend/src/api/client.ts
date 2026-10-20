@@ -19,6 +19,7 @@ import type {
   ImportProgress,
   MarketplaceInfo,
   ProductSort,
+  ProductSortOrder,
     ProductsReport,
     SalesDynamics,
     User,
@@ -115,7 +116,12 @@ interface ProductsQuery {
   dateTo: string
   author?: string
   query?: string
+  /** Критерий сортировки: по одному на колонку таблицы */
   sort?: ProductSort
+  /** Направление сортировки */
+  order?: ProductSortOrder
+  /** Оставить только товары, у которых были продажи */
+  onlyWithSales?: boolean
   page?: number
   size?: number
 }

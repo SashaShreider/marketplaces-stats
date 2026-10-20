@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ExternalLink, Package } from 'lucide-react'
-import type { ProductRow, SelectionTotals } from '@/types'
+import { ArrowUpDown, ChevronDown, ChevronUp, ExternalLink, Package } from 'lucide-react'
+import type { ProductRow, ProductSort, ProductSortOrder, SelectionTotals } from '@/types'
 import { cn } from '@/utils/cn'
 import { Pager } from '@/components/ui'
 import { fmtMoney, fmtNum, revenue } from '@/utils/format'
@@ -122,15 +122,21 @@ function Row({ r, n }: { r: ProductRow; n: number }) {
   )
 }
 
-const HEAD = [
-  ['№', 'text-right'],
-  ['Товар', 'text-left'],
-  ['SKU / артикул', 'text-left'],
-  ['Продано', 'text-right'],
-  ['Доход', 'text-right'],
-  ['Расходы', 'text-right'],
-  ['Выручка', 'text-right'],
-] as const
+/**
+ * Заголовки таблицы.
+ *
+ * <p>У каждой колонки, по которой можно упорядочить, указан критерий сортировки:
+ * клик по заголовку и есть выбор критерия, отдельный список критериев не нужен.
+ */
+const HEAD: { label: string; align: string; sort?: ProductSort }[] = [
+  { label: '№', align: 'text-right' },
+  { label: 'Товар', align: 'text-left', sort: 'NAME' },
+  { label: 'SKU / артикул', align: 'text-left', sort: 'SKU' },
+  { label: 'Продано', align: 'text-right', sort: 'SOLD' },
+  { label: 'Доход', align: 'text-right', sort: 'INCOME' },
+  { label: 'Расходы', align: 'text-right', sort: 'EXPENSES' },
+  { label: 'Выручка', align: 'text-right', sort: 'GROSS' },
+]
 
 export default function ProductsTable({
   rows,
@@ -141,6 +147,9 @@ export default function ProductsTable({
   totalPages,
   filtered,
   onPageChange,
+  sort,
+  order,
+  onSort,
 }: {
   rows: ProductRow[]
   /** Итог по всему отбору: приходит с сервера, а не считается по rows */
@@ -153,6 +162,12 @@ export default function ProductsTable({
   /** Применён ли фильтр: от него зависит текст пустой выборки */
   filtered: boolean
   onPageChange: (page: number) => void
+  /** По какой колонке упорядочены строки */
+  sort: ProductSort
+  /** В какую сторону */
+  order: ProductSortOrder
+  /** Клик по заголовку: выбрать критерий или перевернуть направление */
+  onSort: (criterion: ProductSort) => void
 }) {
   const firstShown = rows.length ? page * size + 1 : 0
   const lastShown = page * size + rows.length
@@ -176,15 +191,44 @@ export default function ProductsTable({
         <table className="w-full min-w-[900px] border-separate border-spacing-0">
           <thead>
             <tr>
-              {HEAD.map(([label, align]) => (
+              {HEAD.map((h) => (
                 <th
-                  key={label}
+                  key={h.label}
                   className={cn(
                     'sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50/95 px-4 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-slate-400 backdrop-blur',
-                    align,
+                    h.align,
                   )}
                 >
-                  {label}
+                  {h.sort ? (
+                    <button
+                      onClick={() => onSort(h.sort!)}
+                      title={
+                        sort === h.sort
+                          ? `Изменить направление: ${order === 'asc' ? 'по убыванию' : 'по возрастанию'}`
+                          : `Сортировать по колонке «${h.label}»`
+                      }
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded transition-colors hover:text-slate-700',
+                        sort === h.sort && 'text-brand-600',
+                      )}
+                    >
+                      {h.label}
+                      {sort === h.sort ? (
+                        order === 'asc' ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        )
+                      ) : (
+                        // Стрелка у неактивной колонки — намёк, что её можно
+                        // отсортировать. Без неё заголовок выглядит обычной
+                        // подписью, и про сортировку по ней не узнать.
+                        <ArrowUpDown size={12} className="opacity-30" />
+                      )}
+                    </button>
+                  ) : (
+                    h.label
+                  )}
                 </th>
               ))}
             </tr>
