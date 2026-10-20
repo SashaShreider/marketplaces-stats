@@ -278,7 +278,7 @@ curl -fsS https://ваш-домен/                     # должен прий
 ## Разработка
 
 ```bash
-.\gradlew.bat test              # полный прогон, ~7 минут
+.\gradlew.bat test              # полный прогон, ~3 минуты
 .\gradlew.bat test -Pfast       # только модульные тесты, без БД, секунды
 .\gradlew.bat bootRun           # запуск с текущим .env
 ```

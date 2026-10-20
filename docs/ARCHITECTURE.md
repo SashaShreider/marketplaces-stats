@@ -275,7 +275,7 @@ test/java/ru/analizer/
 ```powershell
 .\gradlew.bat compileJava          # компиляция
 .\gradlew.bat test -Pfast          # модульные тесты, секунды
-.\gradlew.bat test                 # всё, около 7 минут
+.\gradlew.bat test                 # всё, около 3 минут
 .\scripts\check-api.ps1           # работающее приложение и честность цифр
 ```
 
