@@ -131,6 +131,11 @@ export function fmtDateNumeric(iso: string): string {
   return `${day}.${month}.${d.getFullYear()}`
 }
 
+/** Компактный период: "01.08.2026 — 29.10.2026" */
+export function fmtRangeShort(from: string, to: string): string {
+  return from === to ? fmtDateNumeric(from) : `${fmtDateNumeric(from)} — ${fmtDateNumeric(to)}`
+}
+
 /** Диапазон вида "1 сентября — 30 сентября 2026" */
 export function fmtRange(from: string, to: string): string {
   const a = fromISO(from)

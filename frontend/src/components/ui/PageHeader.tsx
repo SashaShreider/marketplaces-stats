@@ -11,16 +11,19 @@ export function PageHeader({
   children,
 }: {
   title: string
-  subtitle: React.ReactNode
+  /** Необязательное пояснение: на «Обзоре» всё нужное уже в строке фильтров. */
+  subtitle?: React.ReactNode
   children?: React.ReactNode
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end gap-x-6 gap-y-4">
+    <div className="mb-3.5 flex flex-wrap items-end gap-x-6 gap-y-3">
       <div>
-        <h1 className="text-[28px] font-extrabold tracking-tight text-slate-900">{title}</h1>
-        <p className="mt-0.5 flex items-center gap-2 text-[13.5px] font-medium text-slate-500">
-          {subtitle}
-        </p>
+        <h1 className="text-[24px] font-extrabold leading-tight tracking-tight text-slate-900">{title}</h1>
+        {subtitle && (
+          <p className="mt-0.5 flex items-center gap-2 text-[13px] font-medium text-slate-500">
+            {subtitle}
+          </p>
+        )}
       </div>
       {children && <div className="ml-auto">{children}</div>}
     </div>

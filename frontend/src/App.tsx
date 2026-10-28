@@ -98,7 +98,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
 
           {/* Ширина всего содержимого задана здесь и больше нигде: mx-auto
               центрирует */}
-          <main className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:pb-12">
+          <main className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-4 sm:px-6 lg:pb-12">
             {listError ? (
               <div className="flex flex-col items-center rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center">
                 <AlertTriangle size={30} className="text-rose-500" />

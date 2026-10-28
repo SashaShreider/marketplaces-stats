@@ -9,24 +9,26 @@ import OverviewFilters from '@/components/finance/OverviewFilters'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SummaryCards from '@/components/finance/SummaryCards'
 import SyncIndicator from '@/components/sync/SyncIndicator'
-import { MarketplaceLogo, PageHeader } from '@/components/ui'
+import { PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ExpenseCategory } from '@/types'
 import { sumDays } from '@/utils/format'
-import { shopLabel } from '@/utils/marketplace'
 
 const EMPTY_TOTALS = sumDays([])
 
 /**
  * Обзор магазина за период.
  *
- * <p>Отчёт можно сузить автором или товарами. Отбор применяется на сервере, к тем же
- * фактам, из которых считаются дни и итоги, — поэтому карточки, график и таблица не
- * могут разойтись между собой. Выбранные товары хранятся в состоянии страницы, а не
- * в адресе: это взгляд на период, а не отдельная страница, и ссылку на «отбор из
- * трёх книг» никто не пересылает.
+ * <p>Период, автор и книги стоят одной строкой над отчётом: это условия одного
+ * вопроса, и держать их в разных местах — значит заставлять человека искать, что
+ * именно применилось. Отбор считается на сервере, поэтому карточки, график и
+ * таблица видят одни и те же факты.
+ *
+ * <p>Выбранные товары хранятся в состоянии страницы, а не в адресе: это взгляд на
+ * период, а не отдельная страница, и ссылку на «отбор из трёх книг» никто не
+ * пересылает.
  */
 export default function OverviewPage({
   account,
@@ -72,37 +74,23 @@ export default function OverviewPage({
 
   const auto = useAutoSync({ accountId: account.id, report, range, runner })
 
-  const header = (
-    <PageHeader
-      title="Обзор"
-      subtitle={
-        <>
-          Финансовые результаты магазина {shopLabel(account)}
-          <MarketplaceLogo code={account.marketplaceCode} size="sm" />
-        </>
-      }
-    >
-      <div className="flex items-center gap-1.5">
-        <SyncIndicator state={auto.state} busy={runner.busy} onRetry={startSync} />
-        <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
-      </div>
-    </PageHeader>
-  )
-
-  // Подпись отбора приходит с сервера: по ней видно, что применилось на самом деле,
-  // а не что набрано в полях.
-  const filterLabel = report?.filter ?? 'Все товары'
-  // `?.` на каждом шаге, а не только на `report`: раскладка расходов появилась в
-  // контракте позже, и сервер предыдущей версии её не отдаёт. Без этого страница
-  // падала бы целиком вместо того, чтобы показать отчёт без расшифровки.
+  // Подпись отбора пришла с сервера — по ней видно, что применилось на самом деле.
+  // Раскладка расходов появилась в контракте позже, поэтому `?.` на каждом шаге:
+  // сервер предыдущей версии её не отдаёт, и страница не должна из-за этого падать.
   const selectedGroup = report?.expenseBreakdown?.groups?.find((g) => g.category === group) ?? null
 
   return (
     <>
-      {header}
-      <ProgressBar runner={runner} showProgress={false} />
+      <PageHeader title="Обзор" />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
+        <DateRangePicker
+          from={range.from}
+          to={range.to}
+          onChange={onRangeChange}
+          compact
+          align="left"
+        />
         <OverviewFilters
           accountId={account.id}
           author={author}
@@ -111,12 +99,12 @@ export default function OverviewPage({
           onSkusChange={setSkus}
           catalogProducts={account.catalogProducts}
         />
-        {(author || skus.length > 0) && (
-          <span className="text-[11.5px] font-medium text-slate-400">
-            Отчёт: <span className="font-bold text-slate-600">{filterLabel}</span>
-          </span>
-        )}
+        <div className="ml-auto flex items-center">
+          <SyncIndicator state={auto.state} busy={runner.busy} onRetry={startSync} />
+        </div>
       </div>
+
+      <ProgressBar runner={runner} showProgress={false} />
 
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">
