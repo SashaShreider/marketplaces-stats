@@ -1,0 +1,112 @@
+import { useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { X } from 'lucide-react'
+import { cn } from '@/utils/cn'
+
+/**
+ * Окно поверх страницы.
+ *
+ * <p>Общее для всех разборов на «Обзоре»: расшифровка статьи расходов, детализация
+ * расходов целиком, полноэкранная таблица. Три копии затемнения и обработчика Escape
+ * разъехались бы по поведению: в одной закрытие по фону работало бы, в другой нет.
+ *
+ * <p>Прокрутка тела страницы блокируется, пока окно открыто: иначе колесо мыши
+ * прокручивало бы список под окном, и человек терял место, на котором читал.
+ *
+ * @param size   ширина окна; `full` — почти весь экран, для таблиц
+ * @param footer необязательная полоса действий внизу
+ */
+export default function Modal({
+  open,
+  title,
+  subtitle,
+  onClose,
+  size = 'md',
+  footer,
+  children,
+}: {
+  open: boolean
+  title: string
+  subtitle?: React.ReactNode
+  onClose: () => void
+  size?: 'md' | 'lg' | 'full'
+  footer?: React.ReactNode
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open, onClose])
+
+  const width =
+    size === 'full'
+      ? 'w-[calc(100vw-2rem)] max-w-[1800px]'
+      : size === 'lg'
+        ? 'w-full max-w-[760px]'
+        : 'w-full max-w-[520px]'
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ opacity: 0, scale: 0.97, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 8 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className={cn(
+              'relative flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/20',
+              width,
+            )}
+          >
+            <div className="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-extrabold tracking-tight text-slate-900">{title}</h3>
+                {subtitle && (
+                  <div className="mt-0.5 text-[12.5px] font-medium leading-relaxed text-slate-500">
+                    {subtitle}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                title="Закрыть"
+                className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="scroll-slim min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
+
+            {footer && (
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
+                {footer}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}

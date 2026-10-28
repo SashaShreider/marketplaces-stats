@@ -3,6 +3,11 @@ import type { DayFinance, FinanceTotals } from '@/types'
 // ─── Деньги ──────────────────────────────────────────────────────────────────
 
 const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
+const nf2 = new Intl.NumberFormat('ru-RU', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+const nf1 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 })
 
 /**
  * Типографский минус U+2212 вместо дефиса, который ставит Intl.
@@ -41,6 +46,30 @@ export function fmtNum(n: number): string {
   return withTypographicMinus(nf.format(safeRound(n)))
 }
 
+/**
+ * Деньги с копейками: "−12 879,33 ₽".
+ *
+ * <p>Отдельная функция, а не замена {@link fmtMoney}: суммы в карточках и на графике
+ * округляются до рубля намеренно — там важно соотношение, а не копейка. В отчёте по
+ * дням и в детализации расходов копейки нужны: сумма статей обязана совпадать с
+ * итогом, а рубль её не сходил бы.
+ */
+export function fmtMoney2(n: number): string {
+  const rounded = Math.round(n * 100) / 100
+  return `${withTypographicMinus(nf2.format(rounded === 0 ? 0 : rounded))} ₽`
+}
+
+/** Количество с копейками не бывает — только целое; оставлено для симметрии таблиц. */
+export function fmtNum2(n: number): string {
+  return withTypographicMinus(nf2.format(Math.round(n * 100) / 100))
+}
+
+/** Проценты: 0.1234 → "12,3 %". */
+export function fmtPercent(share: number): string {
+  if (!Number.isFinite(share)) return '—'
+  return `${nf1.format(share * 100)} %`
+}
+
 /** Компактный формат для оси графика: 300 000 ₽ */
 export function fmtAxis(n: number): string {
   return `${nf.format(Math.round(n))} ₽`
@@ -72,7 +101,6 @@ export const MONTHS_SHORT = [
   'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
   'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
 ]
-export const WEEKDAYS_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 
 // ─── Форматирование дат ──────────────────────────────────────────────────────
 
@@ -88,9 +116,24 @@ export function fmtDayShort(iso: string): string {
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
 }
 
-/** "2026-09-18" → "ср" */
+/**
+ * "2026-09-18" → "18.09.2026".
+ *
+ * <p>Числовая дата для таблицы: день недели и месяц словами занимают место, а
+ * сравнивать и выгружать такие даты удобнее числами. Формат задан явно, а не через
+ * `toLocaleDateString`: тот зависит от локали браузера и на машине с английскими
+ * настройками выдал бы 9/18/2026.
+ */
+export function fmtDateNumeric(iso: string): string {
+  const d = fromISO(iso)
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  return `${day}.${month}.${d.getFullYear()}`
+}
+
+/** "2026-09-18" → "ср" — нужен старой таблице по дням (удаляется вместе с ней). */
 export function weekdayShort(iso: string): string {
-  return WEEKDAYS_SHORT[fromISO(iso).getDay()]
+  return ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][fromISO(iso).getDay()]
 }
 
 /** Диапазон вида "1 сентября — 30 сентября 2026" */
@@ -146,24 +189,16 @@ export function sumDays(days: DayFinance[]): FinanceTotals {
   const t: FinanceTotals = {
     sales: 0, returns: 0, partners: 0, income: 0,
     commission: 0, logistics: 0, other: 0,
-    otherByType: [],
     expenses: 0, profit: 0, soldQty: 0, returnedQty: 0,
+    payout: 0,
   }
-// Описание типа начисления берётся из первого дня, где оно встретилось. Оно
-// приходит из справочника маркетплейса и от дня к дню не меняется, поэтому
-// разница возможна только если маркетплейс пополнил справочник — и тогда версии
-// одинаковы по смыслу.
-const byType = new Map<string, { amount: number; description: string | null }>()
-for (const d of days) {
-      t.soldQty += d.soldQty
-      t.returnedQty += d.returnedQty
-      for (const o of d.otherByType) {
-        const prev = byType.get(o.name)
-        byType.set(o.name, {
-          amount: (prev?.amount ?? 0) + o.amount,
-          description: o.description || prev?.description || null,
-        })
-      }
+  // Выплату складываем только пока она известна у всех дней. Если хоть один день
+  // пришёл без неё (отчёт по части товаров), сумма превратилась бы в «выплату по
+  // тем дням, что посчитались», — а это утверждение, которого никто не проверял.
+  let payout: number | null = 0
+  for (const d of days) {
+    t.soldQty += d.soldQty
+    t.returnedQty += d.returnedQty
     t.sales += d.sales
     t.returns += d.returns
     t.partners += d.partners
@@ -173,10 +208,9 @@ for (const d of days) {
     t.other += d.other
     t.expenses += d.expenses
     t.profit += d.profit
+    payout = payout === null || d.payout === null ? null : payout + d.payout
   }
-t.otherByType = [...byType.entries()]
-      .map(([name, v]) => ({ name, description: v.description, amount: v.amount }))
-      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+  t.payout = payout
   return t
 }
 

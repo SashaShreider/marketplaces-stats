@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{accountId}/data/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["products"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{accountId}/imports": {
         parameters: {
             query?: never;
@@ -493,6 +509,12 @@ export interface components {
             primary?: boolean;
             raw?: string;
             source?: string;
+        };
+        ProductOption: {
+            name?: string;
+            offerId?: string;
+            /** Format: int64 */
+            sku?: number;
         };
         ProductReport: {
             catalog?: components["schemas"]["CatalogInfo"];
@@ -862,6 +884,31 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PeriodCoverage"];
+                };
+            };
+        };
+    };
+    products: {
+        parameters: {
+            query?: {
+                query?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                accountId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductOption"][];
                 };
             };
         };

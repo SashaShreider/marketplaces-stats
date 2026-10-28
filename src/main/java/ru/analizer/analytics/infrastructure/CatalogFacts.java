@@ -353,6 +353,50 @@ private static MapSqlParameterSource filterParams(Long accountId,
     }
 
     /**
+     * Товары для подсказки мультивыбора — короткие строки, а не отчёт.
+     *
+     * <p>Отдельный запрос, а не {@code /analytics/products}: тому нужен период, он
+     * считает деньги по каждому товару и отдаёт страницу с итогами. Для строки
+     * поиска всё это лишнее — на каждый введённый символ считались бы продажи за
+     * месяц, которых никто не просил.
+     *
+     * <p>Пустой запрос возвращает начало алфавитного списка, а не пустоту: раскрытый
+     * список без ввода должен что-то показывать, иначе выглядит сломанным.
+     *
+     * @param query подстрока названия, артикула или ISBN; пусто — без фильтра
+     * @param limit сколько строк вернуть; ограничение сверху задаёт контроллер
+     */
+    public List<ProductOption> productOptions(Long accountId, String query, int limit) {
+        return namedJdbc.query("""
+                select sku, name, offer_id
+                from ozon_product
+                where seller_account_id = :account
+                  and (cast(:queryText as text) = ''
+                       or lower(name) like lower('%' || :queryText || '%')
+                       or lower(coalesce(offer_id, '')) like lower('%' || :queryText || '%')
+                       or lower(coalesce(isbn, '')) like lower('%' || :queryText || '%'))
+                order by name, sku
+                limit :limit
+                """, new MapSqlParameterSource("account", accountId)
+                .addValue("queryText", nullToEmpty(query))
+                .addValue("limit", limit),
+                (rs, i) -> new ProductOption(
+                        rs.getLong("sku"),
+                        rs.getString("name"),
+                        rs.getString("offer_id")));
+    }
+
+    /**
+     * Товар в подсказке фильтра.
+     *
+     * @param sku     подставляется в отчёт параметром {@code skus}
+     * @param name    название из карточки — по нему продавец и узнаёт товар
+     * @param offerId артикул продавца; {@code null} бывает
+     */
+    public record ProductOption(long sku, String name, String offerId) {
+    }
+
+    /**
      * Товары выбранного автора — одним множеством номеров.
      *
      * <p>Отчёт по автору фильтрует факты по SKU, а не подзапросом в каждом запросе:

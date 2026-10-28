@@ -61,3 +61,4 @@ export const _accountInfo: Check<T.AccountInfo, Contract['AccountInfo']> = true
 export const _marketplaceInfo: Check<T.MarketplaceInfo, Contract['MarketplaceInfo']> = true
 export const _importProgress: Check<T.ImportProgress, Contract['ImportProgress']> = true
 export const _catalogState: Check<T.CatalogState, Contract['CatalogState']> = true
+export const _productOption: Check<T.ProductOption, Contract['ProductOption']> = true

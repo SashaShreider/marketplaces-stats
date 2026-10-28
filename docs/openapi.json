@@ -481,6 +481,21 @@
         },
         "type" : "object"
       },
+      "ProductOption" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "offerId" : {
+            "type" : "string"
+          },
+          "sku" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "ProductReport" : {
         "properties" : {
           "catalog" : {
@@ -1228,6 +1243,52 @@
           }
         },
         "tags" : [ "coverage-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/data/products" : {
+      "get" : {
+        "operationId" : "products",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProductOption"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
       }
     },
     "/api/accounts/{accountId}/imports" : {

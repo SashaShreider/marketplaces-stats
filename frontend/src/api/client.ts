@@ -18,6 +18,7 @@ import type {
   DailyReport,
   ImportProgress,
   MarketplaceInfo,
+  ProductOption,
   ProductSort,
   ProductSortOrder,
     ProductsReport,
@@ -104,11 +105,34 @@ export const getImport = (accountId: number, id: number) =>
 export const getAuthors = (accountId: number) =>
   request<string[]>('GET', `${accountPath(accountId)}/data/authors`)
 
+/**
+ * Товары для подсказки в фильтре — короткие строки, без периода и денег.
+ *
+ * <p>Отдельно от {@link getProducts}: тот считает финансовый отчёт по каждому
+ * товару за период, и дёргать его на каждый введённый символ было бы расточительно.
+ */
+export const getProductOptions = (accountId: number, query: string, limit = 20) =>
+  request<ProductOption[]>('GET', `${accountPath(accountId)}/data/products`, {
+    query: { query, limit },
+  })
+
 // ─── Аналитика ───────────────────────────────────────────────────────────────
 
-export const getDaily = (accountId: number, dateFrom: string, dateTo: string) =>
+/**
+ * Дневной отчёт с отбором.
+ *
+ * <p>`skus` и `author` — два разных сужения, и передавать оба смысла нет: сервер
+ * при заданных `skus` игнорирует `author`. На странице они и не выставляются
+ * одновременно: выбрав товар, человек уже ответил, чей он.
+ */
+export const getDaily = (
+  accountId: number,
+  dateFrom: string,
+  dateTo: string,
+  scope: { author?: string; skus?: number[] } = {},
+) =>
   request<DailyReport>('GET', `${accountPath(accountId)}/analytics/daily`, {
-    query: { dateFrom, dateTo },
+    query: { dateFrom, dateTo, author: scope.author, skus: scope.skus },
   })
 
 interface ProductsQuery {

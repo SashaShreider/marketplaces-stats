@@ -217,6 +217,18 @@ export interface ProductAuthor {
   primary: boolean
 }
 
+/**
+ * Товар в подсказке фильтра: элемент GET /api/accounts/{id}/data/products.
+ *
+ * <p>Здесь нет ни денег, ни периода — только то, чтобы узнать товар в списке и
+ * подставить его `sku` в отчёт.
+ */
+export interface ProductOption {
+  sku: number
+  name: string
+  offerId: string | null
+}
+
 export interface ProductRow {
   sku: number
   offerId: string | null
@@ -333,15 +345,20 @@ export interface DayFinance {
   commission: number
   logistics: number
   other: number
-  /** расшифровка расходов по типам начислений (положительные числа) */
-  otherByType: { name: string; description?: string | null; amount: number }[]
   expenses: number
   profit: number
   soldQty: number
   returnedQty: number
+  /**
+   * К выплате. `null`, если отчёт ограничен отбором: выплата известна только по
+   * всему магазину, и её доля для нескольких товаров не считается.
+   */
+  payout: number | null
+  /** Расходы дня по статьям — из них собрана карточка расходов */
+  expenseBreakdown: ExpenseBreakdown
 }
 
-export type FinanceTotals = Omit<DayFinance, 'date' | 'state'>
+export type FinanceTotals = Omit<DayFinance, 'date' | 'state' | 'expenseBreakdown'>
 
 export interface DateRange {
   from: string
