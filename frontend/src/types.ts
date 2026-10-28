@@ -91,6 +91,51 @@ export interface DailyBreakdown {
   otherExpenses: number
 }
 
+/** Крупная статья расходов: карточка показывает их вместо сотни типов начислений. */
+export type ExpenseCategory =
+  | 'COMMISSION'
+  | 'PROMOTION'
+  | 'LOGISTICS'
+  | 'STORAGE'
+  | 'ACQUIRING'
+  | 'OTHER'
+
+/** Один тип начислений внутри статьи — то, что раскрывается по клику. */
+export interface ExpenseItem {
+  /** Номера типа у комиссии нет: она лежит в строке товара, а не отдельным начислением */
+  typeId: number | null
+  /** служебное название из справочника маркетплейса, например PayPerClick */
+  name: string
+  /** человеческое описание оттуда же, например «Оплата за клик» */
+  description?: string | null
+  /** знак как у маркетплейса: расход отрицателен, возврат комиссии положителен */
+  amount: number
+}
+
+/**
+ * Статья расходов с расшифровкой.
+ *
+ * <p>Сумма и расшифровка приходят вместе: показать сумму без детализации значило бы
+ * оставить её непроверяемой.
+ */
+export interface ExpenseGroup {
+  category: ExpenseCategory
+  label: string
+  amount: number
+  items: ExpenseItem[]
+}
+
+/**
+ * Расходы периода по статьям — покрывают расходы целиком, включая комиссию
+ * и логистику. Сумма статей равна `expenses`, поэтому карточка расходов
+ * проверяется по своей же детализации.
+ */
+export interface ExpenseBreakdown {
+  groups: ExpenseGroup[]
+  /** сумма со знаком: возврат комиссии уменьшает расход */
+  total: number
+}
+
 export interface ApiDay {
   date: string
   income: number
@@ -99,6 +144,7 @@ export interface ApiDay {
   breakdown: DailyBreakdown
   soldQuantity?: number | null
   returnedQuantity?: number | null
+  expenseBreakdown: ExpenseBreakdown
   expensesByType: {
       typeId: number
       /** служебное название типа начисления, например PayPerClick */
@@ -134,6 +180,8 @@ export interface DailyReport {
     soldQuantity: number
     returnedQuantity: number
   }
+  /** Расходы за весь период по статьям — питает карточку расходов */
+  expenseBreakdown: ExpenseBreakdown
   reconciled: boolean
   final: boolean
 }

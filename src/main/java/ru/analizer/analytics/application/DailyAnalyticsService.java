@@ -96,7 +96,9 @@ public class DailyAnalyticsService {
         List<DailyRow> rows = new ArrayList<>();
         for (FinancialSummary day : byDate.values()) {
             List<FeeFact> dayFees = filterFeesByDate(fees, day.dateFrom());
-            rows.add(DailyRow.of(day, FinancialModel.expensesByType(dayFees, typeLabels)));
+            rows.add(DailyRow.of(day,
+                    FinancialModel.expensesByType(dayFees, typeLabels),
+                    FinancialModel.expenseBreakdown(dayFees, day.commission(), typeLabels)));
         }
 
         FinancialSummary total = FinancialSummary.empty(from, to);
@@ -105,7 +107,8 @@ public class DailyAnalyticsService {
         }
 
         return new DailyReport(marketplaceCode, from, to, statusOf(periodCoverage), coverage, rows,
-                total.income(), total.expenses(), total.payoutValue(), total, reconciles(byDate));
+                total.income(), total.expenses(), total.payoutValue(), total, reconciles(byDate),
+                FinancialModel.expenseBreakdown(fees, total.commission(), typeLabels));
     }
 
     private DailyReport emptyReport(String marketplaceCode, LocalDate from, LocalDate to,
@@ -113,11 +116,13 @@ public class DailyAnalyticsService {
         List<DailyRow> rows = new ArrayList<>();
         for (LocalDate date = from; !date.isAfter(to); date = date.plusDays(1)) {
             rows.add(DailyRow.of(FinancialSummary.empty(date, date),
-                    new FinancialSummary.ExpenseByType(List.of())));
+                    new FinancialSummary.ExpenseByType(List.of()),
+                    ExpenseBreakdown.empty()));
         }
         FinancialSummary zero = FinancialSummary.empty(from, to);
         return new DailyReport(marketplaceCode, from, to, statusOf(periodCoverage), coverage, rows,
-                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, zero, true);
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, zero, true,
+                ExpenseBreakdown.empty());
     }
 
     /**

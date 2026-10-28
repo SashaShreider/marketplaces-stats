@@ -88,6 +88,29 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
         assertThat(new BigDecimal(body.get("expenses").asString())).isEqualByComparingTo("19867.77");
         assertThat(new BigDecimal(body.get("payout").asString())).isEqualByComparingTo("11297.23");
         assertThat(body.get("total").isObject()).isTrue();
+
+        // Расходы по статьям: их читает карточка расходов, а без расшифровки её
+        // сумму нельзя проверить по детализации.
+        JsonNode groups = body.get("expenseBreakdown").get("groups");
+        assertThat(groups.isArray()).isTrue();
+        assertThat(groups.get(0).get("category").asString()).isEqualTo("COMMISSION");
+        assertThat(groups.get(0).get("label").asString()).isEqualTo("Комиссия");
+        assertThat(new BigDecimal(groups.get(0).get("amount").asString()))
+                .isEqualByComparingTo("-12879.33");
+
+        JsonNode promotion = groups.get(1);
+        assertThat(promotion.get("category").asString()).isEqualTo("PROMOTION");
+        assertThat(new BigDecimal(promotion.get("amount").asString()))
+                .isEqualByComparingTo("-3059.40");
+        assertThat(promotion.get("items").get(0).get("name").asString()).isEqualTo("PayPerClick");
+        assertThat(promotion.get("items").get(0).get("typeId").asInt()).isEqualTo(41);
+
+        assertThat(new BigDecimal(body.get("expenseBreakdown").get("total").asString()))
+                .as("раскладка покрывает расходы целиком")
+                .isEqualByComparingTo("-19867.77");
+
+        // Строка дня тоже несёт раскладку: по ней строятся строки таблицы и CSV.
+        assertThat(row.get("expenseBreakdown").get("groups").size()).isEqualTo(groups.size());
     }
 
     @Test

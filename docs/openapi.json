@@ -154,6 +154,9 @@
             },
             "type" : "array"
           },
+          "expenseBreakdown" : {
+            "$ref" : "#/components/schemas/ExpenseBreakdown"
+          },
           "expenses" : {
             "type" : "number"
           },
@@ -191,6 +194,9 @@
             "format" : "date",
             "type" : "string"
           },
+          "expenseBreakdown" : {
+            "$ref" : "#/components/schemas/ExpenseBreakdown"
+          },
           "expenses" : {
             "type" : "number"
           },
@@ -213,6 +219,41 @@
           "soldQuantity" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ExpenseBreakdown" : {
+        "properties" : {
+          "groups" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseGroup"
+            },
+            "type" : "array"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "ExpenseGroup" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "category" : {
+            "enum" : [ "COMMISSION", "PROMOTION", "LOGISTICS", "STORAGE", "ACQUIRING", "OTHER" ],
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TypeAmount"
+            },
+            "type" : "array"
+          },
+          "label" : {
+            "type" : "string"
           }
         },
         "type" : "object"

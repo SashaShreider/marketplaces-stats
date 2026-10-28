@@ -42,7 +42,8 @@ public record DailyReport(
         BigDecimal expenses,
         BigDecimal payout,
         FinancialSummary total,
-        boolean reconciled
+        boolean reconciled,
+        ExpenseBreakdown expenseBreakdown
 ) {
 
     /** Можно ли доверять цифрам как окончательным. */

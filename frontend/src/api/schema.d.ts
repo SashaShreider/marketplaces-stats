@@ -371,6 +371,7 @@ export interface components {
             /** Format: date */
             dateTo?: string;
             days?: components["schemas"]["DailyRow"][];
+            expenseBreakdown?: components["schemas"]["ExpenseBreakdown"];
             expenses?: number;
             final?: boolean;
             income?: number;
@@ -385,6 +386,7 @@ export interface components {
             breakdown?: components["schemas"]["Breakdown"];
             /** Format: date */
             date?: string;
+            expenseBreakdown?: components["schemas"]["ExpenseBreakdown"];
             expenses?: number;
             expensesByType?: components["schemas"]["TypeAmount"][];
             income?: number;
@@ -393,6 +395,17 @@ export interface components {
             returnedQuantity?: number;
             /** Format: int32 */
             soldQuantity?: number;
+        };
+        ExpenseBreakdown: {
+            groups?: components["schemas"]["ExpenseGroup"][];
+            total?: number;
+        };
+        ExpenseGroup: {
+            amount?: number;
+            /** @enum {string} */
+            category?: "COMMISSION" | "PROMOTION" | "LOGISTICS" | "STORAGE" | "ACQUIRING" | "OTHER";
+            items?: components["schemas"]["TypeAmount"][];
+            label?: string;
         };
         FinancialSummary: {
             commission?: number;

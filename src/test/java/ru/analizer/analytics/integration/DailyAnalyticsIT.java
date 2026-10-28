@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
 import ru.analizer.analytics.domain.DailyReport;
+import ru.analizer.analytics.domain.ExpenseCategory;
 import ru.analizer.analytics.domain.ReportStatus;
 import ru.analizer.support.AbstractPostgresIntegrationTest;
 import ru.analizer.support.FixtureAdapterConfig;
@@ -89,6 +90,25 @@ class DailyAnalyticsIT extends AbstractPostgresIntegrationTest {
                 .map(ru.analizer.analytics.domain.FinancialSummary.TypeAmount::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         assertThat(sum).isEqualByComparingTo("-3987.73");
+    }
+
+    @Test
+    @DisplayName("Расходы по статьям покрывают расходы отчёта")
+    void expenseBreakdownCoversReportExpenses() {
+        var report = syncAndReport(DAY_2026_04_10, LocalDate.of(2026, 4, 10));
+
+        var day = report.days().getFirst().expenseBreakdown();
+        assertThat(day.total().abs()).isEqualByComparingTo(report.days().getFirst().expenses());
+        assertThat(day.group(ExpenseCategory.COMMISSION)).isNotNull();
+
+        var period = report.expenseBreakdown();
+        assertThat(period.total().abs())
+                .as("итоговая раскладка считается за период, а не по одному дню")
+                .isEqualByComparingTo(report.expenses());
+        assertThat(period.group(ExpenseCategory.PROMOTION).amount())
+                .isEqualByComparingTo("-3059.40");
+        assertThat(period.group(ExpenseCategory.STORAGE).label())
+                .isEqualTo("Хранение и обработка");
     }
 
     @Test
