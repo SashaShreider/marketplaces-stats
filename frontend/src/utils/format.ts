@@ -131,11 +131,6 @@ export function fmtDateNumeric(iso: string): string {
   return `${day}.${month}.${d.getFullYear()}`
 }
 
-/** "2026-09-18" → "ср" — нужен старой таблице по дням (удаляется вместе с ней). */
-export function weekdayShort(iso: string): string {
-  return ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][fromISO(iso).getDay()]
-}
-
 /** Диапазон вида "1 сентября — 30 сентября 2026" */
 export function fmtRange(from: string, to: string): string {
   const a = fromISO(from)
