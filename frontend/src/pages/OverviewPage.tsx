@@ -92,7 +92,10 @@ export default function OverviewPage({
   // Подпись отбора приходит с сервера: по ней видно, что применилось на самом деле,
   // а не что набрано в полях.
   const filterLabel = report?.filter ?? 'Все товары'
-  const selectedGroup = report?.expenseBreakdown.groups.find((g) => g.category === group) ?? null
+  // `?.` на каждом шаге, а не только на `report`: раскладка расходов появилась в
+  // контракте позже, и сервер предыдущей версии её не отдаёт. Без этого страница
+  // падала бы целиком вместо того, чтобы показать отчёт без расшифровки.
+  const selectedGroup = report?.expenseBreakdown?.groups?.find((g) => g.category === group) ?? null
 
   return (
     <>

@@ -69,7 +69,7 @@ class ExpenseBreakdownTest {
         assertThat(breakdown.groups())
                 .extracting(ExpenseGroup::label)
                 .containsExactly("Комиссия", "Продвижение", "Логистика",
-                        "Хранение и обработка", "Эквайринг", "Прочие расходы");
+                        "Хранение и обработка", "Эквайринг", "Прочие");
     }
 
     @Test
