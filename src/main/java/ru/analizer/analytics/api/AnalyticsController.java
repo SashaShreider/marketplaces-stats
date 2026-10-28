@@ -8,9 +8,11 @@ import ru.analizer.analytics.application.DailyAnalyticsService;
 import ru.analizer.analytics.application.ProductAnalyticsService;
 import ru.analizer.analytics.domain.DailyReport;
 import ru.analizer.analytics.domain.ProductReport;
+import ru.analizer.analytics.domain.ReportScope;
 import ru.analizer.analytics.domain.SalesDynamicsReport;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -58,14 +60,22 @@ public class AnalyticsController {
     public DailyReport dailyReport(
             @PathVariable Long accountId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) List<Long> skus) {
 
         // Магазин ищется здесь, в потоке запроса: только тут доступна сессия. Сервис
         // получает его готовым и потому одинаково работает из фоновой задачи и из
         // теста — там, где сессии нет вовсе.
         SellerAccount account = accountLookup.requireAccount(accountId);
+        // Товары сильнее автора: выбрав товар, пользователь уже ответил, чей он.
+        // Подробнее — в ReportScope.
+        ReportScope scope = skus != null && !skus.isEmpty()
+                ? ReportScope.ofSkus(skus)
+                : ReportScope.ofAuthor(author);
         return dailyAnalytics.dailyReport(
-                account.getMarketplace().getCode(), Optional.of(account.getId()), dateFrom, dateTo);
+                account.getMarketplace().getCode(), Optional.of(account.getId()),
+                dateFrom, dateTo, scope);
     }
 
     /**

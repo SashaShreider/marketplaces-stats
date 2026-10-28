@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{accountId}/data/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["products"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{accountId}/imports": {
         parameters: {
             query?: never;
@@ -371,28 +387,44 @@ export interface components {
             /** Format: date */
             dateTo?: string;
             days?: components["schemas"]["DailyRow"][];
+            expenseBreakdown?: components["schemas"]["ExpenseBreakdown"];
             expenses?: number;
+            filter?: string;
             final?: boolean;
             income?: number;
             marketplace?: string;
-            payout?: number;
-            reconciled?: boolean;
+            payout?: number | null;
+            reconciled?: boolean | null;
+            scoped?: boolean;
             /** @enum {string} */
             status?: "READY" | "PARTIAL" | "NOT_LOADED" | "HAS_ERRORS";
             total?: components["schemas"]["FinancialSummary"];
+            unallocatedExpenses?: number;
         };
         DailyRow: {
             breakdown?: components["schemas"]["Breakdown"];
             /** Format: date */
             date?: string;
+            expenseBreakdown?: components["schemas"]["ExpenseBreakdown"];
             expenses?: number;
             expensesByType?: components["schemas"]["TypeAmount"][];
             income?: number;
-            payout?: number;
+            payout?: number | null;
             /** Format: int32 */
             returnedQuantity?: number;
             /** Format: int32 */
             soldQuantity?: number;
+        };
+        ExpenseBreakdown: {
+            groups?: components["schemas"]["ExpenseGroup"][];
+            total?: number;
+        };
+        ExpenseGroup: {
+            amount?: number;
+            /** @enum {string} */
+            category?: "COMMISSION" | "PROMOTION" | "LOGISTICS" | "STORAGE" | "ACQUIRING" | "OTHER";
+            items?: components["schemas"]["TypeAmount"][];
+            label?: string;
         };
         FinancialSummary: {
             commission?: number;
@@ -403,8 +435,8 @@ export interface components {
             logistics?: number;
             otherExpenses?: number;
             partnerProgramme?: number;
-            payout?: number;
-            reconciles?: boolean;
+            payout?: number | null;
+            reconciles?: boolean | null;
             /** Format: int32 */
             returnedQuantity?: number;
             returns?: number;
@@ -477,6 +509,12 @@ export interface components {
             primary?: boolean;
             raw?: string;
             source?: string;
+        };
+        ProductOption: {
+            name?: string;
+            offerId?: string;
+            /** Format: int64 */
+            sku?: number;
         };
         ProductReport: {
             catalog?: components["schemas"]["CatalogInfo"];
@@ -674,6 +712,8 @@ export interface operations {
             query: {
                 dateFrom: string;
                 dateTo: string;
+                author?: string;
+                skus?: number[];
             };
             header?: never;
             path: {
@@ -844,6 +884,31 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PeriodCoverage"];
+                };
+            };
+        };
+    };
+    products: {
+        parameters: {
+            query?: {
+                query?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                accountId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ProductOption"][];
                 };
             };
         };

@@ -1,10 +1,11 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { getDaily } from '@/api/client'
 import { mapDaily } from '@/api/mappers'
 import DateRangePicker from '@/components/common/DateRangePicker'
-import ExpenseDonut from '@/components/finance/ExpenseDonut'
+import ExpenseGroupModal, { ExpenseDetailsModal } from '@/components/finance/ExpenseDetails'
 import FinanceSection from '@/components/finance/FinanceSection'
+import OverviewFilters from '@/components/finance/OverviewFilters'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SummaryCards from '@/components/finance/SummaryCards'
 import SyncIndicator from '@/components/sync/SyncIndicator'
@@ -12,12 +13,21 @@ import { MarketplaceLogo, PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
-import type { AccountInfo, DateRange } from '@/types'
+import type { AccountInfo, DateRange, ExpenseCategory } from '@/types'
 import { sumDays } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
 
 const EMPTY_TOTALS = sumDays([])
 
+/**
+ * Обзор магазина за период.
+ *
+ * <p>Отчёт можно сузить автором или товарами. Отбор применяется на сервере, к тем же
+ * фактам, из которых считаются дни и итоги, — поэтому карточки, график и таблица не
+ * могут разойтись между собой. Выбранные товары хранятся в состоянии страницы, а не
+ * в адресе: это взгляд на период, а не отдельная страница, и ссылку на «отбор из
+ * трёх книг» никто не пересылает.
+ */
 export default function OverviewPage({
   account,
   range,
@@ -29,9 +39,18 @@ export default function OverviewPage({
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
 }) {
+  const [author, setAuthor] = useState('')
+  const [skus, setSkus] = useState<number[]>([])
+  const [group, setGroup] = useState<ExpenseCategory | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+
   const fetchReport = useCallback(
-    () => getDaily(account.id, range.from, range.to),
-    [account.id, range.from, range.to],
+    () =>
+      getDaily(account.id, range.from, range.to, {
+        author: author || undefined,
+        skus: skus.length ? skus : undefined,
+      }),
+    [account.id, range.from, range.to, author, skus],
   )
 
   // по ходу импорта подтягиваем свежие цифры (результат доступен до окончания импорта).
@@ -70,10 +89,34 @@ export default function OverviewPage({
     </PageHeader>
   )
 
+  // Подпись отбора приходит с сервера: по ней видно, что применилось на самом деле,
+  // а не что набрано в полях.
+  const filterLabel = report?.filter ?? 'Все товары'
+  // `?.` на каждом шаге, а не только на `report`: раскладка расходов появилась в
+  // контракте позже, и сервер предыдущей версии её не отдаёт. Без этого страница
+  // падала бы целиком вместо того, чтобы показать отчёт без расшифровки.
+  const selectedGroup = report?.expenseBreakdown?.groups?.find((g) => g.category === group) ?? null
+
   return (
     <>
-{header}
-        <ProgressBar runner={runner} showProgress={false} />
+      {header}
+      <ProgressBar runner={runner} showProgress={false} />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <OverviewFilters
+          accountId={account.id}
+          author={author}
+          skus={skus}
+          onAuthorChange={setAuthor}
+          onSkusChange={setSkus}
+          catalogProducts={account.catalogProducts}
+        />
+        {(author || skus.length > 0) && (
+          <span className="text-[11.5px] font-medium text-slate-400">
+            Отчёт: <span className="font-bold text-slate-600">{filterLabel}</span>
+          </span>
+        )}
+      </div>
 
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">
@@ -100,12 +143,42 @@ export default function OverviewPage({
       ) : (
         <div className={loading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           <div className="space-y-4">
-            <SummaryCards totals={totals} />
+            <SummaryCards
+              totals={totals}
+              breakdown={report.expenseBreakdown}
+              unallocated={report.unallocatedExpenses}
+              scoped={report.scoped}
+              payout={report.payout}
+              onExpenseGroup={setGroup}
+              onExpenseDetails={() => setDetailsOpen(true)}
+            />
             <FinanceSection days={days} />
-            <ExpenseDonut totals={totals} />
           </div>
         </div>
       )}
+
+      <ExpenseGroupModal
+        category={group}
+        group={selectedGroup}
+        breakdown={report?.expenseBreakdown}
+        onClose={() => setGroup(null)}
+      />
+
+      <ExpenseDetailsModal
+        open={detailsOpen}
+        breakdown={report?.expenseBreakdown}
+        income={totals.income}
+        expenses={totals.expenses}
+        scoped={report?.scoped ?? false}
+        unallocated={report?.unallocatedExpenses ?? 0}
+        onClose={() => setDetailsOpen(false)}
+        onGroup={(category) => {
+          // Из детализации сразу в расшифровку статьи: иначе пришлось бы закрыть
+          // окно, найти карточку расходов и кликнуть там по той же статье.
+          setDetailsOpen(false)
+          setGroup(category)
+        }}
+      />
     </>
   )
 }

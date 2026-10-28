@@ -42,6 +42,9 @@ type Check<TApp, TContract> = [Lost<TApp, TContract>] extends [never]
 
 export const _dailyReport: Check<T.DailyReport, Contract['DailyReport']> = true
 export const _dailyRow: Check<T.ApiDay, Contract['DailyRow']> = true
+export const _expenseBreakdown: Check<T.ExpenseBreakdown, Contract['ExpenseBreakdown']> = true
+export const _expenseGroup: Check<T.ExpenseGroup, Contract['ExpenseGroup']> = true
+export const _expenseItem: Check<T.ExpenseItem, Contract['TypeAmount']> = true
 export const _breakdown: Check<T.DailyBreakdown, Contract['Breakdown']> = true
 export const _financialSummary: Check<T.DailyReport['total'], Contract['FinancialSummary']> = true
 export const _productReport: Check<T.ProductsReport, Contract['ProductReport']> = true
@@ -58,3 +61,4 @@ export const _accountInfo: Check<T.AccountInfo, Contract['AccountInfo']> = true
 export const _marketplaceInfo: Check<T.MarketplaceInfo, Contract['MarketplaceInfo']> = true
 export const _importProgress: Check<T.ImportProgress, Contract['ImportProgress']> = true
 export const _catalogState: Check<T.CatalogState, Contract['CatalogState']> = true
+export const _productOption: Check<T.ProductOption, Contract['ProductOption']> = true

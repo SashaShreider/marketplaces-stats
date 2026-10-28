@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Отчёт за период.
  *
@@ -30,6 +32,15 @@ import java.util.List;
  * либо один уровень вложенности везде, либо нигде. Выносить половину сейчас опаснее, чем
  * оставить как есть: клиенты уже привыкли к обеим точкам, и перестановка ключей без
  * смены версии выглядела бы как ошибка.
+ *
+ * <p>{@code filter} и {@code scoped} описывают отбор: «Все товары», имя автора или
+ * «SKU 123, 456». Когда отчёт ограничен отбором, {@code payout} не заполняется:
+ * OZON отдаёт выплату по всему магазину, и вычленить из неё долю нескольких товаров
+ * нечем. По той же причине {@code reconciled} в этом случае {@code null} — сверять
+ * не с чем, и «не сходится» было бы такой же неправдой, как «сходится».
+ *
+ * <p>{@code unallocatedExpenses} — сумма расходов без привязки к товару, не вошедшая
+ * в отчёт при отборе. Показывается, чтобы усечённая прибыль не выглядела полной.
  */
 public record DailyReport(
         String marketplace,
@@ -40,9 +51,15 @@ public record DailyReport(
         List<DailyRow> days,
         BigDecimal income,
         BigDecimal expenses,
-        BigDecimal payout,
+        /** К выплате; {@code null}, если отчёт ограничен отбором — долю не выделить. */
+        @Schema(nullable = true) BigDecimal payout,
         FinancialSummary total,
-        boolean reconciled
+        /** Сходится ли с OZON; {@code null}, если выплата неизвестна. */
+        @Schema(nullable = true) Boolean reconciled,
+        ExpenseBreakdown expenseBreakdown,
+        String filter,
+        boolean scoped,
+        BigDecimal unallocatedExpenses
 ) {
 
     /** Можно ли доверять цифрам как окончательным. */

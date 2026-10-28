@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Полная раскладка финансовой модели по одному периоду.
  *
@@ -26,7 +28,11 @@ public record FinancialSummary(
         BigDecimal commission,
         BigDecimal logistics,
         BigDecimal otherExpenses,
-        BigDecimal payout,
+        /**
+         * К выплате. {@code null} — выплата неизвестна: при отборе по части товаров
+         * OZON не отдаёт её долю, и ноль здесь означал бы «выплаты не было».
+         */
+        @Schema(nullable = true) BigDecimal payout,
         // Количество единиц. Держится рядом с деньгами, а не отдельно, потому что
         // «продажа» здесь одна и та же операция: разойтись они могут только в
         // расчёте, и заметнее всего это в тестах на сверке.
@@ -76,6 +82,18 @@ public record FinancialSummary(
     }
 
     /**
+     * Известна ли выплата по этим данным.
+     *
+     * <p>Для отчёта по части товаров она неизвестна: OZON отдаёт
+     * {@code total_amount} по всему магазину, и вычленить из него долю трёх книг
+     * нечем. Ноль здесь означал бы «выплаты не было», поэтому выплата просто не
+     * заполняется.
+     */
+    public boolean payoutKnown() {
+        return payout != null;
+    }
+
+    /**
      * Расхождение между пересчитанным итогом и данными OZON. Должно быть нулём:
      * ненулевое значение означало бы, что мы не учли какой-то вид начисления.
      */
@@ -83,9 +101,16 @@ public record FinancialSummary(
         return income().subtract(expenses()).subtract(payoutValue());
     }
 
+    /**
+     * Сходится ли отчёт с OZON.
+     *
+     * @return {@code null}, если выплата неизвестна — утверждать нечего, и «не
+     *         сходится» было бы такой же неправдой, как «сходится»
+     */
     @com.fasterxml.jackson.annotation.JsonProperty
-    public boolean reconciles() {
-        return reconciliationDiff().signum() == 0;
+    @Schema(nullable = true)
+    public Boolean reconciles() {
+        return payoutKnown() ? reconciliationDiff().signum() == 0 : null;
     }
 
     private static BigDecimal n(BigDecimal value) {
@@ -108,7 +133,9 @@ public FinancialSummary plus(FinancialSummary other) {
                 n(commission).add(n(other.commission)),
                 n(logistics).add(n(other.logistics)),
                 n(otherExpenses).add(n(other.otherExpenses)),
-                n(payout).add(n(other.payout)),
+                // Неизвестная выплата остаётся неизвестной: сложение с нулём выдало бы
+                // «выплата 0», а это утверждение, которого мы не проверяли.
+                payout == null && other.payout == null ? null : n(payout).add(n(other.payout)),
                 soldQuantity + other.soldQuantity,
                 returnedQuantity + other.returnedQuantity);
     }
@@ -116,6 +143,17 @@ public FinancialSummary plus(FinancialSummary other) {
 public static FinancialSummary empty(LocalDate from, LocalDate to) {
         return new FinancialSummary(from, to, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0);
+    }
+
+    /**
+     * Тот же период, но выплата неизвестна.
+     *
+     * <p>Нужно отчёту по части товаров: там ноль в выплате означал бы «выплаты не
+     * было», хотя на самом деле она просто не выделяется из магазинной.
+     */
+    public FinancialSummary withoutPayout() {
+        return new FinancialSummary(dateFrom, dateTo, sales, returns, partnerProgramme,
+                commission, logistics, otherExpenses, null, soldQuantity, returnedQuantity);
     }
 
     /**
