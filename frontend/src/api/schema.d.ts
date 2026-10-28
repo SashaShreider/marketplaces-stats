@@ -373,14 +373,17 @@ export interface components {
             days?: components["schemas"]["DailyRow"][];
             expenseBreakdown?: components["schemas"]["ExpenseBreakdown"];
             expenses?: number;
+            filter?: string;
             final?: boolean;
             income?: number;
             marketplace?: string;
-            payout?: number;
-            reconciled?: boolean;
+            payout?: number | null;
+            reconciled?: boolean | null;
+            scoped?: boolean;
             /** @enum {string} */
             status?: "READY" | "PARTIAL" | "NOT_LOADED" | "HAS_ERRORS";
             total?: components["schemas"]["FinancialSummary"];
+            unallocatedExpenses?: number;
         };
         DailyRow: {
             breakdown?: components["schemas"]["Breakdown"];
@@ -390,7 +393,7 @@ export interface components {
             expenses?: number;
             expensesByType?: components["schemas"]["TypeAmount"][];
             income?: number;
-            payout?: number;
+            payout?: number | null;
             /** Format: int32 */
             returnedQuantity?: number;
             /** Format: int32 */
@@ -416,8 +419,8 @@ export interface components {
             logistics?: number;
             otherExpenses?: number;
             partnerProgramme?: number;
-            payout?: number;
-            reconciles?: boolean;
+            payout?: number | null;
+            reconciles?: boolean | null;
             /** Format: int32 */
             returnedQuantity?: number;
             returns?: number;
@@ -687,6 +690,8 @@ export interface operations {
             query: {
                 dateFrom: string;
                 dateTo: string;
+                author?: string;
+                skus?: number[];
             };
             header?: never;
             path: {

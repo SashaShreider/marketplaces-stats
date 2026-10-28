@@ -13,8 +13,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Выборки каталога товаров для отчёта и подсказок фильтра.
@@ -348,6 +350,28 @@ private static MapSqlParameterSource filterParams(Long accountId,
                 where seller_account_id = ?
                 order by author_raw
                 """, (rs, i) -> rs.getString(1), accountId);
+    }
+
+    /**
+     * Товары выбранного автора — одним множеством номеров.
+     *
+     * <p>Отчёт по автору фильтрует факты по SKU, а не подзапросом в каждом запросе:
+     * список товаров автора невелик, и найти его дешевле один раз, чем повторять
+     * условие по {@code product_author} в четырёх выборках фактов.
+     *
+     * <p>Ищется точное совпадение, как и в {@code ProductAuthorFilter}: «Сурцуков А.»
+     * не найдёт «Сурцуков Анатолий». Пользователь выбирает автора из подсказки, где
+     * лежат ровно те строки, что есть в базе.
+     */
+    public Set<Long> skusByAuthor(Long accountId, String author) {
+        if (author == null || author.isBlank()) {
+            return Set.of();
+        }
+        return new LinkedHashSet<>(jdbc.query("""
+                select distinct sku
+                from product_author
+                where seller_account_id = ? and author_raw = ?
+                """, (rs, i) -> rs.getLong(1), accountId, author));
     }
 
     /**

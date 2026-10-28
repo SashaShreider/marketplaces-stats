@@ -160,6 +160,9 @@
           "expenses" : {
             "type" : "number"
           },
+          "filter" : {
+            "type" : "string"
+          },
           "final" : {
             "type" : "boolean"
           },
@@ -170,9 +173,12 @@
             "type" : "string"
           },
           "payout" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "reconciled" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "scoped" : {
             "type" : "boolean"
           },
           "status" : {
@@ -181,6 +187,9 @@
           },
           "total" : {
             "$ref" : "#/components/schemas/FinancialSummary"
+          },
+          "unallocatedExpenses" : {
+            "type" : "number"
           }
         },
         "type" : "object"
@@ -210,7 +219,7 @@
             "type" : "number"
           },
           "payout" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "returnedQuantity" : {
             "format" : "int32",
@@ -281,10 +290,10 @@
             "type" : "number"
           },
           "payout" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "reconciles" : {
-            "type" : "boolean"
+            "type" : [ "boolean", "null" ]
           },
           "returnedQuantity" : {
             "format" : "int32",
@@ -894,6 +903,24 @@
           "schema" : {
             "format" : "date",
             "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "skus",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {

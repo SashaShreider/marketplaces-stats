@@ -140,7 +140,12 @@ export interface ApiDay {
   date: string
   income: number
   expenses: number
-  payout: number
+  /**
+   * К выплате за день. При отборе по товарам или автору — `null`: OZON отдаёт
+   * выплату по всему магазину, и долю нескольких товаров из неё не выделить.
+   * Ноль здесь означал бы «выплаты не было», а это неправда.
+   */
+  payout: number | null
   breakdown: DailyBreakdown
   soldQuantity?: number | null
   returnedQuantity?: number | null
@@ -164,7 +169,8 @@ export interface DailyReport {
   days: ApiDay[]
   income: number
   expenses: number
-  payout: number
+  /** К выплате за период; `null`, если отчёт ограничен отбором. */
+  payout: number | null
   /**
    * Итог за период: раскладка по статьям плюс количество за период.
    *
@@ -175,14 +181,27 @@ export interface DailyReport {
   total: DailyBreakdown & {
     dateFrom: string
     dateTo: string
-    payout: number
-    reconciles: boolean
+    payout: number | null
+    reconciles: boolean | null
     soldQuantity: number
     returnedQuantity: number
   }
   /** Расходы за весь период по статьям — питает карточку расходов */
   expenseBreakdown: ExpenseBreakdown
-  reconciled: boolean
+  /** Подпись отбора: «Все товары», имя автора или «SKU 123, 456». */
+  filter: string
+  /** Ограничен ли отчёт отбором: по нему видно, что часть расходов не вошла. */
+  scoped: boolean
+  /**
+   * Расходы без привязки к товару, не вошедшие в отчёт при отборе. Ненулевое
+   * значение — повод показать плашку «за пределами отбора».
+   */
+  unallocatedExpenses: number
+  /**
+   * Сходится ли отчёт с OZON. `null`, когда выплата неизвестна: сверять не с чем,
+   * и «не сходится» было бы таким же вымыслом, как «сходится».
+   */
+  reconciled: boolean | null
   final: boolean
 }
 

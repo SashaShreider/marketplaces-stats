@@ -114,6 +114,84 @@ class DailyAnalyticsApiIT extends AbstractHttpIntegrationTest {
     }
 
     @Test
+    @DisplayName("Отбор по skus сужает отчёт и отдаёт выплату как null, а не как ноль")
+    void skuScopeReportsUnknownPayoutAsNull() throws Exception {
+        syncApr10();
+
+        HttpResponse<String> response = get("/api/accounts/" + accountId()
+                + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10&skus=3753845770");
+        assertThat(response.statusCode()).as("ответ: %s", response.body()).isEqualTo(200);
+
+        JsonNode body = MAPPER.readTree(response.body());
+        assertThat(body.get("filter").asString()).isEqualTo("SKU 3753845770");
+        assertThat(body.get("scoped").asBoolean()).isTrue();
+        assertThat(new BigDecimal(body.get("income").asString())).isEqualByComparingTo("6420.00");
+        assertThat(new BigDecimal(body.get("expenses").asString())).isEqualByComparingTo("3580.59");
+
+        // Выплата по части товаров неизвестна. Ноль в JSON означал бы «выплаты не
+        // было», поэтому поле обязано быть null — и в итоге, и в строке дня.
+        assertThat(body.get("payout").isNull()).isTrue();
+        assertThat(body.get("total").get("payout").isNull()).isTrue();
+        assertThat(body.get("days").get(0).get("payout").isNull()).isTrue();
+        assertThat(body.get("reconciled").isNull())
+                .as("сверять не с чем — «не сходится» было бы таким же вымыслом")
+                .isTrue();
+
+        // Расходы без SKU не вошли в отбор, но их сумма приходит явно.
+        assertThat(new BigDecimal(body.get("unallocatedExpenses").asString()))
+                .isEqualByComparingTo("3566.12");
+    }
+
+    @Test
+    @DisplayName("Один и тот же sku в параметрах дважды не ломает отчёт")
+    void repeatedSkusAreDeduplicated() throws Exception {
+        syncApr10();
+
+        JsonNode body = MAPPER.readTree(get("/api/accounts/" + accountId()
+                + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10"
+                + "&skus=3753845770&skus=3753845770").body());
+
+        assertThat(body.get("filter").asString()).isEqualTo("SKU 3753845770");
+        assertThat(new BigDecimal(body.get("income").asString()))
+                .as("повтор не должен удваивать показатели")
+                .isEqualByComparingTo("6420.00");
+    }
+
+    @Test
+    @DisplayName("Отбор по author сужает отчёт его товарами")
+    void authorScopeFiltersReport() throws Exception {
+        syncApr10();
+        // Авторы лежат в каталоге, поэтому без него отбор по автору не нашёл бы
+        // ни одного товара.
+        catalogImportService.importProducts(accountId(), null);
+
+        JsonNode body = MAPPER.readTree(get("/api/accounts/" + accountId()
+                + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10"
+                + "&author=" + java.net.URLEncoder.encode("Сурцуков Анатолий",
+                        java.nio.charset.StandardCharsets.UTF_8)).body());
+
+        assertThat(body.get("filter").asString()).isEqualTo("Сурцуков Анатолий");
+        assertThat(new BigDecimal(body.get("income").asString())).isEqualByComparingTo("2380.00");
+        assertThat(new BigDecimal(body.get("expenses").asString())).isEqualByComparingTo("1311.69");
+        assertThat(body.get("reconciled").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("В отчёте без отбора filter описывает весь магазин, а не пустоту")
+    void unscopedReportNamesWholeShop() throws Exception {
+        syncApr10();
+
+        JsonNode body = MAPPER.readTree(get("/api/accounts/" + accountId()
+                + "/analytics/daily?dateFrom=2026-04-10&dateTo=2026-04-10").body());
+
+        assertThat(body.get("filter").asString()).isEqualTo("Все товары");
+        assertThat(body.get("scoped").asBoolean()).isFalse();
+        assertThat(new BigDecimal(body.get("unallocatedExpenses").asString()))
+                .isEqualByComparingTo("0");
+        assertThat(body.get("reconciled").asBoolean()).isTrue();
+    }
+
+    @Test
     @DisplayName("Период без операций возвращает нули, а не ошибку")
     void emptyPeriodReturnsZeros() throws Exception {
         syncApr10();

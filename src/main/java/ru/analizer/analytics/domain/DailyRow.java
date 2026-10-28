@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * Строка отчёта за один день.
  *
@@ -22,7 +24,8 @@ public record DailyRow(
         LocalDate date,
         BigDecimal income,
         BigDecimal expenses,
-        BigDecimal payout,
+        /** К выплате; {@code null}, если отчёт ограничен отбором — долю не выделить. */
+        @Schema(nullable = true) BigDecimal payout,
         int soldQuantity,
         int returnedQuantity,
         Breakdown breakdown,
@@ -33,7 +36,9 @@ public record DailyRow(
     public static DailyRow of(FinancialSummary day,
                               FinancialSummary.ExpenseByType byType,
                               ExpenseBreakdown breakdown) {
-        return new DailyRow(day.dateFrom(), day.income(), day.expenses(), day.payoutValue(),
+        // Выплата может быть неизвестна: при отборе по товарам OZON не отдаёт её долю.
+        // Тогда она остаётся null, а не превращается в ноль — ноль был бы утверждением.
+        return new DailyRow(day.dateFrom(), day.income(), day.expenses(), day.payout(),
                 day.soldQuantity(), day.returnedQuantity(),
                 new Breakdown(day.sales(), day.returns(), day.partnerProgramme(),
                         day.commission(), day.logistics(), day.otherExpenses()),
