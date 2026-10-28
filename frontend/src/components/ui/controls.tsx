@@ -1,4 +1,4 @@
-import { fmtMoney2 } from '@/utils/format'
+import { fmtMoney2, fmtPercent } from '@/utils/format'
 
 /**
  * Кнопка, кнопка-ссылка и поле ввода — общие для модалок и фильтров.
@@ -62,7 +62,6 @@ export function SecondaryButton({
  * округлённые до рубля слагаемые этого не делают.
  *
  * @param share процент от базы; `undefined` — процент не считается
- * @param negative значение показывается со знаком минус (расход)
  */
 export function DetailRow({
   label,
@@ -98,7 +97,7 @@ export function DetailRow({
       <div className="flex shrink-0 items-baseline gap-3">
         {share !== undefined && (
           <span className="tnum text-[11.5px] font-semibold text-slate-400">
-            {Math.round(share * 1000) / 10} %
+            {fmtPercent(share)}
           </span>
         )}
         <span
