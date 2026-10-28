@@ -565,10 +565,16 @@ export interface components {
             requestedDays?: number;
         };
         SalesDay: {
+            commission?: number;
             /** Format: date */
             date?: string;
+            income?: number;
+            logistics?: number;
+            otherExpenses?: number;
+            promotion?: number;
             /** Format: int32 */
             returned?: number;
+            revenue?: number;
             /** Format: int32 */
             sold?: number;
         };
@@ -582,6 +588,7 @@ export interface components {
             filter?: string;
             /** @enum {string} */
             status?: "READY" | "PARTIAL" | "NOT_LOADED" | "HAS_ERRORS";
+            unallocatedExpenses?: number;
         };
         SelectionTotals: {
             expenses?: number;

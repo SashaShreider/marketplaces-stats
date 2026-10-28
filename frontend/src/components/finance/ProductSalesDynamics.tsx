@@ -1,21 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
-import { X } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { BarChart3, Table2, X } from 'lucide-react'
 import { getSalesDynamics } from '@/api/client'
 import { describeError } from '@/api/http'
-import SalesDynamicsChart from '@/components/finance/SalesDynamicsChart'
+import SalesDynamicsChart, { type Point } from '@/components/finance/SalesDynamicsChart'
+import SalesDynamicsTable from '@/components/finance/SalesDynamicsTable'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import type { Coverage, DateRange, SalesDay } from '@/types'
+import { cn } from '@/utils/cn'
 
 /** Какой отбор показан на графике. */
 type Mode = 'all' | 'author' | 'sku'
 
+/** Второй вид раздела: график и таблица показывают одни и те же дни. */
+type View = 'chart' | 'table'
+
+const VIEWS = [
+  { id: 'chart', label: 'График', icon: BarChart3 },
+  { id: 'table', label: 'Таблица', icon: Table2 },
+] as const
+
 /**
- * График динамики продаж под таблицей товаров.
+ * Динамика продаж под таблицей товаров: график и таблица одних и тех же дней.
  *
  * <p>Данные запрашиваются здесь, а не берутся из отчёта по товарам: у него строки
- * это товары, а графику нужен ряд по дням. Считать его на клиенте означало бы
+ * это товары, а разделу нужен ряд по дням. Считать его на клиенте означало бы
  * разложить товары по днятам у себя, то есть скачать весь отчёт только ради рисунка.
+ *
+ * <p>Деньги в таблице — экономика конкретных книг: в расходы входят только начисления
+ * с привязкой к SKU, поэтому выручка сходится с первой таблицей на «Товарах».
  *
  * <p>Автор и SKU — два взаимно исключающих отбора, поэтому это переключатель, а не два
  * независимых поля. Иначе возник бы вопрос «а что показывать, если выбрано и то и
@@ -36,9 +49,15 @@ export default function ProductSalesDynamics({
   runner: ImportRunner
 }) {
   const [mode, setMode] = useState<Mode>('all')
+  const [view, setView] = useState<View>('chart')
   const [author, setAuthor] = useState('')
   const [sku, setSku] = useState('')
-  const [data, setData] = useState<{ days: SalesDay[]; coverage: Coverage; filter: string } | null>(null)
+  const [data, setData] = useState<{
+    days: SalesDay[]
+    coverage: Coverage
+    filter: string
+    unallocatedExpenses: number
+  } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const token = useRef(0)
@@ -70,7 +89,12 @@ export default function ProductSalesDynamics({
         sku: parsedSku && Number.isFinite(parsedSku) ? parsedSku : undefined,
       })
       if (token.current !== t) return
-      setData({ days: r.days, coverage: r.coverage, filter: r.filter })
+      setData({
+        days: r.days,
+        coverage: r.coverage,
+        filter: r.filter,
+        unallocatedExpenses: r.unallocatedExpenses,
+      })
       setError(null)
     } catch (e) {
       if (token.current !== t) return
@@ -173,6 +197,33 @@ export default function ProductSalesDynamics({
             </button>
           ) : null}
         </div>
+
+        {/* Переключатель «График / Таблица» — тот же, что у «Динамики финансов»
+            на «Обзоре»: раздел один, а посмотреть его можно двумя способами. */}
+        <div className="ml-auto flex rounded-full bg-slate-100 p-1">
+          {VIEWS.map(({ id, label, icon: Icon }) => {
+            const active = view === id
+            return (
+              <button
+                key={id}
+                onClick={() => setView(id)}
+                className="relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold"
+              >
+                {active && (
+                  <motion.span
+                    layoutId="dynamics-view-pill"
+                    className="absolute inset-0 rounded-full bg-brand-600 shadow-md shadow-brand-600/25"
+                    transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <Icon size={14} className={cn('relative z-10', active ? 'text-white' : 'text-slate-400')} />
+                <span className={cn('relative z-10 transition-colors', active ? 'text-white' : 'text-slate-500')}>
+                  {label}
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Подсказки те же строки, что лежат в базе, поэтому выбранное значение
@@ -188,11 +239,38 @@ export default function ProductSalesDynamics({
         {error ? (
           <p className="py-10 text-center text-[13px] font-semibold text-rose-600">{error}</p>
         ) : (
-          <SalesDynamicsChart
-            points={points}
-            filterLabel={activeLabel}
-            loading={loading}
-          />
+          <AnimatePresence mode="wait" initial={false}>
+            {view === 'chart' ? (
+              <motion.div
+                key="chart"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22 }}
+              >
+                <SalesDynamicsChart
+                  points={points}
+                  filterLabel={activeLabel}
+                  loading={loading}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="table"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22 }}
+              >
+                <SalesDynamicsTable
+                  points={points}
+                  filterLabel={activeLabel}
+                  unallocatedExpenses={data?.unallocatedExpenses ?? 0}
+                  loading={loading}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
       </div>
     </motion.section>
@@ -216,7 +294,7 @@ function buildPoints(
     return days.map((d) => ({ ...d, state: 'ok' as const }))
   }
 
-  const out: { date: string; state: 'ok' | 'missing' | 'failed' | 'provisional'; sold: number; returned: number }[] = []
+  const out: Point[] = []
   for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
     const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const found = byDate.get(iso)
@@ -231,6 +309,12 @@ function buildPoints(
             : 'ok',
       sold: found?.sold ?? 0,
       returned: found?.returned ?? 0,
+      income: found?.income ?? 0,
+      commission: found?.commission ?? 0,
+      logistics: found?.logistics ?? 0,
+      promotion: found?.promotion ?? 0,
+      otherExpenses: found?.otherExpenses ?? 0,
+      revenue: found?.revenue ?? 0,
     })
   }
   return out

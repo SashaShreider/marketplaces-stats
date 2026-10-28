@@ -3,9 +3,12 @@ package ru.analizer.analytics.domain;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Финансовая модель: превращает сохранённые операции в показатели отчёта.
@@ -176,6 +179,55 @@ public final class FinancialModel {
      * @param description человеческое описание, например «Оплата за показы»
      */
     public record TypeLabels(String name, String description) {
+    }
+
+    /**
+     * Служебные имена типов начислений, которые относятся к продвижению.
+     *
+     * <p>Сравнение точное, без частичных совпадений: {@code BrandPromotion},
+     * {@code ExternalPromotion} и {@code PremiumCashbackPromotion} — другие статьи,
+     * и притягивать их к продвижению значило бы показать не ту сумму. Имена
+     * приводятся к нижнему регистру: маркетплейс может поменять регистр, а статья
+     * от этого не меняется.
+     */
+    private static final Set<String> PROMOTION_TYPES =
+            Set.of("promotion", "payperclick", "starsmembership");
+
+    /**
+     * Идентификаторы типов начислений, которые считаются продвижением.
+     *
+     * <p>Считаются один раз на запрос: в справочнике маркетплейса тип опознаётся по
+     * имени, а в начислениях приходит только его номер.
+     */
+    public static Set<Integer> promotionTypeIds(Map<Integer, TypeLabels> typeLabels) {
+        Set<Integer> ids = new HashSet<>();
+        for (Map.Entry<Integer, TypeLabels> entry : typeLabels.entrySet()) {
+            String name = entry.getValue() == null ? null : entry.getValue().name();
+            if (name != null && PROMOTION_TYPES.contains(name.trim().toLowerCase(Locale.ROOT))) {
+                ids.add(entry.getKey());
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * Сумма расходов на продвижение среди начислений — отрицательная, как их отдаёт
+     * маркетплейс.
+     *
+     * <p>Логистика исключена: у неё свой тип начислений, и в продвижение она не
+     * входит, даже если когда-нибудь получит похожее имя.
+     */
+    public static BigDecimal promotionExpenses(List<FeeFact> fees, Set<Integer> promotionTypeIds) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (FeeFact fee : fees) {
+            if (fee.kind() == FeeFact.FeeKind.DELIVERY || fee.typeId() == null) {
+                continue;
+            }
+            if (promotionTypeIds.contains(fee.typeId())) {
+                total = total.add(n(fee.amount()));
+            }
+        }
+        return total;
     }
 
     private static BigDecimal n(BigDecimal value) {

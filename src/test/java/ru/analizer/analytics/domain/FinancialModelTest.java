@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -170,6 +171,30 @@ class FinancialModelTest {
 
     private static FinancialModel.TypeLabels labels(String name, String description) {
         return new FinancialModel.TypeLabels(name, description);
+    }
+
+    @Test
+    @DisplayName("Продвижение — это Promotion, PayPerClick и StarsMembership, и только они")
+    void promotionIsSplitFromOtherExpenses() {
+        Map<Integer, FinancialModel.TypeLabels> labels = Map.of(
+                41, labels("PayPerClick", "Оплата за показы"),
+                54, labels("Promotion", "Продвижение в поиске"),
+                74, labels("StarsMembership", "Баллы Stars"),
+                4, labels("BrandPromotion", "Продвижение бренда"),
+                46, labels("Placements", "Баннеры на страницах"));
+
+        List<FeeFact> fees = feesFrom(DAY_2026_04_10, D1);
+        Set<Integer> promotionTypes = FinancialModel.promotionTypeIds(labels);
+
+        // BrandPromotion — другая статья: частичное совпадение имён притянуло бы
+        // чужие расходы в продвижение.
+        assertThat(promotionTypes).containsExactlyInAnyOrder(41, 54, 74);
+
+        BigDecimal promotion = FinancialModel.promotionExpenses(fees, promotionTypes);
+        assertThat(promotion).isEqualByComparingTo("-3059.40");
+        assertThat(new BigDecimal(D1_OTHER).subtract(promotion))
+                .as("после выделения продвижения остальные статьи остаются в прочих расходах")
+                .isEqualByComparingTo("-928.33");
     }
 
     @Test

@@ -206,6 +206,13 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
        * поэтому при заданном SKU автор игнорируется — так решает пользователь,
        * вводя номер конкретного товара.
        *
+       * <p>Кроме количества день несёт деньги: графику они не нужны, но таблица под
+       * ним показывает экономику конкретных товаров — доход, комиссию, логистику,
+       * продвижение, прочие расходы и выручку. Считаются они так же, как в отчёте по
+       * товарам: только по начислениям с привязкой к SKU. Списания без товара не
+       * распределяются между книгами, поэтому в строки не входят, а их сумма за
+       * период едет отдельным полем отчёта.
+       *
        * @param author автор ровно в том написании, в каком указан в карточке товара
        * @param sku    конкретный SKU; {@code null} — без ограничения
        */
@@ -223,22 +230,147 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
           // покрытием даст клиенту показать предложение загрузить данные.
           if (accountId.isEmpty()) {
               return new SalesDynamicsReport(from, to, ReportStatus.NOT_LOADED,
-                      ReportCoverage.from(PeriodCoverage.empty(from, to)), List.of(), labelOf(author, sku));
+                      ReportCoverage.from(PeriodCoverage.empty(from, to)), List.of(),
+                      labelOf(author, sku), BigDecimal.ZERO);
           }
           Long account = accountId.get();
 
           PeriodCoverage periodCoverage = dayStateService.coverage(account, from, to);
-          List<CatalogFacts.SalesDay> days = catalogFacts.salesDynamics(
+          List<CatalogFacts.SalesDay> quantities = catalogFacts.salesDynamics(
                   account,
                   List.of(ProductAuthorFilter.byValue(sku == null ? author : null)),
                   sku, from, to);
+          Map<LocalDate, DayMoney> money = moneyByDay(marketplaceCode, account, author, sku, from, to);
+
+          // Дни объединяются, а не берутся из одного источника: начисление по товару
+          // может прийти в день без продаж (например, продвижение или хранение), и
+          // пропустить такой день значило бы потерять расход. Обратное тоже верно —
+          // продажа без начислений обязана остаться в графике.
+          Map<LocalDate, SalesDynamicsReport.SalesDay> byDate = new TreeMap<>();
+          for (CatalogFacts.SalesDay day : quantities) {
+              byDate.put(day.date(), reportDay(day.date(), day.sold(), day.returned(),
+                      money.get(day.date())));
+          }
+          for (Map.Entry<LocalDate, DayMoney> entry : money.entrySet()) {
+              byDate.putIfAbsent(entry.getKey(), reportDay(entry.getKey(), 0, 0, entry.getValue()));
+          }
+
+          // Расходы без SKU в дни не входят, но и исчезать из ответа не должны: иначе
+          // расходы динамики не сойдутся с дневным отчётом и непонятно будет, где
+          // ошибка. Сумма та же, что показывает отчёт по товарам.
+          BigDecimal unallocated = catalogFacts.unallocatedFees(account, from, to).stream()
+                  .map(FeeFact::amount)
+                  .map(v -> v == null ? BigDecimal.ZERO : v)
+                  .reduce(BigDecimal.ZERO, BigDecimal::add).abs();
 
           return new SalesDynamicsReport(from, to,
                   DailyAnalyticsService.statusOf(periodCoverage),
                   ReportCoverage.from(periodCoverage),
-                  days.stream().map(d -> new SalesDynamicsReport.SalesDay(
-                          d.date(), d.sold(), d.returned())).toList(),
-                  labelOf(author, sku));
+                  List.copyOf(byDate.values()),
+                  labelOf(author, sku),
+                  unallocated);
+      }
+
+      /**
+       * Деньги по дням периода для того же отбора, что и количество.
+       *
+       * <p>Свод считается той же {@link FinancialModel}, что и отчёт по товарам, и по
+       * тому же набору начислений: только с привязкой к SKU. Поэтому выручка динамики
+       * сходится с выручкой в таблице товаров, а вопрос у обеих таблиц один — сколько
+       * заработала книга.
+       *
+       * <p>Списания без SKU (NON_ITEM, CONTAINER) сюда не попадают намеренно. Это
+       * расходы магазина, а не книги: распределить их между товарами можно только
+       * придумав правило, и тогда «выручка за книгу» стала бы меньше заработка на самой
+       * книге. Их сумма приходит отдельным полем отчёта.
+       */
+      private Map<LocalDate, DayMoney> moneyByDay(String marketplaceCode, Long account,
+                                                  String author, Long sku,
+                                                  LocalDate from, LocalDate to) {
+          Set<Long> selection = selectionFor(account, author, sku, from, to);
+
+          Map<Integer, FinancialModel.TypeLabels> labels =
+                  financeFacts.accrualTypeLabels(marketplaceCode);
+          Set<Integer> promotionTypes = FinancialModel.promotionTypeIds(labels);
+
+          Map<LocalDate, List<ProductFact>> productsByDay = new LinkedHashMap<>();
+          for (ProductFact fact : financeFacts.products(account, from, to)) {
+              if (selection != null && !selection.contains(fact.sku())) {
+                  continue;
+              }
+              productsByDay.computeIfAbsent(fact.date(), k -> new ArrayList<>()).add(fact);
+          }
+
+          // Только начисления с привязкой к SKU: доставка и позиции товаров. Списания
+          // без товара — расход магазина, и в экономику книги они не входят.
+          List<FeeFact> fees = new ArrayList<>();
+          fees.addAll(financeFacts.deliveryFees(account, from, to));
+          fees.addAll(financeFacts.itemFees(account, from, to));
+          Map<LocalDate, List<FeeFact>> feesByDay = new LinkedHashMap<>();
+          for (FeeFact fee : fees) {
+              if (fee.sku() == null) {
+                  continue;
+              }
+              if (selection != null && !selection.contains(fee.sku())) {
+                  continue;
+              }
+              feesByDay.computeIfAbsent(fee.date(), k -> new ArrayList<>()).add(fee);
+          }
+
+          Set<LocalDate> dates = new TreeSet<>();
+          dates.addAll(productsByDay.keySet());
+          dates.addAll(feesByDay.keySet());
+
+          Map<LocalDate, DayMoney> result = new LinkedHashMap<>();
+          for (LocalDate date : dates) {
+              List<FeeFact> dayFees = feesByDay.getOrDefault(date, List.of());
+              FinancialSummary summary = FinancialModel.summarize(
+                      date, date,
+                      productsByDay.getOrDefault(date, List.of()),
+                      dayFees,
+                      Map.of());
+              BigDecimal promotion = FinancialModel.promotionExpenses(dayFees, promotionTypes);
+              result.put(date, new DayMoney(
+                      summary.income(),
+                      summary.commission(),
+                      summary.logistics(),
+                      promotion,
+                      // «Прочие» без продвижения: иначе оно попало бы и в свою
+                      // колонку, и в «другие расходы», а сумма расходов выросла бы
+                      // на его же величину.
+                      summary.otherExpenses().subtract(promotion),
+                      summary.income().subtract(summary.expenses())));
+          }
+          return result;
+      }
+
+      /** SKU отбора или {@code null}, если ограничения нет. */
+      private Set<Long> selectionFor(Long account, String author, Long sku,
+                                     LocalDate from, LocalDate to) {
+          if (sku != null) {
+              return Set.of(sku);
+          }
+          if (author == null || author.isBlank()) {
+              return null;
+          }
+          return new HashSet<>(catalogFacts.selectionSkus(account,
+                  List.of(ProductAuthorFilter.byValue(author)), null, from, to, false));
+      }
+
+      private static SalesDynamicsReport.SalesDay reportDay(LocalDate date, int sold, int returned,
+                                                            DayMoney money) {
+          DayMoney m = money == null ? DayMoney.ZERO : money;
+          return new SalesDynamicsReport.SalesDay(date, sold, returned,
+                  m.income(), m.commission(), m.logistics(), m.promotion(),
+                  m.otherExpenses(), m.revenue());
+      }
+
+      /** Деньги одного дня — до сборки в ответ. */
+      private record DayMoney(BigDecimal income, BigDecimal commission, BigDecimal logistics,
+                              BigDecimal promotion, BigDecimal otherExpenses, BigDecimal revenue) {
+
+          private static final DayMoney ZERO = new DayMoney(BigDecimal.ZERO, BigDecimal.ZERO,
+                  BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
       }
 
       /**

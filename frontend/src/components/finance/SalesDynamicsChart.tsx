@@ -6,11 +6,17 @@ import { clamp, fmtDateLong, fmtDayShort, niceMax } from '@/utils/format'
 import { cn } from '@/utils/cn'
 
 /** День динамики с уже проставленным состоянием: без него график врёт о пропусках. */
-interface Point {
+export interface Point {
   date: string
   state: DayState
   sold: number
   returned: number
+  income: number
+  commission: number
+  logistics: number
+  promotion: number
+  otherExpenses: number
+  revenue: number
 }
 
 const H = 260

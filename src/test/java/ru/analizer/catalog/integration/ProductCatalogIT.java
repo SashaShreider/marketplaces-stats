@@ -313,6 +313,39 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         assertThat(sumReturned).isEqualTo(report.totals().returnedQuantity());
         assertThat(dynamics.days()).isNotEmpty();
         assertThat(dynamics.filter()).isEqualTo("Все товары");
+
+        // Деньги дня считаются той же моделью, что и отчёт по товарам: без этого
+        // «доход» на графике и в таблице товаров означал бы разное.
+        assertThat(sum(dynamics, SalesDynamicsReport.SalesDay::income))
+                .isEqualByComparingTo(report.totals().income());
+        assertThat(sum(dynamics, SalesDynamicsReport.SalesDay::commission))
+                .isEqualByComparingTo(report.totals().commission());
+        assertThat(sum(dynamics, SalesDynamicsReport.SalesDay::logistics))
+                .isEqualByComparingTo(report.totals().logistics());
+
+        // Прочие расходы плюс продвижение — это расходы товаров: списания без SKU
+        // в них не входят, иначе выручка динамики была бы меньше заработка на книге.
+        assertThat(sum(dynamics, SalesDynamicsReport.SalesDay::otherExpenses)
+                .add(sum(dynamics, SalesDynamicsReport.SalesDay::promotion)))
+                .isEqualByComparingTo(report.totals().itemExpenses());
+
+        // Выручка — доход минус расходы товаров, как в первой таблице на «Товарах».
+        assertThat(sum(dynamics, SalesDynamicsReport.SalesDay::revenue))
+                .isEqualByComparingTo(report.totals().income()
+                        .subtract(report.totals().expenses()));
+
+        // Выручка — доход минус все расходы, включая продвижение.
+        assertThat(dynamics.days()).allSatisfy(day -> assertThat(day.revenue())
+                .isEqualByComparingTo(day.income()
+                        .subtract(day.commission().abs())
+                        .subtract(day.logistics().abs())
+                        .subtract(day.otherExpenses().add(day.promotion()).abs())));
+
+        // Списанное без SKU не исчезает из ответа: оно приходит отдельной суммой,
+        // ровно как в отчёте по товарам.
+        assertThat(dynamics.unallocatedExpenses()).isPositive();
+        assertThat(dynamics.unallocatedExpenses())
+                .isEqualByComparingTo(report.unallocatedExpenses());
     }
 
     @Test
@@ -362,6 +395,24 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
                 .sum();
         assertThat(one.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum())
                 .isEqualTo(expected);
+
+        // Деньги отобранного SKU тоже обязаны сойтись с его строкой в отчёте:
+        // иначе таблица под графиком и таблица товаров показывали бы разный доход.
+        ProductReport.ProductRow row = report.rows().stream()
+                .filter(r -> r.sku() == sku).findFirst().orElseThrow();
+        assertThat(sum(one, SalesDynamicsReport.SalesDay::income))
+                .isEqualByComparingTo(row.financial().income());
+        assertThat(sum(one, SalesDynamicsReport.SalesDay::logistics))
+                .isEqualByComparingTo(row.financial().logistics());
+
+        // Расходы и выручка отобранного SKU — его же расходы и выручка в строке
+        // таблицы товаров: списания без SKU к товару не относятся.
+        assertThat(sum(one, SalesDynamicsReport.SalesDay::otherExpenses)
+                .add(sum(one, SalesDynamicsReport.SalesDay::promotion)))
+                .isEqualByComparingTo(row.financial().otherExpenses());
+        assertThat(sum(one, SalesDynamicsReport.SalesDay::revenue))
+                .isEqualByComparingTo(row.financial().income()
+                        .subtract(row.financial().expenses()));
     }
 
     @Test
@@ -956,5 +1007,13 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         assertThat(finance.importType().name()).isEqualTo("FINANCE");
         awaitJob(catalog.id());
         awaitJob(finance.id());
+    }
+
+    /** Сумма денежного показателя по всем дням динамики. */
+    private static BigDecimal sum(SalesDynamicsReport dynamics,
+                                  java.util.function.Function<SalesDynamicsReport.SalesDay, BigDecimal> getter) {
+        return dynamics.days().stream()
+                .map(getter)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

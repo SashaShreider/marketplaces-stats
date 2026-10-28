@@ -666,13 +666,31 @@
       },
       "SalesDay" : {
         "properties" : {
+          "commission" : {
+            "type" : "number"
+          },
           "date" : {
             "format" : "date",
             "type" : "string"
           },
+          "income" : {
+            "type" : "number"
+          },
+          "logistics" : {
+            "type" : "number"
+          },
+          "otherExpenses" : {
+            "type" : "number"
+          },
+          "promotion" : {
+            "type" : "number"
+          },
           "returned" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "revenue" : {
+            "type" : "number"
           },
           "sold" : {
             "format" : "int32",
@@ -706,6 +724,9 @@
           "status" : {
             "enum" : [ "READY", "PARTIAL", "NOT_LOADED", "HAS_ERRORS" ],
             "type" : "string"
+          },
+          "unallocatedExpenses" : {
+            "type" : "number"
           }
         },
         "type" : "object"
