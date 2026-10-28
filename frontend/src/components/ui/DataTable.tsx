@@ -54,7 +54,11 @@ export interface DataTableFooter<T> {
  * шапки с одинаковой подписью, и это будет видно сразу.
  *
  * @param stickyFirst закрепить первую колонку слева при горизонтальной прокрутке
- * @param maxHeight   высота прокручиваемой области; `null` — без ограничения
+ * @param maxHeight   высота прокручиваемой области; `null` — без ограничения.
+ *                    Число задаёт пиксели, строка — любое CSS-значение (`calc(...)`).
+ *                    Без своей прокрутки липкая шапка не работает: `sticky`
+ *                    прилипает к ближайшему прокручиваемому предку, и если таблицу
+ *                    прокручивает окно, шапка уезжает вместе с ней.
  */
 export default function DataTable<T>({
   rows,
@@ -71,7 +75,7 @@ export default function DataTable<T>({
   rowKey: (row: T) => string | number
   footer?: DataTableFooter<T>
   stickyFirst?: boolean
-  maxHeight?: number | null
+  maxHeight?: number | string | null
   emptyText?: string
   onRowClick?: (row: T) => void
 }) {
@@ -90,17 +94,23 @@ export default function DataTable<T>({
   }
   const hasGroups = groups.some((g) => g.label !== '')
 
+  // Фон шапки непрозрачный: при прокрутке под ней проходят строки, и сквозь
+  // полупрозрачный фон читались их числа — шапка выглядела как ещё одна строка.
   const thCls =
-    'sticky z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50/95 px-2.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400 backdrop-blur'
+    'sticky z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400'
   const thGroupCls =
-    'sticky top-0 z-20 h-7 whitespace-nowrap border-b border-slate-100 bg-slate-100/80 px-2.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-500'
+    'sticky top-0 z-20 h-7 whitespace-nowrap border-b border-slate-100 bg-slate-100 px-2.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-500'
   const tdCls = 'whitespace-nowrap border-b border-slate-100 px-2.5 py-1.5'
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200/80">
       <div
         className="scroll-slim overflow-auto"
-        style={maxHeight === null ? undefined : { maxHeight }}
+        style={
+          maxHeight === null || maxHeight === undefined
+            ? undefined
+            : { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight }
+        }
       >
         <table className="w-full border-separate border-spacing-0">
           <thead>

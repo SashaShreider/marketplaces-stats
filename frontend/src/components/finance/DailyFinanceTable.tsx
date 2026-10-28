@@ -39,6 +39,19 @@ const STATE_SUFFIX: Record<DayState, string> = {
   failed: ' (ошибка)',
 }
 
+/**
+ * Округляет сумму до копеек.
+ *
+ * <p>Итоги складываются из чисел с двумя знаками, но в двоичной плавающей точке это
+ * не точно: 1260.43 + 882.57 даёт `2143.0000000000005`, а сумма по статье —
+ * `1260.4299999999998`. В интерфейсе это скрыто форматированием, а в CSV нет: там
+ * сырое число, и Excel покажет его целиком — вместо суммы человек увидит мусор.
+ * Копейка и есть предел точности таких сумм, поэтому округляем перед выгрузкой.
+ */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 /** Значение статьи расходов дня; пустая статья — ноль, а не пропуск. */
 function categoryAmount(day: DayFinance, category: ExpenseCategory): number {
   const group = day.expenseBreakdown?.groups.find((g) => g.category === category)
@@ -255,6 +268,10 @@ export default function DailyFinanceTable({ days }: { days: DayFinance[] }) {
     const body = days.map((d) =>
       columns.map((c) => {
         const value = c.csv?.(d)
+        // Округляем уже в выгрузке, а не при сборке колонок: в интерфейсе суммы
+        // идут через `fmtMoney2`, а в CSV — сырые, и без округления там остался бы
+        // хвост плавающей точки. Количество — целое, ему округление не вредит.
+        if (typeof value === 'number') return round2(value)
         if (value !== undefined) return value
         const rendered = c.value(d)
         return typeof rendered === 'string' || typeof rendered === 'number' ? rendered : ''
@@ -262,8 +279,8 @@ export default function DailyFinanceTable({ days }: { days: DayFinance[] }) {
     )
     const totalRow = columns.map((c, i) => {
       if (i === 0) return 'Итого'
-      if (c.key === 'payout') return totals.payout
-      const value = totalOf(c.key)
+      if (c.key === 'payout') return totals.payout === null ? null : round2(totals.payout)
+      const value = round2(totalOf(c.key))
       return isNegative(c.key) ? -Math.abs(value) : value
     })
     downloadCsv(
@@ -288,7 +305,9 @@ export default function DailyFinanceTable({ days }: { days: DayFinance[] }) {
         rows={days}
         columns={columns}
         rowKey={(d) => d.date}
-        maxHeight={null}
+        // Своя прокрутка, а не прокрутка тела модалки: иначе шапка уезжает
+        // вместе с содержимым, и в списке на сотню дней не видно, что за колонка.
+        maxHeight="calc(100vh - 15rem)"
         emptyText="За выбранный период дней нет"
         footer={{
           label: 'Итого',
