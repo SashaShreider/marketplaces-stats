@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/utils/cn'
+import { TABLE_METRICS } from '@/components/ui/tableMetrics'
 
 /**
  * Колонка таблицы.
@@ -243,12 +244,10 @@ export default function DataTable<T>({
   // прижатый к краю текст читались как две несвязанные таблицы. Отступы у
   // ячеек нулевые — высоту задаёт только строка, и «воздуха» между строками
   // не остаётся.
-  const HEAD_ROW_H = 24
-
-  // Размер текста. Подробный вид плотный: тринадцать колонок должны влезть по
-  // ширине. В компактном их пять, места хватает — и более крупный текст читается
-  // легче, ради этого режим и включают.
-  const large = textSize === 'large'
+  //
+  // Все размеры — текст и высоты — берутся из `tableMetrics`: они задавались в
+  // трёх местах (шапка, тело, итог), и правка в одном оставляла два других.
+  const m = TABLE_METRICS[textSize]
 
   // Ячейка шапки не обрезает содержимое сама.
   //
@@ -257,18 +256,19 @@ export default function DataTable<T>({
   // многоточием живёт на вложенном `span`, а сама ячейка остаётся `visible`.
   const thCls = cn(
     'border-b border-r border-slate-300 bg-slate-50 px-2 py-0 align-middle font-bold leading-none text-slate-500 last:border-r-0',
-    large ? 'text-[10.5px]' : 'text-[9px]',
+    m.headerText,
   )
   const thGroupCls = cn(
     'border-b border-r border-slate-300 bg-slate-100 px-2 py-0 align-middle font-bold leading-none text-slate-600 last:border-r-0',
-    large ? 'text-[10.5px]' : 'text-[9px]',
+    m.groupText,
   )
   /** Обрезка подписи: единственное место, где текст может не поместиться. */
   const thTextCls = 'block truncate'
   // Строки тела чуть выше прежнего: 4px отступа сверху и снизу.
   const tdCls = cn(
-    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-1 align-middle leading-tight last:border-r-0',
-    large ? 'text-[12.5px]' : 'text-[11px]',
+    'whitespace-nowrap border-b border-r border-slate-200 px-2 align-middle leading-tight last:border-r-0',
+    m.cellPaddingY,
+    m.cellText,
   )
 
   /** Ручка перетаскивания ширины. */
@@ -317,7 +317,7 @@ export default function DataTable<T>({
                         key={`${g.label}-${i}`}
                         colSpan={g.span}
                         title={g.label || undefined}
-                        style={{ height: HEAD_ROW_H }}
+                        style={{ height: m.headerRowHeight }}
                         className={cn(
                           thGroupCls,
                           // `relative` нужен только ручке изменения ширины:
@@ -340,7 +340,7 @@ export default function DataTable<T>({
                   <th
                     key={c.key}
                     title={c.label}
-                    style={{ height: HEAD_ROW_H }}
+                    style={{ height: m.headerRowHeight }}
                     className={cn(
                       thCls,
                       'relative',
@@ -358,7 +358,7 @@ export default function DataTable<T>({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-3 py-10 text-center text-[11.5px] font-medium text-slate-400"
+                    className={cn('px-3 py-10 text-center font-medium text-slate-400', m.cellText)}
                   >
                     {emptyText}
                   </td>
@@ -399,13 +399,14 @@ export default function DataTable<T>({
                         // Подвал липкий только по вертикали: горизонтально он
                         // должен ехать вместе с колонками, иначе «Итого» стоит
                         // на месте, пока над ним прокручиваются чужие числа.
-                        'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 py-1 last:border-r-0',
-                        large ? 'text-[12.5px]' : 'text-[11px]',
+                        'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 last:border-r-0',
+                        m.footerPaddingY,
+                        m.cellText,
                         (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
                       )}
                     >
                       {i === 0 && (
-                        <span className="text-[11px] font-extrabold text-slate-900">
+                        <span className={cn('font-extrabold text-slate-900', m.footerLabelText)}>
                           {footer.label}
                         </span>
                       )}
@@ -424,7 +425,7 @@ export default function DataTable<T>({
           разные вопросы, и человек ищет их в разных местах. */}
       {pageSize && total > 0 && (
         <div className="flex items-center justify-between gap-3 px-0.5">
-          <span className="text-[11.5px] font-medium text-slate-400">
+          <span className={cn('font-medium text-slate-400', m.pagerText)}>
             Показано{' '}
             <span className="tnum font-bold text-slate-600">
               {firstShown}–{lastShown}
@@ -441,7 +442,7 @@ export default function DataTable<T>({
               >
                 ‹
               </button>
-              <span className="text-[11.5px] font-semibold text-slate-500">
+              <span className={cn('font-semibold text-slate-500', m.pagerText)}>
                 Страница{' '}
                 <span className="tnum font-extrabold text-slate-800">{current + 1}</span> из{' '}
                 <span className="tnum font-extrabold text-slate-800">{pages}</span>

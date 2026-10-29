@@ -223,7 +223,9 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       return (
         <span
           className={cn(
-            'tnum text-[11px]',
+            'tnum',
+            // Размер текста не задан: его держит таблица (`textSize`), иначе
+            // пришлось бы повторять его в каждой колонке и в итоге отдельно.
             opts.strong ? 'font-extrabold text-slate-900' : 'font-semibold text-slate-700',
           )}
         >
@@ -257,7 +259,7 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       value: (d) => (
         <span
           className={cn(
-            'tnum text-[11px] font-bold',
+            'tnum font-bold',
             d.state === 'missing' || d.state === 'failed'
               ? 'text-slate-400'
               : d.state === 'provisional'
@@ -279,7 +281,7 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       label: 'Продано, шт',
       group: 'Количество',
       value: (d) => (
-        <span className="tnum text-[11px] font-semibold text-slate-700">{fmtNum(d.soldQty)}</span>
+        <span className="tnum font-semibold text-slate-700">{fmtNum(d.soldQty)}</span>
       ),
       csv: (d) => d.soldQty,
     },
@@ -288,7 +290,7 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       label: 'Возвращено, шт',
       group: 'Количество',
       value: (d) => (
-        <span className="tnum text-[11px] font-semibold text-slate-700">
+        <span className="tnum font-semibold text-slate-700">
           {fmtNum(d.returnedQty)}
         </span>
       ),
@@ -320,7 +322,7 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
         // Прибыль без цветовой оценки: зелёный читался как «хорошо», хотя
         // прибыль в 200 ₽ при расходах в 500 000 — не достижение. Отрицательное
         // значение по-прежнему с минусом, и это единственное, что нужно видеть.
-        <span className="tnum text-[11px] font-bold text-slate-800">
+        <span className="tnum font-bold text-slate-800">
           {d.profit < 0 && '−'}
           {fmtMoneyBare(Math.abs(d.profit))}
         </span>
@@ -405,7 +407,7 @@ export function exportFinanceCsv(
  * нечего — по одной колонке на смысл.
  *
  * <p>Размер текста в ячейках не задан: его держит сама таблица
- * ({@code textSize="large"}), иначе пришлось бы повторять `text-[12.5px]` в
+ * (`textSize="large"` из `tableMetrics`), иначе пришлось бы повторять его в
  * каждой колонке.
  *
  * <p>Продажи и расходы здесь — итоговые значения дня (`income`, `expenses`), а не
@@ -528,7 +530,7 @@ export default function DailyFinanceTable({
     // шире любого числа в таблице. Без нижней границы обрезка съедала конец
     // периода, и две разные строки выглядели одинаково. В компактном виде шрифт
     // крупнее, поэтому и граница шире.
-    const monthWidth = compact ? 215 : 190
+    const monthWidth = compact ? 215 : 150
     return built.map((c, i) => (i === 0 ? { ...c, label: 'Месяц', minWidth: monthWidth } : c))
   }, [compact, byMonth, days])
   const totals = useMemo(() => totalsOf(days), [days])
