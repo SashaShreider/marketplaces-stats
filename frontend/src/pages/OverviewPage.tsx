@@ -13,9 +13,9 @@ import { PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
-import type { AccountInfo, DateRange, ExpenseCategory } from '@/types'
+import type { AccountInfo, DateRange, ExpenseCategory, ProductOption } from '@/types'
 import { cn } from '@/utils/cn'
-import { sumDays } from '@/utils/format'
+import { fmtRangeShort, sumDays } from '@/utils/format'
 
 const EMPTY_TOTALS = sumDays([])
 
@@ -47,6 +47,7 @@ export default function OverviewPage({
 }) {
   const [author, setAuthor] = useState('')
   const [skus, setSkus] = useState<number[]>([])
+  const [pickedBooks, setPickedBooks] = useState<ProductOption[]>([])
   const [group, setGroup] = useState<ExpenseCategory | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -87,6 +88,25 @@ export default function OverviewPage({
   // сервер предыдущей версии её не отдаёт, и страница не должна из-за этого падать.
   const selectedGroup = report?.expenseBreakdown?.groups?.find((g) => g.category === group) ?? null
 
+  /**
+   * Подпись отбора для шапки таблицы: период плюс то, чем он сужен.
+   *
+   * <p>Сервер уже присылает `filter` («Все товары», автор или «SKU 123, 456»), но
+   * названия книг он не знает — только номера. Поэтому при отборе по книгам
+   * подпись собирается здесь из выбранного: продавцу нужно название, а не SKU.
+   * При отборе «все товары» подпись не добавляется — она ничего не уточняет.
+   */
+  const scope = useMemo(() => {
+    const period = fmtRangeShort(range.from, range.to)
+    if (author) return `${period} · ${author}`
+    if (skus.length > 0) {
+      const names = pickedBooks.map((b) => b.name)
+      const label = names.length > 0 ? names.join(', ') : report?.filter ?? ''
+      return label ? `${period} · ${label}` : period
+    }
+    return period
+  }, [range.from, range.to, author, skus.length, pickedBooks, report?.filter])
+
   return (
     <>
       <PageHeader title="Обзор" />
@@ -103,6 +123,8 @@ export default function OverviewPage({
           accountId={account.id}
           author={author}
           skus={skus}
+          pickedBooks={pickedBooks}
+          onPickedBooksChange={setPickedBooks}
           onAuthorChange={setAuthor}
           onSkusChange={setSkus}
           catalogProducts={account.catalogProducts}
@@ -152,7 +174,7 @@ export default function OverviewPage({
               onExpenseGroup={setGroup}
               onExpenseDetails={() => setDetailsOpen(true)}
             />
-            <FinanceSection days={days} />
+            <FinanceSection days={days} scope={scope} />
           </div>
         </div>
       )}

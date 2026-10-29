@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/utils/cn'
 
 /**
@@ -9,6 +10,10 @@ import { cn } from '@/utils/cn'
  *
  * <p>Выравнивание по умолчанию — по правому краю, потому что таблица финансовая и
  * в ней в основном числа. Текстовая колонка (дата) просит `left` явно.
+ *
+ * <p>`width` — желаемая ширина по умолчанию. Все колонки получают одинаковую:
+ * колонка «Дата» и колонка «Прочие» не должны различаться втрое, иначе числа
+ * выглядят как случайный набор. Ширину можно тянуть мышью за границу заголовка.
  */
 export interface DataColumn<T> {
   /** Ключ колонки: стабильный, не зависит от подписи — по нему считаются colspan и CSV */
@@ -42,23 +47,36 @@ export interface DataTableFooter<T> {
 }
 
 /**
+ * Ширина колонки по умолчанию и предел, ниже которого числа перестают помещаться.
+ *
+ * <p>Минимум подобран под «10 000,00» с минусом: это самое длинное число, которое
+ * встречается в дневной таблице. Меньше — и ячейка начнёт обрезать значение,
+ * а обрезанное число в финансовом отчёте хуже, чем отсутствующее.
+ */
+const DEFAULT_COL_W = 98
+/** Минимум под «11 918,71» с минусом — самое длинное число в дневной таблице. */
+const MIN_COL_W = 82
+/** Насколько можно раздвинуть колонку: дальше таблица уезжает за экран целиком. */
+const MAX_COL_W = 320
+
+/**
  * Таблица с двухуровневой шапкой, липкой шапкой и липким итогом.
  *
- * <p>Своя, а не библиотечная: нужна ровно одна особенность — липкие шапка и итог при
- * горизонтальной и вертикальной прокрутке, — а любая библиотека приносит с собой
- * собственную модель колонок, сортировку и стили, которые потом приходится
- * переопределять. Здесь таблица рисует то, что ей дали, и ничего больше.
+ * <p>Своя, а не библиотечная: нужны липкие шапка и итог при прокрутке и
+ * перетаскивание границ колонок, — а любая библиотека приносит с собой собственную
+ * модель колонок, фильтры и стили, которые потом приходится переопределять. Здесь
+ * таблица рисует то, что ей дали, и ничего больше.
  *
- * <p>Групповая шапка собирается из `group` подряд идущих колонок. Колонки одной
- * группы обязаны стоять рядом: если группа встретится дважды, получится две
- * шапки с одинаковой подписью, и это будет видно сразу.
+ * <p>Ширины колонок задаются через `colgroup` и `table-fixed`: только так
+ * перетаскивание границы меняет ширину ровно у одной колонки, не пересчитывая
+ * всю раскладку браузером. За границу группы тянется вся группа — все её колонки
+ * получают одинаковую долю прибавки, и пропорции внутри группы сохраняются.
  *
  * @param stickyFirst закрепить первую колонку слева при горизонтальной прокрутке
  * @param maxHeight   высота прокручиваемой области; `null` — без ограничения.
  *                    Число задаёт пиксели, строка — любое CSS-значение (`calc(...)`).
- *                    Без своей прокрутки липкая шапка не работает: `sticky`
- *                    прилипает к ближайшему прокручиваемому предку, и если таблицу
- *                    прокручивает окно, шапка уезжает вместе с ней.
+ * @param pageSize    сколько строк показывать; `undefined` — все
+ * @param pageLabel   подпись слева от пагинации («Показано 1–90 из 120»)
  */
 export default function DataTable<T>({
   rows,
@@ -69,6 +87,9 @@ export default function DataTable<T>({
   maxHeight = 460,
   emptyText = 'Нет данных за период',
   onRowClick,
+  pageSize,
+  page,
+  onPageChange,
 }: {
   rows: T[]
   columns: DataColumn<T>[]
@@ -78,147 +99,340 @@ export default function DataTable<T>({
   maxHeight?: number | string | null
   emptyText?: string
   onRowClick?: (row: T) => void
+  /** Сколько строк на странице; `undefined` — пагинации нет */
+  pageSize?: number
+  /** Текущая страница с нуля (управляемая пагинация) */
+  page?: number
+  onPageChange?: (page: number) => void
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [wrapW, setWrapW] = useState(0)
+
+  // Ширина блока нужна, чтобы поделить её между колонками: тринадцать колонок
+  // по фиксированной сотне не влезают в ноутбучный экран, и таблица уезжает
+  // вправо, хотя место есть.
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0].contentRect.width
+      if (w > 0) setWrapW(w)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  /**
+   * Ширины, изменённые пользователем. Ключ — `key` колонки.
+   *
+   * <p>Своё состояние, а не проброс наружу: ширина — свойство просмотра, а не
+   * данных, и вызывающему она не нужна.
+   */
+  const [widths, setWidths] = useState<Record<string, number>>({})
+  const dragRef = useRef<{ keys: string[]; startX: number; start: Record<string, number> } | null>(
+    null,
+  )
+
+  /**
+   * Ширина колонки по умолчанию: поровну от доступного места.
+   *
+   * <p>Не константа, потому что таблиц с разным числом колонок несколько, а окно
+   * у пользователя одно. Ниже `MIN_COL_W` не опускаемся — иначе «10 000,00» не
+   * помещается; если сумма минимумов больше места, появится горизонтальная
+   * прокрутка, и это честнее обрезанных чисел.
+   */
+  const baseWidth = Math.min(
+    MAX_COL_W,
+    Math.max(MIN_COL_W, wrapW > 0 ? Math.floor(wrapW / Math.max(1, columns.length)) : DEFAULT_COL_W),
+  )
+
+  const widthOf = useCallback(
+    (c: DataColumn<T>) => widths[c.key] ?? baseWidth,
+    [widths, baseWidth],
+  )
+
+  /** Суммарная ширина: по ней задаётся width таблицы, иначе colgroup игнорируется. */
+  const totalWidth = columns.reduce((sum, c) => sum + widthOf(c), 0)
+
+  const onDragMove = useCallback((e: MouseEvent) => {
+    const drag = dragRef.current
+    if (!drag) return
+    const delta = e.clientX - drag.startX
+    // Прибавка делится между колонками группы поровну: тянуть границу группы —
+    // значит менять её ширину целиком, а не растягивать одну колонку за счёт
+    // соседних.
+    const share = delta / drag.keys.length
+    setWidths((prev) => {
+      const next = { ...prev }
+      for (const key of drag.keys) {
+        const base = drag.start[key] ?? baseWidth
+        next[key] = Math.round(Math.min(MAX_COL_W, Math.max(MIN_COL_W, base + share)))
+      }
+      return next
+    })
+  }, [baseWidth])
+
+  const onDragEnd = useCallback(() => {
+    dragRef.current = null
+    document.body.style.cursor = ''
+    window.removeEventListener('mousemove', onDragMove)
+    window.removeEventListener('mouseup', onDragEnd)
+  }, [onDragMove])
+
+  const startDrag = (keys: string[], clientX: number) => {
+    const start: Record<string, number> = {}
+    for (const k of keys) start[k] = widths[k] ?? baseWidth
+    dragRef.current = { keys, startX: clientX, start }
+    document.body.style.cursor = 'col-resize'
+    window.addEventListener('mousemove', onDragMove)
+    window.addEventListener('mouseup', onDragEnd)
+  }
+
+  // Слушатели висят на window: если отпустить мышь вне заголовка, drag без них
+  // не закончился бы и колонка тянулась бы за курсором до перезагрузки.
+  useEffect(() => onDragEnd, [onDragEnd])
+
   /**
    * Группы шапки: подряд идущие колонки с одинаковой подписью.
    *
    * Считается здесь, а не приходит готовым: тогда добавление колонки в группу —
    * одна строка в описании, и шапка не может разойтись с телом таблицы.
    */
-  const groups: { label: string; span: number }[] = []
+  const groups: { label: string; span: number; keys: string[] }[] = []
   for (const c of columns) {
     const label = c.group ?? ''
     const last = groups[groups.length - 1]
-    if (last && last.label === label) last.span += 1
-    else groups.push({ label, span: 1 })
+    if (last && last.label === label) {
+      last.span += 1
+      last.keys.push(c.key)
+    } else groups.push({ label, span: 1, keys: [c.key] })
   }
   const hasGroups = groups.some((g) => g.label !== '')
 
-  // Фон шапки непрозрачный: при прокрутке под ней проходят строки, и сквозь
-  // полупрозрачный фон читались их числа — шапка выглядела как ещё одна строка.
+  const total = rows.length
+  const size = pageSize && pageSize > 0 ? pageSize : total
+  const pages = Math.max(1, Math.ceil(total / Math.max(1, size)))
+  const current = Math.min(Math.max(0, page ?? 0), pages - 1)
+  const visible = pageSize ? rows.slice(current * size, current * size + size) : rows
+  const firstShown = total === 0 ? 0 : current * size + 1
+  const lastShown = Math.min(total, current * size + size)
+
+  // Линии темнее прежних: на светлом фоне border-slate-100 строки почти
+  // растворялись, и глаз перескакивал через строку. Горизонтальные и
+  // вертикальные разделители есть и в шапке, и в теле, и в итоге — иначе
+  // тринадцать числовых колонок читаются как одна строка цифр.
+  //
+  // Шапка без «воздуха».
+  //
+  // <p>Обе строки шапки — группа и названия колонок — стоят вплотную друг к
+  // другу и к первой строке данных: пустые полосы между ними ничего не разделяли,
+  // только отодвигали цифры от подписей. Высота задаётся только текстом.
+  //
+  // <p>Подписи не переносятся, а обрезаются с многоточием: перенос делал шапку
+  // высокой и разъезжался по строкам. Полное название видно в подсказке.
+  // Заглавные убраны — «КОМИССИЯ» читается как крик и шире, чем нужно.
+  // Высоты строк шапки заданы явно и одинаково для обеих строк: обе липкие, и
+  // если `top` второй строки не совпадёт с фактической высотой первой, названия
+  // колонок наедут на групповую строку или на первую строку данных. Раньше здесь
+  // были и класс `top-[17px]`, и инлайн `top`, и высота ячейки — они расходились,
+  // и шапка перекрывала данные.
+  const GROUP_ROW_H = 20
+  const NAME_ROW_H = 24
+
   const thCls =
-    'sticky z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400'
+    'sticky z-20 overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-slate-300 bg-slate-50 px-2 align-middle text-[9px] font-bold leading-none text-slate-500 last:border-r-0'
   const thGroupCls =
-    'sticky top-0 z-20 h-7 whitespace-nowrap border-b border-slate-100 bg-slate-100 px-2.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-500'
-  const tdCls = 'whitespace-nowrap border-b border-slate-100 px-2.5 py-1.5'
+    'sticky z-20 overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-slate-300 bg-slate-100 px-2 align-middle text-[9px] font-bold leading-none text-slate-600 last:border-r-0'
+  const tdCls =
+    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-[3px] align-middle text-[11px] leading-tight last:border-r-0'
+
+  /** Ручка перетаскивания ширины. */
+  const Handle = ({ keys }: { keys: string[] }) => (
+    <span
+      onMouseDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        startDrag(keys, e.clientX)
+      }}
+      className="absolute right-0 top-0 z-30 h-full w-[5px] cursor-col-resize select-none hover:bg-brand-400/40"
+      title="Потяните, чтобы изменить ширину"
+    />
+  )
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200/80">
-      <div
-        className="scroll-slim overflow-auto"
-        style={
-          maxHeight === null || maxHeight === undefined
-            ? undefined
-            : { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight }
-        }
-      >
-        <table className="w-full border-separate border-spacing-0">
-          <thead>
-            {hasGroups && (
+    <div className="flex min-h-0 flex-col gap-2">
+      <div ref={wrapRef} className="overflow-hidden rounded-lg border border-slate-300">
+        <div
+          className="scroll-slim overflow-auto"
+          style={
+            maxHeight === null || maxHeight === undefined
+              ? undefined
+              : { maxHeight: typeof maxHeight === 'number' ? `${maxHeight}px` : maxHeight }
+          }
+        >
+          <table
+            className="table-fixed border-separate border-spacing-0"
+            style={{ width: totalWidth, minWidth: '100%' }}
+          >
+            <colgroup>
+              {columns.map((c) => (
+                <col key={c.key} style={{ width: widthOf(c) }} />
+              ))}
+            </colgroup>
+            <thead>
+              {hasGroups && (
+                <tr>
+                  {groups.map((g, i) => {
+                    // Первая ячейка группы обязана ехать поверх шапки при
+                    // горизонтальной прокрутке, иначе её накрывают соседние.
+                    const first = groups.slice(0, i).reduce((s, x) => s + x.span, 0) === 0
+                    return (
+                      <th
+                        key={`${g.label}-${i}`}
+                        colSpan={g.span}
+                        title={g.label || undefined}
+                        style={{ height: GROUP_ROW_H, top: 0 }}
+                        className={cn(
+                          thGroupCls,
+                          'relative',
+                          first && stickyFirst && 'left-0 z-30',
+                          g.label === '' && 'border-b-slate-300',
+                        )}
+                      >
+                        {g.label}
+                        <Handle keys={g.keys} />
+                      </th>
+                    )
+                  })}
+                </tr>
+              )}
               <tr>
-                {groups.map((g, i) => {
-                  // Первая ячейка группы обязана ехать поверх шапки при
-                  // горизонтальной прокрутке, иначе её накрывают соседние.
-                  const first = groups.slice(0, i).reduce((s, x) => s + x.span, 0) === 0
-                  return (
-                    <th
-                      key={`${g.label}-${i}`}
-                      colSpan={g.span}
-                      className={cn(
-                        thGroupCls,
-                        first && stickyFirst && 'left-0 z-30',
-                        g.label === '' && 'border-b-slate-200',
-                      )}
-                    >
-                      {g.label}
-                    </th>
-                  )
-                })}
+                {columns.map((c, i) => (
+                  <th
+                    key={c.key}
+                    title={c.label}
+                    style={{ height: NAME_ROW_H, top: hasGroups ? GROUP_ROW_H : 0 }}
+                    className={cn(
+                      thCls,
+                      'relative',
+                      // Первая колонка липкая и по горизонтали, и по вертикали:
+                      // она должна ехать поверх и данных, и остальных заголовков.
+                      i === 0 && stickyFirst && 'left-0 z-30',
+                      (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
+                    )}
+                  >
+                    {c.label}
+                    <Handle keys={[c.key]} />
+                  </th>
+                ))}
               </tr>
-            )}
-            <tr>
-              {columns.map((c, i) => (
-                <th
-                  key={c.key}
+            </thead>
+            <tbody>
+              {visible.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="px-3 py-10 text-center text-[11.5px] font-medium text-slate-400"
+                  >
+                    {emptyText}
+                  </td>
+                </tr>
+              )}
+              {visible.map((row) => (
+                <tr
+                  key={rowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
-                    thCls,
-                    // Второй ряд шапки встаёт под первым, а не поверх него: оба
-                    // липнут к верху, и без смещения групповой ряд накрывался бы
-                    // рядом колонок при вертикальной прокрутке.
-                    hasGroups ? 'top-7' : 'top-0',
-                    i === 0 && stickyFirst && 'left-0 z-30',
-                    (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
+                    'group transition-colors hover:bg-brand-50/50',
+                    onRowClick && 'cursor-pointer',
                   )}
                 >
-                  {c.label}
-                </th>
+                  {columns.map((c, i) => (
+                    <td
+                      key={c.key}
+                      title={c.title?.(row)}
+                      className={cn(
+                        tdCls,
+                        'overflow-hidden text-ellipsis',
+                        (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
+                        // Первая колонка прилипает вместе с фоном: без фона строки
+                        // просвечивают сквозь неё при прокрутке.
+                        i === 0 && stickyFirst && 'left-0 z-10 bg-white group-hover:bg-brand-50/50',
+                        c.className?.(row),
+                      )}
+                    >
+                      {c.value(row)}
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-3 py-10 text-center text-[12.5px] font-medium text-slate-400"
-                >
-                  {emptyText}
-                </td>
-              </tr>
+            </tbody>
+            {footer && (
+              <tfoot>
+                <tr>
+                  {columns.map((c, i) => (
+                    <td
+                      key={c.key}
+                      className={cn(
+                        'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 py-1 last:border-r-0',
+                        (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
+                        i === 0 && stickyFirst && 'left-0 z-30',
+                      )}
+                    >
+                      {i === 0 && (
+                        <span className="text-[11px] font-extrabold text-slate-900">
+                          {footer.label}
+                        </span>
+                      )}
+                      {i !== 0 && footer.value(c)}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
             )}
-            {rows.map((row) => (
-              <tr
-                key={rowKey(row)}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={cn(
-                  'group transition-colors hover:bg-brand-50/50',
-                  onRowClick && 'cursor-pointer',
-                )}
-              >
-                {columns.map((c, i) => (
-                  <td
-                    key={c.key}
-                    title={c.title?.(row)}
-                    className={cn(
-                      tdCls,
-                      (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
-                      // Первая колонка прилипает вместе с фоном: без фона строки
-                      // просвечивают сквозь неё при прокрутке.
-                      i === 0 && stickyFirst && 'left-0 z-10 bg-white group-hover:bg-brand-50/50',
-                      c.className?.(row),
-                    )}
-                  >
-                    {c.value(row)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-          {footer && (
-            <tfoot>
-              <tr>
-                {columns.map((c, i) => (
-                  <td
-                    key={c.key}
-                    className={cn(
-                      'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-slate-200 bg-slate-50 px-2.5 py-2',
-                      (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
-                      i === 0 && stickyFirst && 'left-0 z-30',
-                    )}
-                  >
-                    {i === 0 && (
-                      <span className="text-[12.5px] font-extrabold text-slate-900">
-                        {footer.label}
-                      </span>
-                    )}
-                    {i !== 0 && footer.value(c)}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          )}
-        </table>
+          </table>
+        </div>
       </div>
+
+      {/* Пагинация под таблицей: сколько строк показано и переход по страницам.
+          Счёт строк и листалка стоят вместе — по отдельности они отвечают на
+          разные вопросы, и человек ищет их в разных местах. */}
+      {pageSize && total > 0 && (
+        <div className="flex items-center justify-between gap-3 px-0.5">
+          <span className="text-[11.5px] font-medium text-slate-400">
+            Показано{' '}
+            <span className="tnum font-bold text-slate-600">
+              {firstShown}–{lastShown}
+            </span>{' '}
+            из <span className="tnum font-bold text-slate-600">{total}</span>
+          </span>
+          {pages > 1 && onPageChange && (
+            <div className="flex items-center gap-2">
+              <button
+                disabled={current <= 0}
+                onClick={() => onPageChange(current - 1)}
+                title="Предыдущая страница"
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                ‹
+              </button>
+              <span className="text-[11.5px] font-semibold text-slate-500">
+                Страница{' '}
+                <span className="tnum font-extrabold text-slate-800">{current + 1}</span> из{' '}
+                <span className="tnum font-extrabold text-slate-800">{pages}</span>
+              </span>
+              <button
+                disabled={current >= pages - 1}
+                onClick={() => onPageChange(current + 1)}
+                title="Следующая страница"
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-all hover:border-brand-300 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

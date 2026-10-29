@@ -13,7 +13,7 @@ import { cn } from '@/utils/cn'
  * <p>Прокрутка тела страницы блокируется, пока окно открыто: иначе колесо мыши
  * прокручивало бы список под окном, и человек терял место, на котором читал.
  *
- * @param size   ширина окна; `full` — почти весь экран, для таблиц
+ * @param size   ширина окна; `xl` — широкое под таблицы, `full` — почти весь экран
  * @param footer необязательная полоса действий внизу
  */
 export default function Modal({
@@ -29,7 +29,7 @@ export default function Modal({
   title: string
   subtitle?: React.ReactNode
   onClose: () => void
-  size?: 'md' | 'lg' | 'full'
+  size?: 'md' | 'lg' | 'xl' | 'full'
   footer?: React.ReactNode
   children: React.ReactNode
 }) {
@@ -50,9 +50,11 @@ export default function Modal({
   const width =
     size === 'full'
       ? 'w-[calc(100vw-2rem)] max-w-[1800px]'
-      : size === 'lg'
-        ? 'w-full max-w-[760px]'
-        : 'w-full max-w-[520px]'
+      : size === 'xl'
+        ? 'w-[calc(100vw-3rem)] max-w-[1640px]'
+        : size === 'lg'
+          ? 'w-full max-w-[760px]'
+          : 'w-full max-w-[520px]'
 
   return (
     <AnimatePresence>
@@ -100,7 +102,7 @@ export default function Modal({
             <div className="scroll-slim min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
 
             {footer && (
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
+              <div className="flex items-center gap-2 border-t border-slate-100 px-5 py-3">
                 {footer}
               </div>
             )}

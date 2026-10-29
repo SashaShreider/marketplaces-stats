@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Table2 } from 'lucide-react'
+import { Table2, Download } from 'lucide-react'
 import type { DayFinance } from '@/types'
 import FinanceChart, { SERIES, SERIES_ORDER, type SeriesKey } from '@/components/finance/FinanceChart'
-import DailyFinanceTable from '@/components/finance/DailyFinanceTable'
+import DailyFinanceTable, { exportDailyCsv } from '@/components/finance/DailyFinanceTable'
 import Modal from '@/components/ui/Modal'
 import { SecondaryButton } from '@/components/ui/controls'
 import { cn } from '@/utils/cn'
@@ -28,9 +28,23 @@ const INITIAL: Record<SeriesKey, boolean> = {
  * открывается отдельным окном почти на весь экран, а не подменяет график внутри
  * карточки: в карточке шириной в треть экрана одиннадцать колонок не помещаются.
  */
-export default function FinanceSection({ days }: { days: DayFinance[] }) {
+export default function FinanceSection({
+  days,
+  scope,
+}: {
+  days: DayFinance[]
+  /** Подпись периода и отбора: «01.09.2026 — 30.09.2026 · Сурцуков А.» */
+  scope?: string
+}) {
   const [enabled, setEnabled] = useState<Record<SeriesKey, boolean>>(INITIAL)
   const [tableOpen, setTableOpen] = useState(false)
+  const [page, setPage] = useState(0)
+
+  // Сменился период — первая страница. Иначе можно остаться на десятой, которой
+  // в новом, более коротком периоде уже нет: таблица показала бы пустоту.
+  useEffect(() => {
+    setPage(0)
+  }, [days])
 
   // Выключить всё нельзя: пустой график выглядит как поломка, а не как выбор.
   const activeCount = SERIES_ORDER.filter((k) => enabled[k]).length
@@ -103,10 +117,29 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
       <Modal
         open={tableOpen}
         title="Аналитика по дням"
+        subtitle={scope}
         onClose={() => setTableOpen(false)}
-        size="full"
+        size="xl"
+        footer={
+          <>
+            <SecondaryButton
+              onClick={() => exportDailyCsv(days)}
+              disabled={days.length === 0}
+              title="Выгрузить таблицу в CSV"
+            >
+              <Download size={13} />
+              Экспорт в CSV
+            </SecondaryButton>
+            <button
+              onClick={() => setTableOpen(false)}
+              className="ml-auto rounded-xl border border-slate-200 px-4 py-2 text-[12.5px] font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
+            >
+              Закрыть
+            </button>
+          </>
+        }
       >
-        <DailyFinanceTable days={days} />
+        <DailyFinanceTable days={days} page={page} onPageChange={setPage} />
       </Modal>
     </>
   )

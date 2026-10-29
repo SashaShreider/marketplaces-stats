@@ -59,6 +59,17 @@ export function fmtMoney2(n: number): string {
   return `${withTypographicMinus(nf2.format(rounded === 0 ? 0 : rounded))} ₽`
 }
 
+/**
+ * Деньги с копейками без знака валюты: «−12 879,33».
+ *
+ * <p>Для таблиц, где «₽» стоит один раз в шапке колонки: повторять его в каждой
+ * ячейке — значит отнимать ширину у цифр.
+ */
+export function fmtMoneyBare(n: number): string {
+  const rounded = Math.round(n * 100) / 100
+  return withTypographicMinus(nf2.format(rounded === 0 ? 0 : rounded))
+}
+
 /** Количество с копейками не бывает — только целое; оставлено для симметрии таблиц. */
 export function fmtNum2(n: number): string {
   return withTypographicMinus(nf2.format(Math.round(n * 100) / 100))

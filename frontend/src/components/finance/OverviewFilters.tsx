@@ -16,6 +16,8 @@ export default function OverviewFilters({
   catalogProducts,
   author,
   skus,
+  pickedBooks,
+  onPickedBooksChange,
   onAuthorChange,
   onSkusChange,
 }: {
@@ -24,6 +26,14 @@ export default function OverviewFilters({
   catalogProducts: number
   author: string
   skus: number[]
+  /**
+   * Названия выбранных книг.
+   *
+   * <p>Хранятся на странице, а не только здесь: подпись отбора уходит в шапку
+   * таблицы, а она живёт снаружи этого компонента.
+   */
+  pickedBooks: ProductOption[]
+  onPickedBooksChange: (books: ProductOption[]) => void
   onAuthorChange: (author: string) => void
   onSkusChange: (skus: number[]) => void
 }) {
@@ -31,9 +41,6 @@ export default function OverviewFilters({
   const [books, setBooks] = useState<ProductOption[]>([])
   const [bookQuery, setBookQuery] = useState('')
   const [booksLoading, setBooksLoading] = useState(false)
-  // Подписи выбранных книг: после нового поиска сервер может их уже не вернуть,
-  // а в свёрнутой плашке название единственной выбранной книги должно остаться.
-  const [picked, setPicked] = useState<ProductOption[]>([])
 
   const disabled = catalogProducts === 0
   const hasScope = author !== '' || skus.length > 0
@@ -74,11 +81,9 @@ export default function OverviewFilters({
     }
   }, [accountId, bookQuery, catalogProducts, disabled])
 
-  // Отбор сняли снаружи — подписи выбранных книг больше не нужны.
-  useEffect(() => {
-    setPicked((prev) => prev.filter((b) => skus.includes(b.sku)))
-    if (skus.length === 0) setPicked([])
-  }, [skus])
+  // Отбор снимается только из этого компонента (сброс, выбор автора, «Все
+  // товары»), и каждый такой путь сам чистит список выбранных книг. Отдельный
+  // эффект на `skus` здесь не нужен: он обновлял бы родителя на каждый рендер.
 
   const authorOptions: SelectOption[] = [
     { value: '', label: 'Все авторы' },
@@ -100,10 +105,12 @@ export default function OverviewFilters({
     const next = exists ? skus.filter((s) => s !== number) : [...skus, number]
     onSkusChange(next)
     if (exists) {
-      setPicked((prev) => prev.filter((b) => b.sku !== number))
+      onPickedBooksChange(pickedBooks.filter((b) => b.sku !== number))
     } else {
       const book = books.find((b) => b.sku === number)
-      if (book) setPicked((prev) => [...prev.filter((b) => b.sku !== number), book])
+      if (book) {
+        onPickedBooksChange([...pickedBooks.filter((b) => b.sku !== number), book])
+      }
       if (author) onAuthorChange('')
     }
   }
@@ -111,11 +118,11 @@ export default function OverviewFilters({
   const reset = () => {
     onAuthorChange('')
     onSkusChange([])
-    setPicked([])
+    onPickedBooksChange([])
   }
 
   const singleLabel =
-    skus.length === 1 ? picked.find((b) => b.sku === skus[0])?.name : undefined
+    skus.length === 1 ? pickedBooks.find((b) => b.sku === skus[0])?.name : undefined
 
   return (
     <>
@@ -132,7 +139,7 @@ export default function OverviewFilters({
           onAuthorChange(value)
           if (value) {
             onSkusChange([])
-            setPicked([])
+            onPickedBooksChange([])
           }
         }}
         disabled={disabled}
@@ -157,7 +164,7 @@ export default function OverviewFilters({
         onChange={() => {
           // «Все товары» в списке снимает отбор целиком.
           onSkusChange([])
-          setPicked([])
+          onPickedBooksChange([])
         }}
         onToggle={toggleBook}
         disabled={disabled}
