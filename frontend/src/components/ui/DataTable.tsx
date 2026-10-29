@@ -305,7 +305,7 @@ export default function DataTable<T>({
                 </tr>
               )}
               <tr>
-                {columns.map((c, i) => (
+                {columns.map((c) => (
                   <th
                     key={c.key}
                     title={c.label}

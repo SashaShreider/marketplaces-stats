@@ -119,7 +119,6 @@ export default function SummaryCards({
   breakdown,
   unallocated,
   scoped,
-  payout,
   onExpenseGroup,
   onExpenseDetails,
 }: {
@@ -128,8 +127,6 @@ export default function SummaryCards({
   /** Расходы без привязки к товару, не вошедшие в отчёт при отборе */
   unallocated: number
   scoped: boolean
-  /** К выплате; `null`, если отчёт ограничен отбором */
-  payout: number | null
   onExpenseGroup: (category: ExpenseCategory) => void
   onExpenseDetails: () => void
 }) {
@@ -215,22 +212,10 @@ export default function SummaryCards({
         iconBg="bg-emerald-500/15 text-emerald-600"
         icon={<Wallet size={17} strokeWidth={2.5} />}
       >
-        <Row label="Продажи" value={totals.income} />
-        <Row label="Расходы" value={totals.expenses} negative />
-        <div className="flex items-center justify-between border-t border-slate-200/50 pt-2.5">
-          <span className="text-[12.5px] font-medium text-slate-500">К выплате</span>
-          <span
-            className="tnum text-[12.5px] font-bold text-slate-700"
-            title={
-              payout === null
-                ? 'Выплата известна только по всему магазину: для выбранных товаров её долю из total_amount не выделить.'
-                : undefined
-            }
-          >
-            {payout === null ? '—' : <AnimatedNumber value={payout} />}
-          </span>
-        </div>
-        <div className="mt-1.5 flex items-center gap-1.5 border-t border-slate-200/50 pt-2.5 text-[11px] font-medium text-slate-400">
+        {/* Расшифровки нет намеренно: продажи и расходы уже показаны целиком в
+            двух соседних карточках, а «к выплате» совпадает с прибылью по
+            определению. Повторять три числа четвёртым — шум. */}
+        <div className="flex items-center gap-1.5 pt-1 text-[11px] font-medium text-slate-400">
           <Info size={12} />
           Себестоимость товаров не учтена
         </div>

@@ -24,14 +24,14 @@ const STATE_LABEL: Record<DayState, string | null> = {
   failed: 'Не удалось загрузить данные за этот день',
 }
 
-const STATE_DOT: Record<DayState, string> = {
-  ok: '',
-  provisional: 'bg-sky-400',
-  missing: 'bg-amber-400',
-  failed: 'bg-rose-500',
-}
-
-/** Пометка состояния для CSV: суффикс к дате, чтобы отметка не потерялась в файле. */
+/**
+ * Пометка состояния для CSV: суффикс к дате, чтобы отметка не потерялась в файле.
+ *
+ * <p>Кружка рядом с датой больше нет: он висел у каждого ещё не закрытого дня и
+ * читался как часть данных, хотя это лишь признак качества. В выгрузке отметка
+ * остаётся — там нет ни цвета, ни подсказки, и без суффикса день с ошибкой было
+ * бы не отличить от дня без начислений.
+ */
 const STATE_SUFFIX: Record<DayState, string> = {
   ok: '',
   provisional: ' (уточняется)',
@@ -67,7 +67,6 @@ function isNegative(key: string): boolean {
 
 /** Итоги по всем дням периода — их показывает строка «Итого». */
 function totalsOf(days: DayFinance[]) {
-  let payout: number | null = 0
   const sum = {
     sales: 0, returns: 0, partners: 0, income: 0,
     expenses: 0, profit: 0, sold: 0, returned: 0,
@@ -81,11 +80,8 @@ function totalsOf(days: DayFinance[]) {
     sum.profit += d.profit
     sum.sold += d.soldQty
     sum.returned += d.returnedQty
-    // Пока известна у всех дней — складываем. Один день без выплаты превращает
-    // сумму в «выплату по тем дням, что посчитались», а это уже не факт.
-    payout = payout === null || d.payout === null ? null : payout + d.payout
   }
-  return { ...sum, payout }
+  return sum
 }
 
 /**
@@ -149,22 +145,18 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       label: 'Дата',
       align: 'left',
       value: (d) => (
-        <span className="inline-flex items-center gap-1.5">
-          {d.state !== 'ok' && (
-            <span
-              className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATE_DOT[d.state])}
-              title={STATE_LABEL[d.state] ?? undefined}
-            />
+        <span
+          className={cn(
+            'tnum text-[11px] font-bold',
+            d.state === 'missing' || d.state === 'failed'
+              ? 'text-slate-400'
+              : d.state === 'provisional'
+                ? 'text-slate-500'
+                : 'text-slate-800',
           )}
-          <span
-            className={cn(
-              'tnum text-[11px] font-bold',
-              d.state === 'missing' || d.state === 'failed' ? 'text-slate-400' : 'text-slate-800',
-            )}
-            title={STATE_LABEL[d.state] ?? undefined}
-          >
-            {fmtDateNumeric(d.date)}
-          </span>
+          title={STATE_LABEL[d.state] ?? undefined}
+        >
+          {fmtDateNumeric(d.date)}
         </span>
       ),
       csv: (d) => fmtDateNumeric(d.date) + STATE_SUFFIX[d.state],
@@ -208,7 +200,9 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
     {
       key: 'profit',
       label: 'Прибыль, ₽',
-      group: 'Итог',
+      // Группа называется так же, как колонка: «Итог» из одного столбца
+      // занимал место в шапке, ничего не группируя.
+      group: 'Прибыль',
       value: (d) => (
         <span
           className={cn(
@@ -222,25 +216,16 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       ),
       csv: (d) => d.profit,
     },
-    {
-      key: 'payout',
-      label: 'К выплате, ₽',
-      group: 'Итог',
-      value: (d) =>
-        d.payout === null ? (
-          <span
-            className="text-[11px] font-semibold text-slate-300"
-            title="Выплата известна только по всему магазину — для отбора её долю не выделить"
-          >
-            —
-          </span>
-        ) : (
-          <span className="tnum text-[11px] font-semibold text-slate-700">
-            {fmtMoneyBare(d.payout)}
-          </span>
-        ),
-      csv: (d) => d.payout,
-    },
+    // Колонка «К выплате» убрана намеренно.
+    //
+    // <p>OZON отдаёт `total_amount` по дню, но по определению он равен
+    // `income − expenses`, то есть той же прибыли: на живых данных за 01.10.2026
+    // 19 480 − 24 748,65 = −5 268,65 и приходило ровно −5 268,65. Две колонки с
+    // одинаковыми числами заставляли искать между ними разницу.
+    //
+    // <p>Отличаются они только при отборе по товарам: там выплату не разделить и
+    // она приходит `null`. Таблицу открывают, чтобы смотреть отбор, — и колонка
+    // была прочерком.
   ]
 }
 
@@ -280,7 +265,6 @@ export function exportDailyCsv(days: DayFinance[]): void {
   )
   const totalRow = columns.map((c, i) => {
     if (i === 0) return 'Итого'
-    if (c.key === 'payout') return totals.payout === null ? null : round2(totals.payout)
     const value = round2(totalOf(c.key))
     return isNegative(c.key) ? -Math.abs(value) : value
   })
@@ -341,20 +325,6 @@ export default function DailyFinanceTable({
       footer={{
         label: 'Итого',
         value: (c) => {
-          if (c.key === 'payout') {
-            return totals.payout === null ? (
-              <span
-                className="text-[11px] font-extrabold text-slate-300"
-                title="Выплата известна только по всему магазину"
-              >
-                —
-              </span>
-            ) : (
-              <span className="tnum text-[11px] font-extrabold text-slate-900">
-                {fmtMoneyBare(totals.payout)}
-              </span>
-            )
-          }
           const key = c.key
           if (key === 'sold' || key === 'returned') {
             return (

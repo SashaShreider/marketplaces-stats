@@ -170,7 +170,6 @@ export default function OverviewPage({
               breakdown={report.expenseBreakdown}
               unallocated={report.unallocatedExpenses}
               scoped={report.scoped}
-              payout={report.payout}
               onExpenseGroup={setGroup}
               onExpenseDetails={() => setDetailsOpen(true)}
             />
