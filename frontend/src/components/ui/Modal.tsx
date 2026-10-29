@@ -20,6 +20,7 @@ export default function Modal({
   open,
   title,
   subtitle,
+  headerExtra,
   onClose,
   size = 'md',
   footer,
@@ -28,6 +29,13 @@ export default function Modal({
   open: boolean
   title: string
   subtitle?: React.ReactNode
+  /**
+   * Управление справа от заголовка — фильтры и переключатели вида.
+   *
+   * <p>Слот, а не `children`: содержимое окна прокручивается, и фильтры уехали бы
+   * вместе с ним. Условия просмотра должны оставаться на месте, как и заголовок.
+   */
+  headerExtra?: React.ReactNode
   onClose: () => void
   size?: 'md' | 'lg' | 'xl' | 'full'
   footer?: React.ReactNode
@@ -100,10 +108,16 @@ export default function Modal({
                   </div>
                 )}
               </div>
+              {headerExtra && <div className="ml-auto min-w-0">{headerExtra}</div>}
               <button
                 onClick={onClose}
                 title="Закрыть"
-                className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600',
+                  // Отступ справа только когда рядом есть управление: иначе
+                  // крестик прижимался бы к нему вплотную.
+                  headerExtra ? '' : 'ml-auto',
+                )}
               >
                 <X size={16} />
               </button>

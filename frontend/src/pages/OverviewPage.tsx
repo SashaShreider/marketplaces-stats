@@ -109,6 +109,10 @@ export default function OverviewPage({
     <>
       <PageHeader title="Обзор" />
 
+      {/* Фильтры стоят и над карточкой, и в окне таблицы, но состояние у них
+          одно: набор компонентов один и тот же, меняется лишь место. Отдельная
+          копия в окне меняла бы отчёт только для таблицы, и график под ней
+          показывал бы уже другое. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <DateRangePicker
           from={range.from}
@@ -169,7 +173,28 @@ export default function OverviewPage({
               onExpenseGroup={setGroup}
               onExpenseDetails={() => setDetailsOpen(true)}
             />
-            <FinanceSection days={days} />
+            <FinanceSection
+              days={days}
+              filters={
+                <>
+                  <DateRangePicker
+                    from={range.from}
+                    to={range.to}
+                    onChange={onRangeChange}
+                    compact
+                    align="left"
+                  />
+                  <ScopeFilters
+                    accountId={account.id}
+                    author={author}
+                    skus={skus}
+                    onAuthorChange={setAuthor}
+                    onSkusChange={setSkus}
+                    catalogProducts={account.catalogProducts}
+                  />
+                </>
+              }
+            />
           </div>
         </div>
       )}
