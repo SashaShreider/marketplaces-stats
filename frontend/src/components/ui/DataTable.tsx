@@ -72,7 +72,6 @@ const MAX_COL_W = 320
  * всю раскладку браузером. За границу группы тянется вся группа — все её колонки
  * получают одинаковую долю прибавки, и пропорции внутри группы сохраняются.
  *
- * @param stickyFirst закрепить первую колонку слева при горизонтальной прокрутке
  * @param maxHeight   высота прокручиваемой области; `null` — без ограничения.
  *                    Число задаёт пиксели, строка — любое CSS-значение (`calc(...)`).
  * @param pageSize    сколько строк показывать; `undefined` — все
@@ -83,7 +82,6 @@ export default function DataTable<T>({
   columns,
   rowKey,
   footer,
-  stickyFirst = true,
   maxHeight = 460,
   emptyText = 'Нет данных за период',
   onRowClick,
@@ -95,7 +93,6 @@ export default function DataTable<T>({
   columns: DataColumn<T>[]
   rowKey: (row: T) => string | number
   footer?: DataTableFooter<T>
-  stickyFirst?: boolean
   maxHeight?: number | string | null
   emptyText?: string
   onRowClick?: (row: T) => void
@@ -284,19 +281,19 @@ export default function DataTable<T>({
               {hasGroups && (
                 <tr>
                   {groups.map((g, i) => {
-                    // Первая ячейка группы обязана ехать поверх шапки при
-                    // горизонтальной прокрутке, иначе её накрывают соседние.
-                    const first = groups.slice(0, i).reduce((s, x) => s + x.span, 0) === 0
                     return (
                       <th
                         key={`${g.label}-${i}`}
                         colSpan={g.span}
                         title={g.label || undefined}
-                        style={{ height: HEAD_ROW_H, top: 0 }}
+                        style={{ height: HEAD_ROW_H }}
                         className={cn(
                           thGroupCls,
+                          // `relative` нужен только ручке изменения ширины:
+                          // она позиционируется от ячейки. Никакого `top` —
+                          // вертикаль держит сам `thead`, а сдвиг ячейки внутри
+                          // относительной строки опускал её на строку данных.
                           'relative',
-                          first && stickyFirst && 'left-0 z-30',
                           g.label === '' && 'border-b-slate-300',
                         )}
                       >
@@ -312,13 +309,10 @@ export default function DataTable<T>({
                   <th
                     key={c.key}
                     title={c.label}
-                    style={{ height: HEAD_ROW_H, top: hasGroups ? HEAD_ROW_H : 0 }}
+                    style={{ height: HEAD_ROW_H }}
                     className={cn(
                       thCls,
-                      // Первая колонка липкая по горизонтали: при прокрутке
-                      // вправо дата должна оставаться на виду. Вертикаль держит
-                      // сам `thead`.
-                      i === 0 && stickyFirst ? 'sticky left-0 z-30' : 'relative',
+                      'relative',
                       (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
                     )}
                   >
@@ -348,17 +342,13 @@ export default function DataTable<T>({
                     onRowClick && 'cursor-pointer',
                   )}
                 >
-                  {columns.map((c, i) => (
+                  {columns.map((c) => (
                     <td
                       key={c.key}
                       title={c.title?.(row)}
                       className={cn(
                         tdCls,
-                        'overflow-hidden text-ellipsis',
                         (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
-                        // Первая колонка прилипает вместе с фоном: без фона строки
-                        // просвечивают сквозь неё при прокрутке.
-                        i === 0 && stickyFirst && 'left-0 z-10 bg-white group-hover:bg-brand-50/50',
                         c.className?.(row),
                       )}
                     >
@@ -375,9 +365,11 @@ export default function DataTable<T>({
                     <td
                       key={c.key}
                       className={cn(
+                        // Подвал липкий только по вертикали: горизонтально он
+                        // должен ехать вместе с колонками, иначе «Итого» стоит
+                        // на месте, пока над ним прокручиваются чужие числа.
                         'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 py-1 last:border-r-0',
                         (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
-                        i === 0 && stickyFirst && 'left-0 z-30',
                       )}
                     >
                       {i === 0 && (
