@@ -177,7 +177,10 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           script: |
-            set -euo pipefail
+            # set -eu без pipefail: appleboy/ssh-action выполняет script через
+            # /bin/sh (dash), а там pipefail нет — с ним скрипт падает на первой
+            # же строке с «Illegal option -o pipefail».
+            set -eu
 
             cd "${{ secrets.DEPLOY_PATH }}"
 
@@ -194,13 +197,23 @@ jobs:
             # тоже не нужно: их применимость проверяет задание integration.
             docker compose up -d --build app
 
+            # Порт берём из .env сервера, а не зашиваем: на этой машине приложение
+            # слушает 8081, потому что 8080 занят Apache. Захардкоженный 8080
+            # проверял бы чужой процесс и ждал бы все 200 секунд впустую.
+            APP_PORT_LOCAL="$(sed -n 's/^APP_PORT=//p' .env | tr -d '\r\n')"
+            APP_PORT_LOCAL="${APP_PORT_LOCAL:-8080}"
+            echo "Проверяю http://127.0.0.1:${APP_PORT_LOCAL}/actuator/health"
+
             # Проверка живости. Без неё деплой считался бы успешным и при упавшем
             # приложении, а заметить это можно было бы только по жалобам.
             echo "Ждём, пока приложение ответит…"
             for i in $(seq 1 40); do
-              if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+              if curl -fsS "http://127.0.0.1:${APP_PORT_LOCAL}/actuator/health" | grep -q '"status":"UP"'; then
                 echo "Приложение поднялось за $((i * 5)) секунд"
-                echo "Интерфейс отвечает: $(curl -fsS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)"
+                # Без -f: на 4xx/5xx curl вернул бы код ошибки, set -e оборвал бы
+                # деплой, и мы не увидели бы, какой именно код пришёл.
+                UI_CODE="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${APP_PORT_LOCAL}/" || echo "нет ответа")"
+                echo "Интерфейс отвечает: ${UI_CODE}"
                 echo "Готово: $(git rev-parse --short HEAD)"
                 exit 0
               fi
