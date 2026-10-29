@@ -139,6 +139,8 @@ interface ProductsQuery {
   dateFrom: string
   dateTo: string
   author?: string
+  /** Отбор по конкретным товарам; сильнее автора */
+  skus?: number[]
   query?: string
   /** Критерий сортировки: по одному на колонку таблицы */
   sort?: ProductSort
@@ -158,13 +160,13 @@ export const getProducts = (accountId: number, q: ProductsQuery) =>
 /**
  * Динамика продаж по дням.
  *
- * author и sku несовместимы: это два разных отбора, и бэкенд при заданном sku
+ * author и skus несовместимы: это два разных отбора, и бэкенд при заданных skus
  * игнорирует автора. Передача обоих сразу означало бы искать товар сразу у двух
  * продавцов, а задача у пользователя одна.
  */
 export const getSalesDynamics = (
   accountId: number,
-  q: { dateFrom: string; dateTo: string; author?: string; sku?: number },
+  q: { dateFrom: string; dateTo: string; author?: string; skus?: number[] },
 ) =>
   request<SalesDynamics>('GET', `${accountPath(accountId)}/analytics/products/dynamics`, {
     query: { ...q },

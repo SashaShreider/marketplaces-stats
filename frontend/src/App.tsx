@@ -7,10 +7,11 @@ import {
 import { ApiError, describeError, forgetCsrf, setUnauthorizedHandler } from '@/api/http'
 import AuthScreen from '@/components/auth/AuthScreen'
 import ConnectModal from '@/components/marketplace/ConnectModal'
-import Sidebar, { type PageId } from '@/components/layout/Sidebar'
+import Sidebar, { type PageId, isPageId } from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
 import type { SyncState } from '@/components/sync/SyncIndicator'
 import { useImportRunner } from '@/features/imports/useImportRunner'
+import { readRangeParam, useUrlState, writeParams } from '@/features/navigation/urlState'
 import OverviewPage from '@/pages/OverviewPage'
 import ProductsPage from '@/pages/ProductsPage'
 import type { AccountInfo, DateRange, User } from '@/types'
@@ -24,9 +25,28 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [listError, setListError] = useState<string | null>(null)
   // Выбран магазин по идентификатору, а не по коду платформы: магазинов на одной
   // площадке бывает несколько, и по коду выбор был бы неоднозначным.
+  // В адресе магазина нет: ссылкой делятся на «этот период и отбор», а доступ к
+  // кабинету всё равно проверяется сессией, и чужой идентификатор открыл бы отказ.
   const [accountId, setAccountId] = useState<number | null>(null)
-  const [page, setPage] = useState<PageId>('overview')
-  const [range, setRange] = useState<DateRange>(() => lastNDays(30))
+  // Страница и период живут в адресе: перезагрузка возвращает тот же экран, а не
+  // «Обзор» с периодом по умолчанию, и ссылку на него можно переслать.
+  const [page, setPage] = useUrlState<PageId>(
+    (params) => {
+      const p = params.get('view')
+      return isPageId(p) ? p : 'overview'
+    },
+    (p) => ({ view: p === 'overview' ? null : p }),
+    { push: true, writeOnMount: true },
+  )
+  const [range, setRange] = useUrlState<DateRange>(
+    (params) =>
+      readRangeParam(params) ??
+      // Периода в адресе нет — показываем последние 30 дней и записываем их,
+      // чтобы адрес всегда описывал то, что на экране.
+      lastNDays(30),
+    (r) => ({ d1: r.from, d2: r.to }),
+    { writeOnMount: true },
+  )
   // Открытость окна и его цель хранятся раздельно. Раньше достаточно было знать,
   // какой магазин правится: окно без магазина считалось закрытым. Теперь окно
   // открывается и без магазина — чтобы подключить новый, — и одно это поле стало
@@ -60,6 +80,14 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
   useEffect(() => {
     loadList()
   }, [loadList])
+
+  // Старые ссылки могли содержать параметры, которых в адресе больше нет:
+  // `account` (магазин выбирается состоянием) и условия чтения отчёта — критерий
+  // сортировки, поиск, номер страницы. Их надо убрать, иначе адрес показывал бы
+  // отбор, которого на экране нет.
+  useEffect(() => {
+    writeParams({ account: null, sort: null, order: null, p: null, q: null, sales: null })
+  }, [])
 
   const current = list?.find((a) => a.id === accountId) ?? null
 

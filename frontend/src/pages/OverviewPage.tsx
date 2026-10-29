@@ -3,15 +3,16 @@ import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { getDaily } from '@/api/client'
 import { mapDaily } from '@/api/mappers'
 import DateRangePicker from '@/components/common/DateRangePicker'
+import ScopeFilters from '@/components/common/ScopeFilters'
 import ExpenseGroupModal, { ExpenseDetailsModal } from '@/components/finance/ExpenseDetails'
 import FinanceSection from '@/components/finance/FinanceSection'
-import OverviewFilters from '@/components/finance/OverviewFilters'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SummaryCards from '@/components/finance/SummaryCards'
 import type { SyncState } from '@/components/sync/SyncIndicator'
 import { PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
+import { useUrlState } from '@/features/navigation/urlState'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ExpenseCategory, ProductOption } from '@/types'
 import { cn } from '@/utils/cn'
@@ -27,9 +28,10 @@ const EMPTY_TOTALS = sumDays([])
  * именно применилось. Отбор считается на сервере, поэтому карточки, график и
  * таблица видят одни и те же факты.
  *
- * <p>Выбранные товары хранятся в состоянии страницы, а не в адресе: это взгляд на
- * период, а не отдельная страница, и ссылку на «отбор из трёх книг» никто не
- * пересылает.
+ * <p>Отбор хранится в адресе вместе с периодом: «эти книги за этот месяц» —
+ * законченный вопрос, на который ссылаются и который переживают перезагрузку.
+ * Названия книг при этом восстанавливаются из ответа сервера: сервер знает, чьи
+ * это номера, и подписывает отчёт сам.
  */
 export default function OverviewPage({
   account,
@@ -45,8 +47,24 @@ export default function OverviewPage({
   /** Состояние синхронизации для индикатора в верхней панели */
   onSyncState: (state: SyncState | null) => void
 }) {
-  const [author, setAuthor] = useState('')
-  const [skus, setSkus] = useState<number[]>([])
+  const [author, setAuthor] = useUrlState<string>(
+    (params) => params.get('author')?.trim() ?? '',
+    (value) => ({ author: value.trim() || null }),
+  )
+  // SKU пишутся повторяющимся параметром: `?skus=1&skus=2`. Так их видно и
+  // читаемо, и ссылка переживает перезагрузку без отдельного формата «через
+  // запятую». Параметр `ozon_skus` принимается как синоним: так их пишут похожие
+  // кабинеты, и скопированная оттуда ссылка должна открывать тот же отбор.
+  const [skus, setSkus] = useUrlState<number[]>(
+    (params) => {
+      const raw = [...params.getAll('skus'), ...params.getAll('ozon_skus')]
+      return raw
+        .flatMap((v) => v.split(','))
+        .map((v) => Number(v.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    },
+    (list) => ({ skus: list.map(String), ozon_skus: null }),
+  )
   const [pickedBooks, setPickedBooks] = useState<ProductOption[]>([])
   const [group, setGroup] = useState<ExpenseCategory | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -119,12 +137,11 @@ export default function OverviewPage({
           compact
           align="left"
         />
-        <OverviewFilters
+        <ScopeFilters
           accountId={account.id}
           author={author}
           skus={skus}
-          pickedBooks={pickedBooks}
-          onPickedBooksChange={setPickedBooks}
+          onBooksChange={setPickedBooks}
           onAuthorChange={setAuthor}
           onSkusChange={setSkus}
           catalogProducts={account.catalogProducts}

@@ -98,6 +98,7 @@ public class AnalyticsController {
      * вводить от руки.
      *
      * @param author автор ровно в том написании, в каком он указан в карточке товара
+     * @param skus   отбор по конкретным товарам; сильнее автора, как в дневном отчёте
      * @param query  подстрока названия, своего артикула или ISBN
      * @param sort   критерий порядка строк: INCOME (по умолчанию), NAME, SKU, SOLD,
      *               EXPENSES или GROSS
@@ -113,6 +114,7 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String author,
+            @RequestParam(required = false) List<Long> skus,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String order,
@@ -123,7 +125,7 @@ public class AnalyticsController {
         SellerAccount account = accountLookup.requireAccount(accountId);
         return productAnalytics.productReport(account.getMarketplace().getCode(),
                 Optional.of(account.getId()), dateFrom, dateTo, author, query,
-                sort, order, onlyWithSales, page, size);
+                sort, order, onlyWithSales, page, size, skus);
     }
 
     /**
@@ -143,7 +145,7 @@ public class AnalyticsController {
      * выглядели бы одинаково.
      *
      * @param author автор ровно в том написании, в каком указан в карточке товара
-     * @param sku    конкретный SKU
+     * @param skus   конкретные товары; повторяющийся параметр, сильнее автора
      */
     @GetMapping("/products/dynamics")
     public SalesDynamicsReport salesDynamics(
@@ -151,11 +153,11 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String author,
-            @RequestParam(required = false) Long sku) {
+            @RequestParam(required = false) List<Long> skus) {
 
         SellerAccount account = accountLookup.requireAccount(accountId);
         return productAnalytics.salesDynamics(account.getMarketplace().getCode(),
-                Optional.of(account.getId()), dateFrom, dateTo, author, sku);
+                Optional.of(account.getId()), dateFrom, dateTo, author, skus);
     }
 
     }

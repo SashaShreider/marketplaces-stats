@@ -5,40 +5,47 @@ import SelectMenu, { type SelectOption } from '@/components/common/SelectMenu'
 import type { ProductOption } from '@/types'
 
 /**
- * Отбор отчёта по автору или конкретным книгам.
+ * Отбор отчёта по автору или конкретным товарам — общий для «Обзора» и «Товаров».
+ *
+ * <p>Один компонент на две страницы, потому что вопрос у них один: «про кого этот
+ * отчёт». Раньше на «Товарах» стояли поле поиска и текстовое поле автора, а на
+ * «Обзоре» — списки. Два разных способа задать одно и то же заставляли продавца
+ * помнить, где искать, и один из них не умел выбирать несколько книг.
  *
  * <p>Книг можно выбрать несколько: вопрос «как продаются эти три книги» — обычный,
  * а не редкий. Автор при этом снимается: выбранная книга уже отвечает, чья она, и
  * два отбора одновременно только запутали бы подпись отчёта.
+ *
+ * <p>Названия выбранных книг компонент восстанавливает сам: в адресе и в состоянии
+ * живут только номера, а подпись «SKU 123» ничего не говорит продавцу.
  */
-export default function OverviewFilters({
+export default function ScopeFilters({
   accountId,
   catalogProducts,
   author,
   skus,
-  pickedBooks,
-  onPickedBooksChange,
   onAuthorChange,
   onSkusChange,
+  onBooksChange,
 }: {
   accountId: number
   /** Сколько товаров в каталоге: без него списки пусты, и это надо показать. */
   catalogProducts: number
   author: string
   skus: number[]
-  /**
-   * Названия выбранных книг.
-   *
-   * <p>Хранятся на странице, а не только здесь: подпись отбора уходит в шапку
-   * таблицы, а она живёт снаружи этого компонента.
-   */
-  pickedBooks: ProductOption[]
-  onPickedBooksChange: (books: ProductOption[]) => void
   onAuthorChange: (author: string) => void
   onSkusChange: (skus: number[]) => void
+  /**
+   * Названия выбранных книг — для подписи отбора снаружи компонента.
+   *
+   * <p>Необязателен: странице товаров названия не нужны, она не подписывает
+   * отбором ничего, кроме самой таблицы.
+   */
+  onBooksChange?: (books: ProductOption[]) => void
 }) {
   const [authors, setAuthors] = useState<string[]>([])
   const [books, setBooks] = useState<ProductOption[]>([])
+  const [picked, setPicked] = useState<ProductOption[]>([])
   const [bookQuery, setBookQuery] = useState('')
   const [booksLoading, setBooksLoading] = useState(false)
 
@@ -81,9 +88,44 @@ export default function OverviewFilters({
     }
   }, [accountId, bookQuery, catalogProducts, disabled])
 
-  // Отбор снимается только из этого компонента (сброс, выбор автора, «Все
-  // товары»), и каждый такой путь сам чистит список выбранных книг. Отдельный
-  // эффект на `skus` здесь не нужен: он обновлял бы родителя на каждый рендер.
+  /**
+   * Названия выбранных книг по их номерам.
+   *
+   * <p>Нужно после перезагрузки: номера пришли из адреса, а названий там нет —
+   * держать в ссылке весь каталог незачем. Запрос идёт, только когда чего-то не
+   * хватает, иначе каждая правка отбора дёргала бы каталог впустую.
+   */
+  useEffect(() => {
+    if (skus.length === 0) {
+      setPicked((prev) => (prev.length > 0 ? [] : prev))
+      return
+    }
+    const known = new Set(picked.map((b) => b.sku))
+    if (skus.every((s) => known.has(s))) return
+    let cancelled = false
+    getProductOptions(accountId, '', 50)
+      .then((list) => {
+        if (cancelled) return
+        setPicked((prev) => {
+          const have = new Set(prev.map((b) => b.sku))
+          const found = list.filter((b) => !have.has(b.sku) && skus.includes(b.sku))
+          return found.length > 0 ? [...prev, ...found] : prev
+        })
+      })
+      .catch(() => {
+        /* подписи не будет — на отчёт это не влияет */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [accountId, skus, picked])
+
+  // Имена нужны и снаружи: подпись отбора уходит в шапку таблицы, а она живёт на
+  // странице. Отдаём их только при изменении — иначе родитель перерисовывался бы
+  // на каждый рендер ребёнка.
+  useEffect(() => {
+    onBooksChange?.(picked)
+  }, [picked, onBooksChange])
 
   const authorOptions: SelectOption[] = [
     { value: '', label: 'Все авторы' },
@@ -102,15 +144,12 @@ export default function OverviewFilters({
   const toggleBook = (value: string) => {
     const number = Number(value)
     const exists = skus.includes(number)
-    const next = exists ? skus.filter((s) => s !== number) : [...skus, number]
-    onSkusChange(next)
+    onSkusChange(exists ? skus.filter((s) => s !== number) : [...skus, number])
     if (exists) {
-      onPickedBooksChange(pickedBooks.filter((b) => b.sku !== number))
+      setPicked((prev) => prev.filter((b) => b.sku !== number))
     } else {
       const book = books.find((b) => b.sku === number)
-      if (book) {
-        onPickedBooksChange([...pickedBooks.filter((b) => b.sku !== number), book])
-      }
+      if (book) setPicked((prev) => [...prev.filter((b) => b.sku !== number), book])
       if (author) onAuthorChange('')
     }
   }
@@ -118,11 +157,10 @@ export default function OverviewFilters({
   const reset = () => {
     onAuthorChange('')
     onSkusChange([])
-    onPickedBooksChange([])
+    setPicked([])
   }
 
-  const singleLabel =
-    skus.length === 1 ? pickedBooks.find((b) => b.sku === skus[0])?.name : undefined
+  const singleLabel = skus.length === 1 ? picked.find((b) => b.sku === skus[0])?.name : undefined
 
   return (
     <>
@@ -139,7 +177,7 @@ export default function OverviewFilters({
           onAuthorChange(value)
           if (value) {
             onSkusChange([])
-            onPickedBooksChange([])
+            setPicked([])
           }
         }}
         disabled={disabled}
@@ -164,7 +202,7 @@ export default function OverviewFilters({
         onChange={() => {
           // «Все товары» в списке снимает отбор целиком.
           onSkusChange([])
-          onPickedBooksChange([])
+          setPicked([])
         }}
         onToggle={toggleBook}
         disabled={disabled}

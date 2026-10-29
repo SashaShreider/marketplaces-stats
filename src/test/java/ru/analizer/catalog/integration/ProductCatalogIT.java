@@ -348,7 +348,7 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
 
         Long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
         SalesDynamicsReport one = productAnalytics.salesDynamics(
-                MARKETPLACE, accountIdOpt(), DAY, DAY, null, sku);
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, List.of(sku));
 
         assertThat(one.days()).isNotEmpty();
         assertThat(one.filter()).isEqualTo("SKU " + sku);
@@ -800,6 +800,54 @@ class ProductCatalogIT extends AbstractPostgresIntegrationTest {
         assertThat(sold.totalRows()).isEqualTo(all.totals().productsWithSales());
         assertThat(sold.rows()).allSatisfy(row -> assertThat(row.soldQuantity()).isPositive());
         assertThat(sold.totalRows()).isLessThan(all.totalRows());
+    }
+
+    @Test
+    @DisplayName("Отбор по товарам оставляет ровно выбранные SKU и сильнее автора")
+    void skuScopeSelectsOnlyChosenProducts() {
+        importCatalogAndFinance();
+
+        // Две книги из разных мест каталога: важно, что отбор не «первые N», а
+        // именно перечисленные номера.
+        List<Long> chosen = productAnalytics.productReport(
+                        MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500)
+                .rows().stream().limit(2).map(r -> r.sku()).toList();
+
+        ProductReport scoped = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500,
+                chosen);
+
+        assertThat(scoped.totalRows()).isEqualTo(2);
+        assertThat(scoped.rows()).extracting(r -> r.sku()).containsExactlyElementsOf(chosen);
+
+        // Заданные товары сильнее автора: имя внутри отбора не должно ничего
+        // добавлять и не должно обнулять список.
+        ProductReport withAuthor = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, "Сурцуков Анатолий", null, "SKU", null,
+                false, 0, 500, chosen);
+        assertThat(withAuthor.rows()).extracting(r -> r.sku()).containsExactlyElementsOf(chosen);
+    }
+
+    @Test
+    @DisplayName("Отбор по товарам сужает и динамику продаж")
+    void dynamicsRespectSkuScope() {
+        importCatalogAndFinance();
+
+        Long sku = FixtureAdapters.soldSkus(FINANCE_FIXTURE).getFirst();
+        SalesDynamicsReport one = productAnalytics.salesDynamics(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, List.of(sku));
+
+        // Подпись обязана называть отбор: иначе график по одному товару читается
+        // как график по всему магазину.
+        assertThat(one.filter()).isEqualTo("SKU " + sku);
+        ProductReport report = productAnalytics.productReport(
+                MARKETPLACE, accountIdOpt(), DAY, DAY, null, null, "SKU", null, false, 0, 500);
+        int expected = report.rows().stream()
+                .filter(r -> r.sku() == sku)
+                .mapToInt(ProductReport.ProductRow::soldQuantity)
+                .sum();
+        assertThat(one.days().stream().mapToInt(SalesDynamicsReport.SalesDay::sold).sum())
+                .isEqualTo(expected);
     }
 
     /** Доходы строк отчёта в заданном порядке — чтобы проверять направление сортировки. */
