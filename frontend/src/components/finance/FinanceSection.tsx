@@ -64,14 +64,18 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
                     aria-pressed={active}
                     title={active ? `Скрыть: ${cfg.label}` : `Показать: ${cfg.label}`}
                     className={cn(
-                      'text-[12.5px] font-bold transition-colors',
-                      // Активный показатель — своего цвета, выключенный серый.
-                      // Обводка и кружок-переключатель не нужны: сам цвет и есть
-                      // состояние, как в легенде графика.
-                      active ? 'hover:opacity-80' : 'text-slate-300 hover:text-slate-400',
+                      'flex items-center gap-1.5 text-[12.5px] font-bold transition-colors',
+                      // Текст всегда тёмный, а состояние читается по кружку: он
+                      // цветной у включённого показателя и серый у выключенного.
+                      // Красить сам текст в цвет серии значило бы спорить с
+                      // легендой графика, где подписи нейтральные.
+                      active ? 'text-slate-800 hover:text-slate-500' : 'text-slate-300 hover:text-slate-400',
                     )}
-                    style={active ? { color: cfg.color } : undefined}
                   >
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full transition-colors"
+                      style={{ background: active ? cfg.color : '#cbd5e1' }}
+                    />
                     {cfg.label}
                   </button>
                 )
