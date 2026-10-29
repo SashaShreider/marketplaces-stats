@@ -8,10 +8,16 @@ import Modal from '@/components/ui/Modal'
 import { SecondaryButton } from '@/components/ui/controls'
 import { cn } from '@/utils/cn'
 
-/** Что включено при открытии: все три линии денег и столбцы количества. */
+/**
+ * Что включено при открытии.
+ *
+ * <p>Расходы выключены: их сумма в разы больше продаж и прибыли, и линия
+ * расходов прижимала остальные к нижнему краю — по графику нельзя было прочитать
+ * ни форму продаж, ни прибыль. Включить их — один клик в легенде.
+ */
 const INITIAL: Record<SeriesKey, boolean> = {
   income: true,
-  expenses: true,
+  expenses: false,
   profit: true,
   qty: true,
 }
@@ -20,22 +26,15 @@ const INITIAL: Record<SeriesKey, boolean> = {
  * Динамика финансов за период.
  *
  * <p>Показатели включаются независимо, а не переключаются по одному: на одном
- * графике видно и продажи, и расходы с прибылью, и связь между ними очевидна —
- * тогда как режим «одна линия за раз» заставлял держать разницу в голове.
+ * графике видно и продажи, и прибыль, и связь между ними очевидна — тогда как
+ * режим «одна линия за раз» заставлял держать разницу в голове.
  *
  * <p>График и таблица — два разных способа смотреть: по графику видно форму
- * периода, по таблице — конкретные числа с расшифровкой расходов. Поэтому таблица
- * открывается отдельным окном почти на весь экран, а не подменяет график внутри
- * карточки: в карточке шириной в треть экрана одиннадцать колонок не помещаются.
+ * периода, по таблице — конкретные числа с расшифровкой расходов. Таблица
+ * открывается отдельным окном почти на весь экран: одиннадцать колонок в
+ * карточке не помещаются.
  */
-export default function FinanceSection({
-  days,
-  scope,
-}: {
-  days: DayFinance[]
-  /** Подпись периода и отбора: «01.09.2026 — 30.09.2026 · Сурцуков А.» */
-  scope?: string
-}) {
+export default function FinanceSection({ days }: { days: DayFinance[] }) {
   const [enabled, setEnabled] = useState<Record<SeriesKey, boolean>>(INITIAL)
   const [tableOpen, setTableOpen] = useState(false)
   const [page, setPage] = useState(0)
@@ -61,41 +60,10 @@ export default function FinanceSection({
         transition={{ duration: 0.45, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">
             Динамика финансов
           </h2>
-
-          <div className="order-last w-full sm:order-none sm:w-auto">
-            <div className="flex w-fit flex-wrap items-center gap-3">
-              {SERIES_ORDER.map((k) => {
-                const cfg = SERIES[k]
-                const active = enabled[k]
-                return (
-                  <button
-                    key={k}
-                    onClick={() => toggle(k)}
-                    aria-pressed={active}
-                    title={active ? `Скрыть: ${cfg.label}` : `Показать: ${cfg.label}`}
-                    className={cn(
-                      'flex items-center gap-1.5 text-[12.5px] font-bold transition-colors',
-                      // Текст всегда тёмный, а состояние читается по кружку: он
-                      // цветной у включённого показателя и серый у выключенного.
-                      // Красить сам текст в цвет серии значило бы спорить с
-                      // легендой графика, где подписи нейтральные.
-                      active ? 'text-slate-800 hover:text-slate-500' : 'text-slate-300 hover:text-slate-400',
-                    )}
-                  >
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full transition-colors"
-                      style={{ background: active ? cfg.color : '#cbd5e1' }}
-                    />
-                    {cfg.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
 
           <div className="ml-auto">
             <SecondaryButton
@@ -109,6 +77,38 @@ export default function FinanceSection({
           </div>
         </div>
 
+        {/* Легенда — своей строкой под названием, а не в одну с ним: рядом с
+            заголовком она сжималась на узком экране в нечитаемую полосу, а
+            перенос шёл посреди подписей. Здесь у неё есть вся ширина. */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-3">
+          {SERIES_ORDER.map((k) => {
+            const cfg = SERIES[k]
+            const active = enabled[k]
+            return (
+              <button
+                key={k}
+                onClick={() => toggle(k)}
+                aria-pressed={active}
+                title={active ? `Скрыть: ${cfg.label}` : `Показать: ${cfg.label}`}
+                className={cn(
+                  'flex items-center gap-1.5 text-[12.5px] font-bold transition-colors',
+                  // Текст всегда тёмный, а состояние читается по кружку: он
+                  // цветной у включённого показателя и серый у выключенного.
+                  // Красить сам текст в цвет серии значило бы спорить с
+                  // легендой графика, где подписи нейтральные.
+                  active ? 'text-slate-800 hover:text-slate-500' : 'text-slate-300 hover:text-slate-400',
+                )}
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full transition-colors"
+                  style={{ background: active ? cfg.color : '#cbd5e1' }}
+                />
+                {cfg.label}
+              </button>
+            )
+          })}
+        </div>
+
         <div className="mt-4">
           <FinanceChart days={days} enabled={enabled} />
         </div>
@@ -117,7 +117,6 @@ export default function FinanceSection({
       <Modal
         open={tableOpen}
         title="Аналитика по дням"
-        subtitle={scope}
         onClose={() => setTableOpen(false)}
         size="xl"
         footer={
