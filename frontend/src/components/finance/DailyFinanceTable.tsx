@@ -187,12 +187,15 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
     money('sales', 'Выручка', 'Продажи', (d) => d.sales),
     money('returns', 'Возвраты', 'Продажи', (d) => d.returns, { negative: true }),
     money('partners', 'Бонусы', 'Продажи', (d) => d.partners),
-    money('income', 'Продажи', 'Продажи', (d) => d.income, {
+    // Итог группы тоже называется «Итого», а не «Продажи»: одноимённая колонка
+    // внутри одноимённой группы читалась как «Продажи продаж» и не отвечала на
+    // вопрос «это сумма или ещё один показатель».
+    money('income', 'Итого', 'Продажи', (d) => d.income, {
       strong: true,
       csvLabel: 'Продажи, всего',
     }),
     ...expenseColumns,
-    money('expenses', 'Расходы', 'Расходы', (d) => d.expenses, {
+    money('expenses', 'Итого', 'Расходы', (d) => d.expenses, {
       negative: true,
       strong: true,
       csvLabel: 'Расходы, всего',
@@ -204,12 +207,10 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
       // занимал место в шапке, ничего не группируя.
       group: 'Прибыль',
       value: (d) => (
-        <span
-          className={cn(
-            'tnum text-[11px] font-extrabold',
-            d.profit >= 0 ? 'text-emerald-600' : 'text-rose-600',
-          )}
-        >
+        // Прибыль без цветовой оценки: зелёный читался как «хорошо», хотя
+        // прибыль в 200 ₽ при расходах в 500 000 — не достижение. Отрицательное
+        // значение по-прежнему с минусом, и это единственное, что нужно видеть.
+        <span className="tnum text-[11px] font-bold text-slate-800">
           {d.profit < 0 && '−'}
           {fmtMoneyBare(Math.abs(d.profit))}
         </span>
@@ -335,16 +336,7 @@ export default function DailyFinanceTable({
           }
           const value = totalOf(key)
           return (
-            <span
-              className={cn(
-                'tnum text-[11px] font-extrabold',
-                key === 'profit'
-                  ? value >= 0
-                    ? 'text-emerald-600'
-                    : 'text-rose-600'
-                  : 'text-slate-900',
-              )}
-            >
+            <span className="tnum text-[11px] font-extrabold text-slate-900">
               {isNegative(key) && value !== 0 && '−'}
               {fmtMoneyBare(Math.abs(value))}
             </span>
