@@ -226,6 +226,11 @@ public class CatalogFacts {
      * <p>Продажа — это строка операции с положительной ценой продажи; счётчик
      * «товаров с продажами» в отчёте считается по тому же правилу, поэтому цифры
      * отчёта и отбор совпадают.
+     *
+     * <p><b>TODO(#only-with-sales)</b> — интерфейс этот отбор больше не предлагает:
+     * автор и список товаров сужают список понятнее, а переключатель «Все / С
+     * продажами» дублировал вопрос «что показывать». Решить, оставлять ли условие и
+     * счётчик {@code productsWithSales}, — см. AnalyticsController.productReport.
      */
     private static String onlyWithSalesSql(boolean onlyWithSales) {
         if (!onlyWithSales) {

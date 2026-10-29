@@ -13,7 +13,6 @@ import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { useUrlState } from '@/features/navigation/urlState'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ProductSort, ProductSortOrder } from '@/types'
-import { cn } from '@/utils/cn'
 import { fmtMoney, fmtNum, grossProfit } from '@/utils/format'
 
 const PAGE_SIZE = 200
@@ -33,12 +32,6 @@ const NATURAL_ORDER: Record<ProductSort, ProductSortOrder> = {
   SKU: 'asc',
 }
 
-/** Отбор: все товары каталога или только те, у которых были продажи. */
-const SALES_FILTERS: { id: boolean; label: string }[] = [
-  { id: false, label: 'Все' },
-  { id: true, label: 'С продажами' },
-]
-
 export default function ProductsPage({
   account,
   range,
@@ -53,10 +46,9 @@ export default function ProductsPage({
   /** Состояние синхронизации для индикатора в верхней панели */
   onSyncState: (state: SyncState | null) => void
 }) {
-  // В адресе — только условия отбора: период (в шапке экрана), автор и товары.
-  // Критерий и направление сортировки, «только с продажами» и номер страницы —
-  // состояние страницы: это способ прочитать один и тот же отчёт, а не другое
-  // условие вопроса.
+  // В адресе — условия отбора: период, автор и товары. Критерий и направление
+  // сортировки и номер страницы — состояние страницы: это способ прочитать один и
+  // тот же отчёт, а не другое условие вопроса.
   const [author, setAuthor] = useUrlState<string>(
     (params) => params.get('author') ?? '',
     (value) => ({ author: value.trim() || null }),
@@ -73,11 +65,10 @@ export default function ProductsPage({
   )
   const [sort, setSort] = useState<ProductSort>('INCOME')
   const [order, setOrder] = useState<ProductSortOrder>('desc')
-  const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [page, setPage] = useState(0)
 
   // фильтры и порядок меняются — возвращаемся на первую страницу
-  useEffect(() => setPage(0), [author, skus, sort, order, onlyWithSales, range.from, range.to])
+  useEffect(() => setPage(0), [author, skus, sort, order, range.from, range.to])
 
   const fetchReport = useCallback(
     () =>
@@ -89,11 +80,10 @@ export default function ProductsPage({
         skus: skus.length ? skus : undefined,
         sort,
         order,
-        onlyWithSales,
         page,
         size: PAGE_SIZE,
       }),
-    [account.id, range.from, range.to, author, skus, sort, order, onlyWithSales, page],
+    [account.id, range.from, range.to, author, skus, sort, order, page],
   )
 
   /**
@@ -133,7 +123,26 @@ export default function ProductsPage({
 
   const header = (
     <PageHeader title="Товары">
-      <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
+      {/* Период стоит одной строкой с отбором, как на «Обзоре»: это условия одного
+          вопроса, и искать часть из них в шапке, а часть в карточке — лишняя
+          работа. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangePicker
+          from={range.from}
+          to={range.to}
+          onChange={onRangeChange}
+          compact
+          align="left"
+        />
+        <ScopeFilters
+          accountId={account.id}
+          author={author}
+          skus={skus}
+          onAuthorChange={setAuthor}
+          onSkusChange={setSkus}
+          catalogProducts={account.catalogProducts}
+        />
+      </div>
     </PageHeader>
   )
 
@@ -142,7 +151,7 @@ export default function ProductsPage({
   // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
   const profit = grossProfit(totals?.income ?? 0, totals?.expenses ?? 0)
-  const hasFilter = Boolean(author.trim() || skus.length > 0 || onlyWithSales)
+  const hasFilter = Boolean(author.trim() || skus.length > 0)
 
   return (
     <>
@@ -242,40 +251,9 @@ export default function ProductsPage({
             transition={{ duration: 0.45, delay: 0.25 }}
             className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           >
-            {/* Панель фильтров — те же списки, что на «Обзоре»: один способ задать
-                вопрос «про кого отчёт», а не два разных. */}
+            {/* Осталась только команда каталога: отбор стоит в шапке страницы,
+                одной строкой с периодом, и повторять его здесь незачем. */}
             <div className="flex flex-wrap items-center gap-2">
-              <ScopeFilters
-                accountId={account.id}
-                author={author}
-                skus={skus}
-                onAuthorChange={setAuthor}
-                onSkusChange={setSkus}
-                catalogProducts={account.catalogProducts}
-              />
-
-              <div className="flex rounded-full bg-slate-100 p-1">
-                {SALES_FILTERS.map((f) => (
-                  <button
-                    key={f.id ? 'sold' : 'all'}
-                    onClick={() => setOnlyWithSales(f.id)}
-                    title={f.id ? 'Только товары, у которых были продажи' : 'Все товары каталога'}
-                    className="relative rounded-full px-3.5 py-1.5 text-[12px] font-bold"
-                  >
-                    {onlyWithSales === f.id && (
-                      <motion.span
-                        layoutId="sales-pill"
-                        className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/70"
-                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                      />
-                    )}
-                    <span className={cn('relative z-10', onlyWithSales === f.id ? 'text-brand-700' : 'text-slate-500')}>
-                      {f.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
               <button
                 disabled={runner.busy}
                 onClick={() => runner.startCatalog()}
