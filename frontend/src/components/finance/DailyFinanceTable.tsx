@@ -524,7 +524,12 @@ export default function DailyFinanceTable({
     // В месячном виде первая колонка — не дата, а период: «Дата» над «Октябрь
     // 2026» читалась бы как ошибка, а не как сокращение.
     if (!byMonth) return built
-    return built.map((c, i) => (i === 0 ? { ...c, label: 'Месяц' } : c))
+    // Подпись неполного месяца — «01.10.2026 — 29.10.2026», а это в полтора раза
+    // шире любого числа в таблице. Без нижней границы обрезка съедала конец
+    // периода, и две разные строки выглядели одинаково. В компактном виде шрифт
+    // крупнее, поэтому и граница шире.
+    const monthWidth = compact ? 215 : 190
+    return built.map((c, i) => (i === 0 ? { ...c, label: 'Месяц', minWidth: monthWidth } : c))
   }, [compact, byMonth, days])
   const totals = useMemo(() => totalsOf(days), [days])
 

@@ -32,6 +32,15 @@ export interface DataColumn<T> {
   title?: (row: T) => string | undefined
   /** Подпись колонки в CSV, если она отличается от `label` */
   csvLabel?: string
+  /**
+   * Минимальная ширина в пикселях.
+   *
+   * <p>Нужна колонкам, чьё содержимое длиннее обычного числа: у «Месяц» это
+   * «01.10.2026 — 29.10.2026», и в общую ширину оно не помещается. Ручка
+   * перетаскивания и общий расчёт ширины при этом продолжают работать — это
+   * именно нижняя граница, а не жёсткий размер.
+   */
+  minWidth?: number
 }
 
 /**
@@ -147,7 +156,7 @@ export default function DataTable<T>({
   )
 
   const widthOf = useCallback(
-    (c: DataColumn<T>) => widths[c.key] ?? baseWidth,
+    (c: DataColumn<T>) => Math.max(c.minWidth ?? 0, widths[c.key] ?? baseWidth),
     [widths, baseWidth],
   )
 
@@ -166,11 +175,14 @@ export default function DataTable<T>({
       const next = { ...prev }
       for (const key of drag.keys) {
         const base = drag.start[key] ?? baseWidth
-        next[key] = Math.round(Math.min(MAX_COL_W, Math.max(MIN_COL_W, base + share)))
+        // Нижняя граница — не общий минимум, а собственный у колонки: у «Месяц»
+        // он шире, и общий MIN_COL_W обрезал бы подпись периода.
+        const min = columns.find((c) => c.key === key)?.minWidth ?? MIN_COL_W
+        next[key] = Math.round(Math.min(MAX_COL_W, Math.max(min, base + share)))
       }
       return next
     })
-  }, [baseWidth])
+  }, [baseWidth, columns])
 
   const onDragEnd = useCallback(() => {
     dragRef.current = null
@@ -181,7 +193,12 @@ export default function DataTable<T>({
 
   const startDrag = (keys: string[], clientX: number) => {
     const start: Record<string, number> = {}
-    for (const k of keys) start[k] = widths[k] ?? baseWidth
+    // Стартовая ширина берётся та же, что видна на экране: с учётом собственного
+    // минимума колонки, иначе первое же движение мышью сжало бы подпись периода.
+    for (const k of keys) {
+      const column = columns.find((c) => c.key === k)
+      start[k] = Math.max(column?.minWidth ?? 0, widths[k] ?? baseWidth)
+    }
     dragRef.current = { keys, startX: clientX, start }
     document.body.style.cursor = 'col-resize'
     window.addEventListener('mousemove', onDragMove)
