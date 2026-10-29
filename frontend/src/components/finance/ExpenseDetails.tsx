@@ -1,8 +1,27 @@
-import type { ExpenseCategory, ExpenseGroup } from '@/types'
+import { Fragment, useEffect, useState } from 'react'
+import { ChevronRight, Download } from 'lucide-react'
+import type { DateRange, ExpenseCategory, ExpenseGroup } from '@/types'
 import Modal from '@/components/ui/Modal'
-import { DetailRow } from '@/components/ui/controls'
+import { DetailRow, SecondaryButton } from '@/components/ui/controls'
+import { cn } from '@/utils/cn'
+import { downloadCsv, safeFilename, toCsv } from '@/utils/csv'
 import { fmtMoney2, fmtPercent } from '@/utils/format'
 import { orderedGroups } from '@/components/finance/SummaryCards'
+
+/** Округление перед выгрузкой: в CSV числа сырые и хвост плавающей точки виден. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+/** Процент в пунктах для CSV; пусто, если база нулевая. */
+function pct(value: number, base: number): number | null {
+  return base === 0 ? null : round2((value / base) * 100)
+}
+
+/** Составляющие статьи в порядке убывания суммы — том же, что в таблице. */
+function sortedItems(group: ExpenseGroup | null): ExpenseGroup['items'] {
+  return [...(group?.items ?? [])].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+}
 
 /**
  * Расшифровка одной статьи расходов по типам начислений.
@@ -83,40 +102,107 @@ export default function ExpenseGroupModal({
  *
  * <p>С прошлым периодом намеренно не сравнивается: отчёт считается за выбранный
  * период, и «стало лучше / хуже» без второго периода было бы выдумкой.
+ *
+ * <p>Статья раскрывается прямо в таблице: расшифровка остаётся рядом со своей
+ * суммой и с теми же колонками процентов, и не нужно закрывать одно окно, чтобы
+ * открыть другое.
  */
 export function ExpenseDetailsModal({
   open,
   breakdown,
   income,
   expenses,
+  range,
+  author,
+  skus,
   onClose,
-  onGroup,
 }: {
   open: boolean
   breakdown: { groups: ExpenseGroup[]; total: number } | undefined
   income: number
   expenses: number
+  range: DateRange
+  author: string
+  skus: number[]
   onClose: () => void
-  onGroup: (category: ExpenseCategory) => void
 }) {
+  const [expanded, setExpanded] = useState<ExpenseCategory | null>(null)
   const groups = orderedGroups(breakdown).filter((g) => g.amount !== 0)
   const total = Math.abs(breakdown?.total ?? 0) || expenses
   const totalShare = income === 0 ? undefined : total / income
+
+  useEffect(() => {
+    if (!open) setExpanded(null)
+  }, [open])
+
+  const exportCsv = () => {
+    const rows: (string | number | null)[][] = [
+      ['Статья расходов', 'Детализация', 'Сумма', 'От расходов, %', 'От доходов, %'],
+    ]
+    for (const g of groups) {
+      for (const item of sortedItems(g.group)) {
+        const amount = Math.abs(item.amount)
+        rows.push([
+          g.label,
+          item.description || item.name,
+          round2(amount),
+          pct(amount, total),
+          pct(amount, income),
+        ])
+      }
+      // Последняя строка статьи — её итог: по нему статью сверяют с карточкой.
+      rows.push([
+        g.label,
+        'Итого по статье',
+        round2(g.amount),
+        pct(g.amount, total),
+        pct(g.amount, income),
+      ])
+    }
+    rows.push([
+      'Всего расходов',
+      '',
+      round2(total),
+      total === 0 ? 0 : 100,
+      pct(total, income),
+    ])
+    downloadCsv(
+      safeFilename([
+        'Обзор',
+        'детализация-расходов',
+        `${range.from}_${range.to}`,
+        author ? `автор-${author}` : 'все-авторы',
+        skus.length ? `SKU-${skus.join('-')}` : 'все-товары',
+      ]),
+      toCsv(rows),
+    )
+  }
 
   return (
     <Modal
       open={open}
       title="Детализация расходов"
-      subtitle="Доля каждой статьи — от доходов и от всех расходов периода."
       onClose={onClose}
       size="lg"
       footer={
-        <button
-          onClick={onClose}
-          className="rounded-xl border border-slate-200 px-4 py-2 text-[12.5px] font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
-        >
-          Закрыть
-        </button>
+        <>
+          <div className="mr-auto">
+            <SecondaryButton
+              onClick={exportCsv}
+              disabled={groups.length === 0}
+              title="Выгрузить детализацию в CSV"
+            >
+              <Download size={13} />
+              Экспорт в CSV
+            </SecondaryButton>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 px-4 py-2 text-[12.5px] font-bold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
+          >
+            Закрыть
+          </button>
+        </>
       }
     >
       <div className="overflow-hidden rounded-xl border border-slate-200/80">
@@ -147,29 +233,82 @@ export function ExpenseDetailsModal({
                 </td>
               </tr>
             )}
-            {groups.map((g) => (
-              <tr
-                key={g.category}
-                onClick={() => onGroup(g.category)}
-                title={`Расшифровка статьи «${g.label}»`}
-                className="group cursor-pointer transition-colors hover:bg-brand-50/60"
-              >
-                <td className="border-b border-slate-100 px-3 py-2 text-left">
-                  <span className="text-[12.5px] font-semibold text-slate-700 group-hover:text-brand-700">
-                    {g.label}
-                  </span>
-                </td>
-                <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12.5px] font-bold text-slate-700">
-                  {fmtMoney2(g.amount)}
-                </td>
-                <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12px] font-semibold text-slate-500">
-                  {fmtPercent(total === 0 ? 0 : g.amount / total)}
-                </td>
-                <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12px] font-semibold text-slate-500">
-                  {income === 0 ? '—' : fmtPercent(g.amount / income)}
-                </td>
-              </tr>
-            ))}
+            {groups.map((g) => {
+              const isOpen = expanded === g.category
+              const items = sortedItems(g.group)
+              return (
+                <Fragment key={g.category}>
+                  <tr
+                    onClick={() => setExpanded(isOpen ? null : g.category)}
+                    title={`Расшифровка статьи «${g.label}»`}
+                    aria-expanded={isOpen}
+                    className={cn(
+                      'group cursor-pointer transition-colors hover:bg-brand-50/60',
+                      isOpen && 'bg-brand-50/40',
+                    )}
+                  >
+                    <td className="border-b border-slate-100 px-3 py-2 text-left">
+                      <span className="flex items-center gap-1.5">
+                        <ChevronRight
+                          size={12}
+                          className={cn(
+                            'shrink-0 text-slate-400 transition-transform group-hover:text-brand-600',
+                            isOpen && 'rotate-90 text-brand-600',
+                          )}
+                        />
+                        <span className="text-[12.5px] font-semibold text-slate-700 group-hover:text-brand-700">
+                          {g.label}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12.5px] font-bold text-slate-700">
+                      {fmtMoney2(g.amount)}
+                    </td>
+                    <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12px] font-semibold text-slate-500">
+                      {fmtPercent(total === 0 ? 0 : g.amount / total)}
+                    </td>
+                    <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12px] font-semibold text-slate-500">
+                      {income === 0 ? '—' : fmtPercent(g.amount / income)}
+                    </td>
+                  </tr>
+
+                  {isOpen &&
+                    (items.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="border-b border-slate-100 bg-slate-50/70 px-3 py-3 pl-9 text-[11.5px] font-medium text-slate-500"
+                        >
+                          По этой статье расходов за период не было.
+                        </td>
+                      </tr>
+                    ) : (
+                      items.map((item, i) => (
+                        <tr
+                          key={`${item.typeId ?? 'none'}-${i}`}
+                          className="bg-slate-50/70"
+                        >
+                          <td className="border-b border-slate-100 px-3 py-2 pl-9 text-left">
+                            <span className="text-[12px] font-medium text-slate-600">
+                              {item.description || item.name}
+                            </span>
+                          </td>
+                          <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[12px] font-semibold text-slate-600">
+                            {item.amount < 0 ? '−' : item.amount > 0 ? '+' : ''}
+                            {fmtMoney2(Math.abs(item.amount))}
+                          </td>
+                          <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[11.5px] font-semibold text-slate-500">
+                            {fmtPercent(total === 0 ? 0 : Math.abs(item.amount) / total)}
+                          </td>
+                          <td className="tnum border-b border-slate-100 px-3 py-2 text-right text-[11.5px] font-semibold text-slate-500">
+                            {income === 0 ? '—' : fmtPercent(Math.abs(item.amount) / income)}
+                          </td>
+                        </tr>
+                      ))
+                    ))}
+                </Fragment>
+              )
+            })}
           </tbody>
           <tfoot>
             <tr>

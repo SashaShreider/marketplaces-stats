@@ -169,13 +169,10 @@ export default function OverviewPage({
         breakdown={report?.expenseBreakdown}
         income={totals.income}
         expenses={totals.expenses}
+        range={range}
+        author={author}
+        skus={skus}
         onClose={() => setDetailsOpen(false)}
-        onGroup={(category) => {
-          // Из детализации сразу в расшифровку статьи: иначе пришлось бы закрыть
-          // окно, найти карточку расходов и кликнуть там по той же статье.
-          setDetailsOpen(false)
-          setGroup(category)
-        }}
       />
     </>
   )
