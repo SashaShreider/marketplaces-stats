@@ -281,6 +281,10 @@ export function exportDailyCsv(days: DayFinance[]): void {
  * пяти колонках занимает столько же места, сколько сами данные, а делить в ней
  * нечего — по одной колонке на смысл.
  *
+ * <p>Размер текста в ячейках не задан: его держит сама таблица
+ * ({@code textSize="large"}), иначе пришлось бы повторять `text-[12.5px]` в
+ * каждой колонке.
+ *
  * <p>Продажи и расходы здесь — итоговые значения дня (`income`, `expenses`), а не
  * сумма статей: статья может вернуться плюсом, и складывать её с расходами
  * значило бы показать не то, что в подробном виде.
@@ -294,7 +298,7 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
       value: (d) => (
         <span
           className={cn(
-            'tnum text-[11px] font-bold',
+            'tnum font-bold',
             d.state === 'missing' || d.state === 'failed'
               ? 'text-slate-400'
               : d.state === 'provisional'
@@ -313,7 +317,7 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
       key: 'sold',
       label: 'Продано, шт',
       value: (d) => (
-        <span className="tnum text-[11px] font-semibold text-slate-700">{fmtNum(d.soldQty)}</span>
+        <span className="tnum font-semibold text-slate-700">{fmtNum(d.soldQty)}</span>
       ),
       csv: (d) => d.soldQty,
     },
@@ -321,7 +325,7 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
       key: 'returned',
       label: 'Возвращено, шт',
       value: (d) => (
-        <span className="tnum text-[11px] font-semibold text-slate-700">
+        <span className="tnum font-semibold text-slate-700">
           {fmtNum(d.returnedQty)}
         </span>
       ),
@@ -331,7 +335,7 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
       key: 'income',
       label: 'Продажи, ₽',
       value: (d) => (
-        <span className="tnum text-[11px] font-extrabold text-slate-900">{fmtMoneyBare(d.income)}</span>
+        <span className="tnum font-extrabold text-slate-900">{fmtMoneyBare(d.income)}</span>
       ),
       csv: (d) => d.income,
     },
@@ -339,7 +343,7 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
       key: 'expenses',
       label: 'Расходы, ₽',
       value: (d) => (
-        <span className="tnum text-[11px] font-semibold text-slate-700">
+        <span className="tnum font-semibold text-slate-700">
           {d.expenses !== 0 && '−'}
           {fmtMoneyBare(Math.abs(d.expenses))}
         </span>
@@ -350,7 +354,7 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
       key: 'profit',
       label: 'Прибыль, ₽',
       value: (d) => (
-        <span className="tnum text-[11px] font-bold text-slate-800">
+        <span className="tnum font-bold text-slate-800">
           {d.profit < 0 && '−'}
           {fmtMoneyBare(Math.abs(d.profit))}
         </span>
@@ -420,20 +424,21 @@ export default function DailyFinanceTable({
       pageSize={PAGE_SIZE}
       page={page}
       onPageChange={onPageChange}
+      // Компактный вид — крупнее текст: колонок пять, места хватает. Подробный
+      // остаётся плотным, иначе тринадцать колонок не влезают по ширине.
+      textSize={compact ? 'large' : 'normal'}
       footer={{
         label: 'Итого',
         value: (c) => {
           const key = c.key
           if (key === 'sold' || key === 'returned') {
-            return (
-              <span className="tnum text-[11px] font-extrabold text-slate-900">
-                {fmtNum(totalOf(key))}
-              </span>
-            )
+            // Размер текста не задан: итог наследует его от ячейки таблицы, и в
+            // компактном виде он такой же крупный, как строки над ним.
+            return <span className="tnum font-extrabold text-slate-900">{fmtNum(totalOf(key))}</span>
           }
           const value = totalOf(key)
           return (
-            <span className="tnum text-[11px] font-extrabold text-slate-900">
+            <span className="tnum font-extrabold text-slate-900">
               {isNegative(key) && value !== 0 && '−'}
               {fmtMoneyBare(Math.abs(value))}
             </span>

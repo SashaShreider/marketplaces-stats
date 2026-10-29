@@ -88,6 +88,7 @@ export default function DataTable<T>({
   pageSize,
   page,
   onPageChange,
+  textSize = 'normal',
 }: {
   rows: T[]
   columns: DataColumn<T>[]
@@ -101,6 +102,8 @@ export default function DataTable<T>({
   /** Текущая страница с нуля (управляемая пагинация) */
   page?: number
   onPageChange?: (page: number) => void
+  /** `large` — крупнее текст шапки и ячеек; для таблиц с малым числом колонок */
+  textSize?: 'normal' | 'large'
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [wrapW, setWrapW] = useState(0)
@@ -225,20 +228,31 @@ export default function DataTable<T>({
   // не остаётся.
   const HEAD_ROW_H = 24
 
+  // Размер текста. Подробный вид плотный: тринадцать колонок должны влезть по
+  // ширине. В компактном их пять, места хватает — и более крупный текст читается
+  // легче, ради этого режим и включают.
+  const large = textSize === 'large'
+
   // Ячейка шапки не обрезает содержимое сама.
   //
   // <p>`overflow-hidden` на липком элементе ломает `position: sticky` в Chromium:
   // шапка перестаёт липнуть и уезжает вместе с данными. Поэтому обрезка с
   // многоточием живёт на вложенном `span`, а сама ячейка остаётся `visible`.
-  const thCls =
-    'border-b border-r border-slate-300 bg-slate-50 px-2 py-0 align-middle text-[9px] font-bold leading-none text-slate-500 last:border-r-0'
-  const thGroupCls =
-    'border-b border-r border-slate-300 bg-slate-100 px-2 py-0 align-middle text-[9px] font-bold leading-none text-slate-600 last:border-r-0'
+  const thCls = cn(
+    'border-b border-r border-slate-300 bg-slate-50 px-2 py-0 align-middle font-bold leading-none text-slate-500 last:border-r-0',
+    large ? 'text-[10.5px]' : 'text-[9px]',
+  )
+  const thGroupCls = cn(
+    'border-b border-r border-slate-300 bg-slate-100 px-2 py-0 align-middle font-bold leading-none text-slate-600 last:border-r-0',
+    large ? 'text-[10.5px]' : 'text-[9px]',
+  )
   /** Обрезка подписи: единственное место, где текст может не поместиться. */
   const thTextCls = 'block truncate'
   // Строки тела чуть выше прежнего: 4px отступа сверху и снизу.
-  const tdCls =
-    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-1 align-middle text-[11px] leading-tight last:border-r-0'
+  const tdCls = cn(
+    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-1 align-middle leading-tight last:border-r-0',
+    large ? 'text-[12.5px]' : 'text-[11px]',
+  )
 
   /** Ручка перетаскивания ширины. */
   const Handle = ({ keys }: { keys: string[] }) => (
@@ -369,6 +383,7 @@ export default function DataTable<T>({
                         // должен ехать вместе с колонками, иначе «Итого» стоит
                         // на месте, пока над ним прокручиваются чужие числа.
                         'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 py-1 last:border-r-0',
+                        large ? 'text-[12.5px]' : 'text-[11px]',
                         (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
                       )}
                     >
