@@ -121,30 +121,7 @@ export default function ProductsPage({
     return () => onSyncState(null)
   }, [auto.state, onSyncState])
 
-  const header = (
-    <PageHeader title="Товары">
-      {/* Период стоит одной строкой с отбором, как на «Обзоре»: это условия одного
-          вопроса, и искать часть из них в шапке, а часть в карточке — лишняя
-          работа. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <DateRangePicker
-          from={range.from}
-          to={range.to}
-          onChange={onRangeChange}
-          compact
-          align="left"
-        />
-        <ScopeFilters
-          accountId={account.id}
-          author={author}
-          skus={skus}
-          onAuthorChange={setAuthor}
-          onSkusChange={setSkus}
-          catalogProducts={account.catalogProducts}
-        />
-      </div>
-    </PageHeader>
-  )
+  const header = <PageHeader title="Товары" />
 
   const catalogMissing = report ? !report.catalog.loaded : false
   const totals = report?.totals
@@ -251,9 +228,27 @@ export default function ProductsPage({
             transition={{ duration: 0.45, delay: 0.25 }}
             className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           >
-            {/* Осталась только команда каталога: отбор стоит в шапке страницы,
-                одной строкой с периодом, и повторять его здесь незачем. */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Заголовок нужен, потому что в этой же колонке ниже стоит таблица:
+                без него непонятно, к чему относится кнопка обновления каталога. */}
+            <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">Каталог</h2>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <DateRangePicker
+                from={range.from}
+                to={range.to}
+                onChange={onRangeChange}
+                compact
+                align="left"
+              />
+              <ScopeFilters
+                accountId={account.id}
+                author={author}
+                skus={skus}
+                onAuthorChange={setAuthor}
+                onSkusChange={setSkus}
+                catalogProducts={account.catalogProducts}
+              />
+
               <button
                 disabled={runner.busy}
                 onClick={() => runner.startCatalog()}
