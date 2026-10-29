@@ -45,6 +45,7 @@ export default function StatCard({
   tone,
   delay,
   size = 'md',
+  className,
 }: {
   label: string
   /** Объяснение подписи, если её нельзя прочитать буквально */
@@ -63,6 +64,8 @@ export default function StatCard({
   /** Задержка появления, в секундах */
   delay: number
   size?: 'md' | 'lg'
+  /** Место карточки в сетке: широкие карточки занимают две колонки */
+  className?: string
 }) {
   const large = size === 'lg'
   return (
@@ -74,7 +77,7 @@ export default function StatCard({
           ? { duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }
           : { duration: 0.4, delay }
       }
-      className={cn('rounded-2xl border', large ? 'p-5' : 'p-4', tone)}
+      className={cn('rounded-2xl border', large ? 'p-5' : 'p-4', tone, className)}
     >
       <div className={cn('flex items-center', large ? 'gap-2.5' : 'gap-1.5')}>
         {icon && (

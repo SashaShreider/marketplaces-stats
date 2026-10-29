@@ -14,6 +14,7 @@ import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ExpenseCategory } from '@/types'
+import { cn } from '@/utils/cn'
 import { sumDays } from '@/utils/format'
 
 const EMPTY_TOTALS = sumDays([])
@@ -122,9 +123,16 @@ export default function OverviewPage({
 
       {!report ? (
         !error && (
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="animate-pulse-soft h-[196px] rounded-2xl bg-white/80 ring-1 ring-slate-200/60" />
+              <div
+                key={i}
+                className={cn(
+                  'animate-pulse-soft h-[168px] rounded-2xl bg-white/80 ring-1 ring-slate-200/60',
+                  i === 1 && 'md:order-3 md:col-span-2 xl:order-2',
+                  i === 2 && 'md:order-2 xl:order-3',
+                )}
+              />
             ))}
           </div>
         )

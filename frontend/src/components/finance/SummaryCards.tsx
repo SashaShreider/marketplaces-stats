@@ -99,6 +99,11 @@ function Row({
 /**
  * Три карточки отчёта: доходы, расходы и прибыль.
  *
+ * <p>Расходы занимают вдвое больше места, чем соседние карточки: статей шесть, и
+ * в узкой колонке они превращались в длинный список. На широком экране карточка
+ * стоит в середине и занимает две колонки из четырёх, на среднем — идёт отдельной
+ * строкой под двумя узкими.
+ *
  * <p>В расходах — ровно шесть статей, и каждая раскрывается по клику: сумма без
  * расшифровки непроверяема. Список задан здесь, а не приходит из ответа, чтобы
  * порядок строк не зависел от того, какие статьи были в периоде.
@@ -128,11 +133,12 @@ export default function SummaryCards({
   const groups = orderedGroups(breakdown)
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <StatCard
         size="lg"
         delay={0.08}
         label="Доходы"
+        className="md:order-1"
         value={<AnimatedNumber value={totals.income} />}
         tone="border-emerald-200/60 bg-gradient-to-b from-emerald-50/90 to-emerald-50/40"
         iconBg="bg-emerald-500/15 text-emerald-600"
@@ -147,19 +153,25 @@ export default function SummaryCards({
         size="lg"
         delay={0.15}
         label="Расходы"
+        className="md:order-3 md:col-span-2 xl:order-2"
         value={<AnimatedNumber value={totals.expenses} />}
         tone="border-rose-200/60 bg-gradient-to-b from-rose-50/90 to-rose-50/40"
         iconBg="bg-rose-500/15 text-rose-500"
         icon={<TrendingDown size={17} strokeWidth={2.5} />}
       >
-        {groups.map((g) => (
-          <Row
-            key={g.category}
-            label={g.label}
-            value={g.amount}
-            onClick={() => onExpenseGroup(g.category)}
-          />
-        ))}
+        {/* Две строки по три статьи: карточка вдвое шире соседних, и в одну
+            колонку шесть подписей растягивали её по высоте. На узком экране
+            колонок меньше — там важнее читаемость подписей. */}
+        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2 md:grid-cols-3">
+          {groups.map((g) => (
+            <Row
+              key={g.category}
+              label={g.label}
+              value={g.amount}
+              onClick={() => onExpenseGroup(g.category)}
+            />
+          ))}
+        </div>
         <button
           onClick={onExpenseDetails}
           className="mt-1.5 flex w-full items-center justify-between gap-1 border-t border-slate-200/50 pt-2.5 text-[11.5px] font-bold text-brand-600 transition-colors hover:text-brand-700"
@@ -173,6 +185,7 @@ export default function SummaryCards({
         size="lg"
         delay={0.22}
         label="Прибыль"
+        className="md:order-2 xl:order-3"
         value={<AnimatedNumber value={totals.profit} />}
         tone="border-brand-200/60 bg-gradient-to-b from-brand-50/90 to-brand-50/40"
         iconBg="bg-brand-500/15 text-brand-600"
