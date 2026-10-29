@@ -143,8 +143,8 @@ export default function SummaryCards({
         label="Продажи"
         className="md:order-1"
         value={<AnimatedNumber value={totals.income} />}
-        tone="border-emerald-200/60 bg-gradient-to-b from-emerald-50/90 to-emerald-50/40"
-        iconBg="bg-emerald-500/15 text-emerald-600"
+        tone="border-brand-200/60 bg-gradient-to-b from-brand-50/90 to-brand-50/40"
+        iconBg="bg-brand-500/15 text-brand-600"
         icon={<TrendingUp size={17} strokeWidth={2.5} />}
       >
         <Row label="Выручка" value={totals.sales} />
@@ -211,8 +211,8 @@ export default function SummaryCards({
         label="Прибыль"
         className="md:order-2 xl:order-3"
         value={<AnimatedNumber value={totals.profit} />}
-        tone="border-brand-200/60 bg-gradient-to-b from-brand-50/90 to-brand-50/40"
-        iconBg="bg-brand-500/15 text-brand-600"
+        tone="border-emerald-200/60 bg-gradient-to-b from-emerald-50/90 to-emerald-50/40"
+        iconBg="bg-emerald-500/15 text-emerald-600"
         icon={<Wallet size={17} strokeWidth={2.5} />}
       >
         <Row label="Продажи" value={totals.income} />

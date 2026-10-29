@@ -53,7 +53,7 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
           </h2>
 
           <div className="order-last w-full sm:order-none sm:w-auto">
-            <div className="flex w-fit flex-wrap items-center gap-1 rounded-full bg-slate-100 p-1">
+            <div className="flex w-fit flex-wrap items-center gap-3">
               {SERIES_ORDER.map((k) => {
                 const cfg = SERIES[k]
                 const active = enabled[k]
@@ -64,24 +64,15 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
                     aria-pressed={active}
                     title={active ? `Скрыть: ${cfg.label}` : `Показать: ${cfg.label}`}
                     className={cn(
-                      'relative rounded-full px-3 py-1.5 text-[12.5px] font-bold transition-colors',
-                      active ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600',
+                      'text-[12.5px] font-bold transition-colors',
+                      // Активный показатель — своего цвета, выключенный серый.
+                      // Обводка и кружок-переключатель не нужны: сам цвет и есть
+                      // состояние, как в легенде графика.
+                      active ? 'hover:opacity-80' : 'text-slate-300 hover:text-slate-400',
                     )}
+                    style={active ? { color: cfg.color } : undefined}
                   >
-                    {active && (
-                      <motion.span
-                        layoutId={`series-${k}`}
-                        className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/70"
-                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                      />
-                    )}
-                    <span className="relative z-10 flex items-center gap-1.5">
-                      <span
-                        className="h-2 w-2 rounded-full transition-opacity"
-                        style={{ background: cfg.color, opacity: active ? 1 : 0.3 }}
-                      />
-                      {cfg.label}
-                    </span>
+                    {cfg.label}
                   </button>
                 )
               })}

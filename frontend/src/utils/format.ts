@@ -242,8 +242,10 @@ export function niceMax(v: number): number {
  * дневных суммах около 8 000 график занимал нижнюю десятую часть: линия шла по
  * низу, а верхние три четверти оставались пустыми.
  *
- * <p>Шаг — тоже круглое число (1 / 2 / 2.5 / 5 × 10^k), поэтому подписи выходят
- * вида 0, 2 000, 4 000, а не 1 837,42.
+ * <p>Шаг подбирается из ряда 1 / 2 / 2.5 / 5 × 10^k так, чтобы линий сетки было
+ * около {@code intervals}: округление «вверх до ближайшего круглого» давало всего
+ * два деления (0, 20 000, 40 000) — по такому графику не прочитать, на каком
+ * уровне день между отметками.
  *
  * @param min       минимум данных; отрицательный (убыток) расширяет ось вниз
  * @param max       максимум данных
@@ -254,31 +256,68 @@ export function niceScale(
   max: number,
   intervals = 4,
 ): { min: number; max: number; ticks: number[] } {
-  // Ноль всегда входит в ось: столбцы и линии читаются от общей базовой линии,
-  // и «ноль не на нуле» выглядел бы как ошибка масштаба.
   const lo = Math.min(0, min)
   const hi = Math.max(0, max)
   if (!Number.isFinite(hi) || !Number.isFinite(lo) || hi - lo < 1e-9) {
     return { min: 0, max: 1, ticks: [0, 1] }
   }
-  const rawStep = (hi - lo) / Math.max(1, intervals)
-  const p = Math.pow(10, Math.floor(Math.log10(rawStep)))
-  const f = rawStep / p
-  const mult = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10
-  const step = mult * p
-  // Отрицательная часть оси — только если убыток заметный. Дневной минус в
-  // сотню рублей при шкале в десятки тысяч иначе отрезал бы четверть графика
-  // под пустое поле: −100 не повод рисовать отметку −10 000.
-  const niceMin = lo < 0 && lo > -step * 0.25 ? 0 : Math.floor(lo / step) * step
-  const niceHi = Math.ceil(hi / step) * step
+  const target = Math.max(1, Math.round(intervals))
+
+  /**
+   * Шаг сетки под верхнюю часть оси.
+   *
+   * <p>Считается по положительной части, а не по всему размаху: иначе один
+   * убыточный день на сотню рублей при продажах в десятки тысяч удваивал шаг, и
+   * вместо отметок через 5 000 появлялись через 10 000 — график терял точность
+   * из-за дня, который на нём неразличим.
+   */
+  const top = (step: number) => Math.ceil(hi / step) * step
+
+  const p = Math.pow(10, Math.floor(Math.log10(hi / target)))
+  const candidates: number[] = []
+  for (const decade of [0.1, 1, 10]) {
+    for (const mult of [1, 2, 2.5, 5]) candidates.push(mult * p * decade)
+  }
+  candidates.sort((a, b) => a - b)
+
+  /**
+   * Шаг, дающий ближайшее к `target` число промежутков сверху.
+   *
+   * <p>Важно брать не «первый подходящий», а именно ближайший: сетка должна
+   * быть плотной (0, 10 000, 20 000, 30 000, 40 000), но не превращаться в
+   * частокол из двух десятков линий.
+   */
+  let step = candidates[0]
+  let bestDiff = Infinity
+  for (const candidate of candidates) {
+    const count = Math.round(top(candidate) / candidate)
+    const diff = Math.abs(count - target)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      step = candidate
+    }
+  }
+
+  /**
+   * Отрицательная часть — целыми шагами вниз, и только когда убыток на неё
+   * заслуживает.
+   *
+   * <p>Полшага ниже нуля даёт одну «минусовую» отметку: её достаточно, чтобы
+   * убыток читался как убыток. Раздувать ось на весь −10 000 из-за дня в −200
+   * бессмысленно — там разница всё равно не видна, а места уходит четверть.
+   */
+  const stepsDown = lo < 0 ? Math.ceil(Math.abs(lo) / step) : 0
+  const from = -stepsDown * step
+  const to = top(step)
+
+  const count = Math.round((to - from) / step)
   const ticks: number[] = []
   // Считаем по индексу, а не накоплением: иначе ошибка плавающей точки даёт
   // подпись «7 999,999» вместо «8 000».
-  const count = Math.round((niceHi - niceMin) / step)
   for (let i = 0; i <= count; i++) {
-    ticks.push(Math.round((niceMin + i * step) * 1e6) / 1e6)
+    ticks.push(Math.round((from + i * step) * 1e6) / 1e6)
   }
-  return { min: niceMin, max: niceHi, ticks }
+  return { min: from, max: to, ticks }
 }
 
 export function clamp(v: number, min: number, max: number): number {

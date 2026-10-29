@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { DayFinance } from '@/types'
 import { chartScales, tooltipPosition, useChartWidth } from '@/components/finance/barChartBase'
@@ -29,28 +29,20 @@ export const SERIES: Record<
   income: { label: 'Продажи, ₽', short: 'Продажи', color: '#3b6de8', money: true, get: (d) => d.income },
   expenses: { label: 'Расходы, ₽', short: 'Расходы', color: '#f43f5e', money: true, get: (d) => d.expenses },
   profit: { label: 'Прибыль, ₽', short: 'Прибыль', color: '#10b981', money: true, get: (d) => d.profit },
-  qty: { label: 'Продажи, шт', short: 'Продажи, шт', color: '#8b5e3c', money: false, get: (d) => d.soldQty },
+  qty: { label: 'Продажи, шт', short: 'Продажи, шт', color: '#f59e0b', money: false, get: (d) => d.soldQty },
 }
 
 /** Порядок в легенде: линии, затем столбцы. */
 export const SERIES_ORDER: SeriesKey[] = ['income', 'expenses', 'profit', 'qty']
-
-/**
- * С какого размера периода точки на линиях перестают рисоваться.
- *
- * <p>На длинном периоде точки сливаются в пунктир и закрывают саму линию. Тридцать
- * дней — граница, после которой столбик дня уже тоньше точки.
- */
-const DOTS_MAX_DAYS = 30
 
 const H = 340
 const PAD_R = 14
 const PAD_T = 20
 const PAD_B = 34
 /** Ширина колонки под рублёвую шкалу. */
-const PAD_L_MONEY = 66
+const PAD_L_MONEY = 74
 /** Ширина колонки под шкалу штук — левее рублёвой, как в кабинетах маркетплейсов. */
-const PAD_L_QTY = 44
+const PAD_L_QTY = 46
 
 /**
  * Гладкая линия без выбросов за пределы поля.
@@ -123,13 +115,12 @@ function TipRow({
   unit?: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-[2.5px]">
-      <span className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+    <div className="flex items-center justify-between gap-4 py-[2px]">
+      <span className={cn('text-[11.5px]', bold ? 'font-bold text-slate-700' : 'font-medium text-slate-500')}>
         {label}
       </span>
       <span
-        className={cn('tnum text-[12px]', bold ? 'font-extrabold' : 'font-semibold')}
+        className={cn('tnum text-[11.5px]', bold ? 'font-extrabold' : 'font-semibold')}
         style={{ color: value < 0 ? '#e11d48' : color }}
       >
         {unit ? `${fmtNum(value)} ${unit}` : fmtMoney(value)}
@@ -168,7 +159,7 @@ export default function FinanceChart({
     }
   }
   // Немного воздуха сверху: пик не должен упираться в край поля.
-  const moneyScale = niceScale(moneyMin, moneyMax * 1.06, 4)
+  const moneyScale = niceScale(moneyMin, moneyMax * 1.06, 5)
   const moneyAxes = chartScales({
     count: n,
     width,
@@ -185,16 +176,14 @@ export default function FinanceChart({
   // Второй осью, а не общим с деньгами: сорок штук и сорок тысяч рублей — разные
   // величины, и одна шкала на двоих сделала бы столбцы нечитаемыми.
   //
-  // Столбцы растут от нулевой линии рублей, а не от низа поля: так «0 шт» и
-  // «0 ₽» — одна и та же линия, и столбик дня читается против той же базовой
-  // отметки, что и линия прибыли. Если у прибыли есть отрицательные дни, ниже
-  // нуля остаётся место только для линии, столбцы туда не спускаются.
+  // Считается от низа поля, а не от нулевой линии рублей: у денег бывают
+  // отрицательные дни (убыток), и если привязывать штуки к той же базе, столбцы
+  // приподнимались бы вместе с уходом оси в минус. Количество всегда начинается
+  // от начала отсчёта — ноль штук у нижней границы.
   const qtyMax = showQty ? Math.max(...days.map((d) => d.soldQty), 0) : 0
-  const qtyScale = niceScale(0, qtyMax * 1.06, 4)
-  const qtyZeroY = moneyAxes.y(0)
-  const qtyTopY = PAD_T
+  const qtyScale = niceScale(0, qtyMax * 1.06, 5)
   const yQty = (value: number) =>
-    qtyZeroY - (clamp(value, 0, qtyScale.max) / (qtyScale.max || 1)) * (qtyZeroY - qtyTopY)
+    PAD_T + innerH * (1 - clamp(value, 0, qtyScale.max) / (qtyScale.max || 1))
 
   const barW = clamp(slot * 0.5, 1.5, 18)
   const labelStep = Math.max(1, Math.ceil(n / 10))
@@ -211,7 +200,7 @@ export default function FinanceChart({
           showQty ? yQty(days[hover].soldQty) : Number.POSITIVE_INFINITY,
         )
 
-  const TIP_W = 252
+  const TIP_W = 226
   const TIP_H = 200
   const { left: tipLeft, top: tipTop } = tooltipPosition({
     hoverX,
@@ -233,13 +222,12 @@ export default function FinanceChart({
 
   /** Общая база рисунка: от неё растут столбцы и в ней сходятся линии. */
   const zeroY = yMoney(0)
-  const showDots = n <= DOTS_MAX_DAYS && n > 0
 
   return (
     <div ref={wrapRef} className="relative w-full select-none">
       <svg width={width} height={H} className="block">
-        {/* сетка и рублёвая шкала: без включённых денежных линий подписей нет —
-            «0 ₽ … 1 ₽» на пустой оси читается как сломанный масштаб */}
+        {/* сетка пунктиром: сплошные линии читаются как ещё одна серия данных, а
+            это всего лишь разметка. Нулевая линия плотнее остальных — это база. */}
         {moneyScale.ticks.map((v, i) => (
           <g key={`grid-${i}`}>
             <line
@@ -247,8 +235,9 @@ export default function FinanceChart({
               x2={width - PAD_R}
               y1={yMoney(v)}
               y2={yMoney(v)}
-              stroke={Math.abs(v) < 1e-9 ? '#e2e8f0' : '#eef2f8'}
+              stroke="#e2e8f0"
               strokeWidth={1}
+              strokeDasharray="3 4"
             />
             {moneyKeys.length > 0 && (
               <text
@@ -279,14 +268,26 @@ export default function FinanceChart({
               textAnchor="end"
               fontSize={11}
               fontWeight={600}
-              fill="#b08968"
+              fill="#94a3b8"
               className="tnum"
             >
               {`${fmtNum(Math.round(q))} шт`}
             </text>
           ))}
 
-        {/* столбцы количества продаж: растут от низа поля, как у шкалы штук */}
+        {/* Разделитель шкал: две оси не должны читаться как одна колонка чисел */}
+        {showQty && moneyKeys.length > 0 && (
+          <line
+            x1={PAD_L_QTY - 2}
+            x2={PAD_L_QTY - 2}
+            y1={PAD_T - 4}
+            y2={H - PAD_B + 4}
+            stroke="#e2e8f0"
+            strokeWidth={1}
+          />
+        )}
+
+        {/* столбцы количества продаж: растут от начала отсчёта шкалы штук */}
         {showQty &&
           days.map((d, i) => {
             const base = yQty(0)
@@ -324,7 +325,9 @@ export default function FinanceChart({
           ),
         )}
 
-        {/* линии денег */}
+        {/* линии денег. Точек нет вовсе: на периоде в тридцать дней их тридцать на
+            каждую линию, и они превращают график в пунктир из кружков, закрывая
+            саму кривую. День читается по подсветке и тултипу. */}
         {moneyKeys.map((k) => (
           <g key={k}>
             {n > 1 && (
@@ -340,19 +343,6 @@ export default function FinanceChart({
                 transition={{ duration: 0.8, ease: [0.33, 1, 0.68, 1] }}
               />
             )}
-            {showDots &&
-              days.map((d, i) => (
-                <circle
-                  key={`dot-${k}-${d.date}`}
-                  cx={x(i)}
-                  cy={yMoney(SERIES[k].get(d))}
-                  r={hover === i ? 4.5 : 2.5}
-                  fill="white"
-                  stroke={SERIES[k].color}
-                  strokeWidth={2}
-                  style={{ transition: 'r .15s ease' }}
-                />
-              ))}
           </g>
         ))}
 
@@ -433,14 +423,16 @@ export default function FinanceChart({
             // в тултипе показываем со знаком минус, чтобы он читался как расход.
             const value = k === 'expenses' ? -Math.abs(raw) : raw
             return (
-              <TipRow
-                key={k}
-                label={cfg.short}
-                value={value}
-                color={cfg.color}
-                bold={k === 'income' || k === 'profit'}
-                unit={cfg.money ? undefined : 'шт'}
-              />
+              <Fragment key={k}>
+                {k === 'qty' && <div className="my-1.5 border-t border-slate-100" />}
+                <TipRow
+                  label={cfg.short}
+                  value={value}
+                  color={cfg.color}
+                  bold={k === 'income' || k === 'profit'}
+                  unit={cfg.money ? undefined : 'шт'}
+                />
+              </Fragment>
             )
           })}
           {(hovered.soldQty > 0 || hovered.returnedQty > 0) && !enabled.qty && (
