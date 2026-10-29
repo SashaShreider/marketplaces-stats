@@ -76,7 +76,10 @@ function Row({
           <AnimatedNumber value={Math.abs(value)} />
         </span>
         {clickable && (
-          <ChevronRight size={12} className="text-slate-300 transition-transform group-hover/row:translate-x-0.5 group-hover/row:text-brand-500" />
+          <ChevronRight
+            size={12}
+            className="text-slate-300 transition-all group-hover/row:translate-x-0.5 group-hover/row:scale-110 group-hover/row:text-brand-600"
+          />
         )}
       </span>
     </>
@@ -158,11 +161,23 @@ export default function SummaryCards({
         tone="border-rose-200/60 bg-gradient-to-b from-rose-50/90 to-rose-50/40"
         iconBg="bg-rose-500/15 text-rose-500"
         icon={<TrendingDown size={17} strokeWidth={2.5} />}
+        action={
+          <button
+            onClick={onExpenseDetails}
+            className="group/details -my-1 -mr-1 flex items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold text-brand-600 transition-colors hover:bg-white/70 hover:text-brand-700"
+          >
+            Детализация расходов
+            <ChevronRight
+              size={13}
+              className="text-brand-500 transition-all group-hover/details:translate-x-0.5 group-hover/details:scale-110 group-hover/details:text-brand-800"
+            />
+          </button>
+        }
       >
         {/* Две строки по три статьи: карточка вдвое шире соседних, и в одну
             колонку шесть подписей растягивали её по высоте. На узком экране
             колонок меньше — там важнее читаемость подписей. */}
-        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-3 md:grid-cols-2">
           {groups.map((g) => (
             <Row
               key={g.category}
@@ -172,13 +187,6 @@ export default function SummaryCards({
             />
           ))}
         </div>
-        <button
-          onClick={onExpenseDetails}
-          className="mt-1.5 flex w-full items-center justify-between gap-1 border-t border-slate-200/50 pt-2.5 text-[11.5px] font-bold text-brand-600 transition-colors hover:text-brand-700"
-        >
-          Детализация расходов
-          <ChevronRight size={13} />
-        </button>
       </StatCard>
 
       <StatCard

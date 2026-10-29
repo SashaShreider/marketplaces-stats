@@ -92,7 +92,6 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
       <Modal
         open={tableOpen}
         title="Аналитика по дням"
-        subtitle="Все дни периода одним списком: доходы, шесть статей расходов, итог и количество."
         onClose={() => setTableOpen(false)}
         size="full"
       >

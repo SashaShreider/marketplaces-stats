@@ -188,21 +188,9 @@ export default function ConnectModal({
                         >
                           <MarketplaceLogo code={p.code} size="sm" />
                           {p.name}
-                          {/** 
-                          {p.connected && (
-                            <span className="text-[10.5px] font-semibold text-emerald-500">
-                              есть
-                            </span>
-                          )}
-                            */}
                         </button>
                       ))}
                     </div>
-                    {/** 
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
-                      Один кабинет — один магазин. Если у вас их несколько, подключите каждый отдельно.
-                    </p>
-                    */}
                   </div>
                 )}
 
@@ -235,10 +223,6 @@ export default function ConnectModal({
                     </button>
                   </div>
                 </div>
-
-                <p className="rounded-xl bg-slate-50 px-3.5 py-2.5 text-[11.5px] leading-relaxed text-slate-500">
-                  Перед сохранением ключи проверяются настоящим запросом к маркетплейсу.
-                </p>
 
                 {error && (
                   <p className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-[12px] font-semibold leading-relaxed text-rose-600">

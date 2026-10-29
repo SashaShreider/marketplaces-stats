@@ -160,15 +160,6 @@ export default function ProductsPage({
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
   const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
   const hasFilter = Boolean(dq || da || onlyWithSales)
-  // Подсказка объясняет, почему расходы по товарам меньше, чем в «Обзоре».
-  // Раньше это был абзац под таблицей: он висел на странице постоянно и описывал
-  // ситуацию, заметную только при сравнении двух экранов. По наведению он
-  // появляется ровно тогда, когда человек смотрит на само число.
-  const unallocated = report?.unallocatedExpenses ?? 0
-  const unallocatedHint =
-    unallocated > 0
-      ? `Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU. Сейчас таких расходов ${fmtMoney(unallocated)}.`
-      : 'Часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU — они не попадают в расходы по товарам. Сейчас таких расходов нет.'
 
   return (
     <>
@@ -238,7 +229,6 @@ export default function ProductsPage({
               />
               <StatCard
                 label="Расходы по товарам"
-                hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
                 delay={0.1}
                 value={<AnimatedNumber value={totals.expenses} />}

@@ -92,9 +92,6 @@ function Row({ r, n }: { r: ProductRow; n: number }) {
       </td>
       <td className="whitespace-nowrap border-b border-slate-100 px-4 py-3 text-left group-hover:border-brand-100">
         <div className="tnum text-[12.5px] font-bold text-slate-700">{r.sku}</div>
-        {/** 
-        {r.offerId && <div className="text-[11px] font-medium text-slate-400">{r.offerId}</div>}
-        */}
       </td>
       <td className="whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right group-hover:border-brand-100">
         <span className={cn('tnum text-[13px] font-bold', sold > 0 ? 'text-slate-800' : 'text-slate-300')}>

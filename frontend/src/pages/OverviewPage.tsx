@@ -169,8 +169,6 @@ export default function OverviewPage({
         breakdown={report?.expenseBreakdown}
         income={totals.income}
         expenses={totals.expenses}
-        scoped={report?.scoped ?? false}
-        unallocated={report?.unallocatedExpenses ?? 0}
         onClose={() => setDetailsOpen(false)}
         onGroup={(category) => {
           // Из детализации сразу в расшифровку статьи: иначе пришлось бы закрыть

@@ -42,6 +42,7 @@ export default function StatCard({
   value,
   sub,
   children,
+  action,
   tone,
   delay,
   size = 'md',
@@ -60,6 +61,8 @@ export default function StatCard({
   sub?: React.ReactNode
   /** Дополнительное содержимое под числом — только для крупной карточки */
   children?: React.ReactNode
+  /** Действие в правом верхнем углу карточки */
+  action?: React.ReactNode
   tone: string
   /** Задержка появления, в секундах */
   delay: number
@@ -89,6 +92,7 @@ export default function StatCard({
           {label}
         </span>
         {hint && <Hint text={hint} />}
+        {action && <div className="ml-auto shrink-0">{action}</div>}
       </div>
       <div
         className={cn(

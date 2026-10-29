@@ -34,11 +34,6 @@ export default function ExpenseGroupModal({
     <Modal
       open={category !== null}
       title={label || 'Статья расходов'}
-      subtitle={
-        category === null
-          ? undefined
-          : 'Из чего сложилась статья. Проценты считаются от её суммы.'
-      }
       onClose={onClose}
       size="md"
     >
@@ -94,8 +89,6 @@ export function ExpenseDetailsModal({
   breakdown,
   income,
   expenses,
-  scoped,
-  unallocated,
   onClose,
   onGroup,
 }: {
@@ -103,8 +96,6 @@ export function ExpenseDetailsModal({
   breakdown: { groups: ExpenseGroup[]; total: number } | undefined
   income: number
   expenses: number
-  scoped: boolean
-  unallocated: number
   onClose: () => void
   onGroup: (category: ExpenseCategory) => void
 }) {
@@ -198,19 +189,6 @@ export function ExpenseDetailsModal({
           </tfoot>
         </table>
       </div>
-
-      {scoped && unallocated > 0 && (
-        <p className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[11.5px] font-semibold leading-relaxed text-amber-700 ring-1 ring-amber-200/70">
-          В отчёт не вошли расходы без привязки к товару — ещё {fmtMoney2(unallocated)}. Их нельзя
-          разделить между выбранными товарами, поэтому проценты считаются только от того, что
-          относится к отбору.
-        </p>
-      )}
-
-      <p className="mt-3 text-[11px] font-medium leading-relaxed text-slate-400">
-        Проценты от доходов могут превышать 100 %: так бывает, когда расходы больше доходов за
-        период. С прошлым периодом расходы не сравниваются — сравнение требует второго отчёта.
-      </p>
     </Modal>
   )
 }
