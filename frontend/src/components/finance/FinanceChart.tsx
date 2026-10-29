@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { DayFinance } from '@/types'
 import { chartScales, tooltipPosition, useChartWidth } from '@/components/finance/barChartBase'
@@ -98,32 +98,34 @@ function monotonePath(pts: { x: number; y: number }[]): string {
  *
  * Знак берётся из самого числа, а не из отдельного флага: флаг означал бы, что
  * правильность показания зависит от того, не забыл ли его поставить вызывающий.
- * Отрицательное число показывается с минусом и красным, положительное — своим
- * цветом серии.
+ * `Math.abs` проглатывал настоящий знак, и убыток в −5 000 ₽ выводился как
+ * «5 000 ₽». Нулевой расход с флагом давал «−0 ₽».
+ *
+ * Отрицательное число показывается с минусом и красным, положительное — тёмным.
+ * Что считать расходом, решает вызывающий, передавая число со знаком.
  */
 function TipRow({
   label,
   value,
-  color,
   bold,
-  unit,
+  color,
 }: {
   label: string
   value: number
-  color: string
   bold?: boolean
-  unit?: string
+  /** Явный цвет: для прибыли он зависит от знака, но задаётся снаружи */
+  color?: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-[2px]">
-      <span className={cn('text-[11.5px]', bold ? 'font-bold text-slate-700' : 'font-medium text-slate-500')}>
+    <div className="flex items-center justify-between gap-6 py-[2.5px]">
+      <span className={`text-[12px] ${bold ? 'font-bold text-slate-800' : 'font-medium text-slate-500'}`}>
         {label}
       </span>
       <span
-        className={cn('tnum text-[11.5px]', bold ? 'font-extrabold' : 'font-semibold')}
-        style={{ color: value < 0 ? '#e11d48' : color }}
+        className={`tnum text-[12px] ${bold ? 'font-extrabold' : 'font-medium text-slate-500'}`}
+        style={{ color: color ?? undefined }}
       >
-        {unit ? `${fmtNum(value)} ${unit}` : fmtMoney(value)}
+        {fmtMoney(value)}
       </span>
     </div>
   )
@@ -200,8 +202,8 @@ export default function FinanceChart({
           showQty ? yQty(days[hover].soldQty) : Number.POSITIVE_INFINITY,
         )
 
-  const TIP_W = 226
-  const TIP_H = 200
+  const TIP_W = 248
+  const TIP_H = 252
   const { left: tipLeft, top: tipTop } = tooltipPosition({
     hoverX,
     hoverY: Number.isFinite(hoverY) ? hoverY : PAD_T,
@@ -222,6 +224,15 @@ export default function FinanceChart({
 
   /** Общая база рисунка: от неё растут столбцы и в ней сходятся линии. */
   const zeroY = yMoney(0)
+
+  /**
+   * Цвет точки в шапке тултипа.
+   *
+   * <p>Раньше это был цвет выбранной метрики — единственной на графике. Теперь
+   * показателей может быть несколько, и точка берётся у первого включённого:
+   * она обозначает день, а не конкретную серию.
+   */
+  const headerKey = SERIES_ORDER.find((k) => enabled[k]) ?? 'income'
 
   return (
     <div ref={wrapRef} className="relative w-full select-none">
@@ -388,14 +399,24 @@ export default function FinanceChart({
         />
       </svg>
 
-      {/* тултип */}
+      {/* HTML-тултип с детализацией */}
       {hovered && (
         <div
-          className="pointer-events-none absolute z-20 w-[252px] rounded-2xl border border-slate-200/80 bg-white/95 p-3.5 shadow-xl shadow-slate-900/10 backdrop-blur-md"
-          style={{ left: tipLeft, top: tipTop, transition: 'left .1s linear, top .1s linear' }}
+          className="pointer-events-none absolute z-20 w-[248px] rounded-2xl border border-slate-200/80 bg-white/95 p-3.5 shadow-xl shadow-slate-900/10 backdrop-blur-md"
+          style={{
+            left: tipLeft,
+            top: tipTop,
+            transition: 'left .1s linear, top .1s linear',
+          }}
         >
-          <div className="pb-2 text-[12.5px] font-extrabold text-slate-900">
-            {fmtDateLong(hovered.date)}
+          <div className="flex items-center gap-2 pb-2">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ background: SERIES[headerKey].color }}
+            />
+            <span className="text-[12.5px] font-extrabold text-slate-900">
+              {fmtDateLong(hovered.date)}
+            </span>
           </div>
           {hovered.state !== 'ok' && (
             <div
@@ -415,27 +436,28 @@ export default function FinanceChart({
                   : 'Данные ещё могут уточниться'}
             </div>
           )}
-          {SERIES_ORDER.map((k) => {
-            if (!enabled[k]) return null
-            const cfg = SERIES[k]
-            const raw = cfg.get(hovered)
-            // Расходы в модели хранятся положительными, а на графике это вычет:
-            // в тултипе показываем со знаком минус, чтобы он читался как расход.
-            const value = k === 'expenses' ? -Math.abs(raw) : raw
-            return (
-              <Fragment key={k}>
-                {k === 'qty' && <div className="my-1.5 border-t border-slate-100" />}
-                <TipRow
-                  label={cfg.short}
-                  value={value}
-                  color={cfg.color}
-                  bold={k === 'income' || k === 'profit'}
-                  unit={cfg.money ? undefined : 'шт'}
-                />
-              </Fragment>
-            )
-          })}
-          {(hovered.soldQty > 0 || hovered.returnedQty > 0) && !enabled.qty && (
+          {/* Расходные строки передаются со знаком минус: в DayFinance они хранятся
+              положительными, потому что так их удобнее складывать, а показать надо
+              именно расход. Знак ставится здесь, а не флагом в TipRow. */}
+          <TipRow label="Выручка" value={hovered.sales} />
+          {hovered.returns !== 0 && <TipRow label="Возвраты" value={-hovered.returns} />}
+          <TipRow label="Бонусы" value={hovered.partners} />
+          <TipRow label="Продажи" value={hovered.income} bold />
+          <div className="my-1.5 border-t border-slate-100" />
+          <TipRow label="Комиссия" value={-hovered.commission} />
+          <TipRow label="Логистика" value={-hovered.logistics} />
+          <TipRow label="Прочие расходы" value={-hovered.other} />
+          <TipRow label="Расходы" value={-hovered.expenses} bold />
+          <div className="my-1.5 border-t border-slate-100" />
+          {/* Прибыль приходит со своим знаком: убыток должен показываться убытком,
+              а не положительной суммой красным цветом. */}
+          <TipRow
+            label="Прибыль"
+            value={hovered.profit}
+            bold
+            color={hovered.profit >= 0 ? '#059669' : '#f43f5e'}
+          />
+          {(hovered.soldQty > 0 || hovered.returnedQty > 0) && (
             <div className="mt-1.5 flex justify-between border-t border-slate-100 pt-1.5 text-[11.5px] font-semibold text-slate-400">
               <span>Продано: {hovered.soldQty} шт</span>
               <span>Возвращено: {hovered.returnedQty} шт</span>
