@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/utils/cn'
@@ -7,8 +8,14 @@ import { cn } from '@/utils/cn'
  * Окно поверх страницы.
  *
  * <p>Общее для всех разборов на «Обзоре»: расшифровка статьи расходов, детализация
- * расходов целиком, полноэкранная таблица. Три копии затемнения и обработчика Escape
+ * расходов целиком, таблица по дням. Три копии затемнения и обработчика Escape
  * разъехались бы по поведению: в одной закрытие по фону работало бы, в другой нет.
+ *
+ * <p>Рисуется через портал в {@code body}, а не там, где стоит в разметке.
+ * Окно вложено в карточку, а карточку страница при загрузке накрывает
+ * `opacity-60` — и предок с прозрачностью делает полупрозрачным всё содержимое,
+ * включая окно: под его шапкой просвечивала страница. Портал выводит окно из
+ * этого поддерева, и прозрачность предка на него уже не действует.
  *
  * <p>Прокрутка тела страницы блокируется, пока окно открыто: иначе колесо мыши
  * прокручивало бы список под окном, и человек терял место, на котором читал.
@@ -73,7 +80,7 @@ export default function Modal({
           ? 'w-full max-w-[760px]'
           : 'w-full max-w-[520px]'
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
@@ -83,7 +90,14 @@ export default function Modal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            // Размытие фона только у небольших окон. У широких под ними лежит
+            // таблица на сотню строк, и `backdrop-blur` пересобирает этот слой при
+            // каждой перерисовке — фильтры в шапке окна на секунду «вешали»
+            // страницу. Затемнение без размытия читается так же.
+            className={cn(
+              'absolute inset-0 bg-slate-900/40',
+              size === 'xl' || size === 'full' ? '' : 'backdrop-blur-sm',
+            )}
           />
           <motion.div
             role="dialog"
@@ -143,6 +157,7 @@ export default function Modal({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
