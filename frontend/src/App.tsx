@@ -9,6 +9,7 @@ import AuthScreen from '@/components/auth/AuthScreen'
 import ConnectModal from '@/components/marketplace/ConnectModal'
 import Sidebar, { type PageId } from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
+import type { SyncState } from '@/components/sync/SyncIndicator'
 import { useImportRunner } from '@/features/imports/useImportRunner'
 import OverviewPage from '@/pages/OverviewPage'
 import ProductsPage from '@/pages/ProductsPage'
@@ -33,6 +34,8 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
   // Оба выглядели бы одинаково, а крестик не закрывал бы окно.
   const [modalOpen, setModalOpen] = useState(false)
   const [modalAccount, setModalAccount] = useState<AccountInfo | null>(null)
+  // Статус синхронизации открытой страницы: его показывает шапка, рядом с магазином.
+  const [syncState, setSyncState] = useState<SyncState | null>(null)
 
   /** Открыть окно: с магазином — чтобы заменить его ключ, без — чтобы добавить новый. */
   const openModal = useCallback((account: AccountInfo | null) => {
@@ -65,6 +68,14 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
     loadList() // обновятся catalogProducts / importRuns
   })
 
+  // Шапка показывает статус той страницы, что открыта: страница отдаёт его сюда.
+  const handleSyncState = useCallback((state: SyncState | null) => setSyncState(state), [])
+
+  /** Обновление данных магазина за выбранный период — из шапки, с любой страницы. */
+  const refreshSync = useCallback(() => {
+    void runner.startFinance(range.from, range.to)
+  }, [runner, range.from, range.to])
+
   const disconnect = async (id: number) => {
     try {
       await deleteAccount(id)
@@ -94,11 +105,14 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
             onEditAccount={openModal}
             onDisconnect={disconnect}
             onLogout={onLogout}
+            syncState={syncState}
+            syncBusy={runner.busy}
+            onRefresh={refreshSync}
           />
 
           {/* Ширина всего содержимого задана здесь и больше нигде: mx-auto
               центрирует */}
-          <main className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:pb-12">
+          <main className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-4 sm:px-6 lg:pb-12">
             {listError ? (
               <div className="flex flex-col items-center rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center">
                 <AlertTriangle size={30} className="text-rose-500" />
@@ -145,6 +159,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                       range={range}
                       onRangeChange={setRange}
                       runner={runner}
+                      onSyncState={handleSyncState}
                     />
                   ) : (
                     <ProductsPage
@@ -153,6 +168,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                       range={range}
                       onRangeChange={setRange}
                       runner={runner}
+                      onSyncState={handleSyncState}
                     />
                   )}
                 </motion.div>

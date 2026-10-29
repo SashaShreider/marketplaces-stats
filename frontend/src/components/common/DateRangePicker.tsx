@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import {
-  addDaysISO, fmtDateLong, fmtRange, fromISO, isToday, MONTHS_NOM, todayISO, toISO,
+  addDaysISO, fmtDateLong, fmtRange, fmtRangeShort, fromISO, isToday, MONTHS_NOM, todayISO, toISO,
 } from '@/utils/format'
 
 interface Preset {
@@ -149,10 +149,16 @@ export default function DateRangePicker({
   from,
   to,
   onChange,
+  compact = false,
+  align = 'right',
 }: {
   from: string
   to: string
   onChange: (r: { from: string; to: string }) => void
+  /** Короткая запись дат и высота строки фильтров. */
+  compact?: boolean
+  /** К какой стороне кнопки прижимать календарь. */
+  align?: 'left' | 'right'
 }) {
   const maxDate = todayISO()
   const minDate = MIN_DATE
@@ -216,13 +222,14 @@ export default function DateRangePicker({
       <button
         onClick={openPicker}
         className={cn(
-          'flex items-center gap-2.5 rounded-xl border bg-white py-2 pl-3 pr-2.5 text-[13px] font-bold text-slate-700 transition-all',
+          'flex items-center rounded-xl border bg-white font-bold text-slate-700 transition-all',
+          compact ? 'h-9 gap-2 pl-2.5 pr-2 text-[12.5px]' : 'gap-2.5 py-2 pl-3 pr-2.5 text-[13px]',
           open ? 'border-brand-300 shadow-sm ring-4 ring-brand-500/10' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
         )}
       >
-        <CalendarDays size={16} className="text-brand-600" />
-        <span className="whitespace-nowrap">{fmtRange(from, to)}</span>
-        <ChevronDown size={15} className={cn('text-slate-400 transition-transform', open && 'rotate-180')} />
+        <CalendarDays size={compact ? 15 : 16} className="shrink-0 text-brand-600" />
+        <span className="whitespace-nowrap">{compact ? fmtRangeShort(from, to) : fmtRange(from, to)}</span>
+        <ChevronDown size={15} className={cn('shrink-0 text-slate-400 transition-transform', open && 'rotate-180')} />
       </button>
 
       <AnimatePresence>
@@ -233,7 +240,10 @@ export default function DateRangePicker({
             exit={{ opacity: 0, y: -6, scale: 0.985 }}
             transition={{ duration: 0.16, ease: 'easeOut' }}
             onMouseLeave={() => setHover(null)}
-            className="absolute right-0 top-full z-50 mt-2 max-w-[calc(100vw-1.5rem)] origin-top-right overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10"
+            className={cn(
+              'absolute top-full z-50 mt-2 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10',
+              align === 'left' ? 'left-0 origin-top-left' : 'right-0 origin-top-right',
+            )}
           >
             <div className="scroll-slim flex max-w-full overflow-x-auto">
               {/* Пресеты */}

@@ -17,6 +17,14 @@ interface SyncIndicatorProps {
   state: SyncState | null
   busy: boolean
   onRetry: () => void
+  /**
+   * Показывать кнопку и без особого статуса.
+   *
+   * <p>В шапке обновление должно быть доступно всегда: там это обычное действие,
+   * а не сообщение о проблеме. На страницах индикатор появляется только тогда,
+   * когда ему есть что сказать.
+   */
+  always?: boolean
 }
 
 /**
@@ -53,15 +61,36 @@ export function syncStateOf(
 }
 
 /**
- * Компактный индикатор загрузки рядом с календарём.
+ * Компактный индикатор загрузки рядом с выбранным магазином.
  *
  * <p>Раньше эти же сведения показывались широкой плашкой под шапкой, и почти всегда:
  * последние дни почти всегда неокончательные, так что плашка висела постоянно и
  * обесценивала настоящие проблемы. Здесь тот же смысл умещается в один значок,
  * а во время загрузки рядом с датами видно, сколько дней уже забрано.
+ *
+ * <p>Стоит в верхней панели, а не в строке фильтров: обновление относится к магазину
+ * и периоду целиком, поэтому переезжать вместе с фильтрами страницы ему незачем.
  */
-export default function SyncIndicator({ state, busy, onRetry }: SyncIndicatorProps) {
-  if (!state) return null
+export default function SyncIndicator({ state, busy, onRetry, always = false }: SyncIndicatorProps) {
+  if (!state) {
+    if (!always) return null
+    return (
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={busy}
+        title="Обновить данные за выбранный период"
+        aria-label="Обновить данные за выбранный период"
+        className="group flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+      >
+        {busy ? (
+          <Loader2 size={15} className="animate-spin" />
+        ) : (
+          <RefreshCw size={15} className="transition-transform duration-500 group-hover:rotate-90" />
+        )}
+      </button>
+    )
+  }
 
   if (state.kind === 'running') {
     const isCatalog = state.importType === 'CATALOG'

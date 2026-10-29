@@ -91,14 +91,65 @@ export interface DailyBreakdown {
   otherExpenses: number
 }
 
+/** Крупная статья расходов: карточка показывает их вместо сотни типов начислений. */
+export type ExpenseCategory =
+  | 'COMMISSION'
+  | 'PROMOTION'
+  | 'LOGISTICS'
+  | 'STORAGE'
+  | 'ACQUIRING'
+  | 'OTHER'
+
+/** Один тип начислений внутри статьи — то, что раскрывается по клику. */
+export interface ExpenseItem {
+  /** Номера типа у комиссии нет: она лежит в строке товара, а не отдельным начислением */
+  typeId: number | null
+  /** служебное название из справочника маркетплейса, например PayPerClick */
+  name: string
+  /** человеческое описание оттуда же, например «Оплата за клик» */
+  description?: string | null
+  /** знак как у маркетплейса: расход отрицателен, возврат комиссии положителен */
+  amount: number
+}
+
+/**
+ * Статья расходов с расшифровкой.
+ *
+ * <p>Сумма и расшифровка приходят вместе: показать сумму без детализации значило бы
+ * оставить её непроверяемой.
+ */
+export interface ExpenseGroup {
+  category: ExpenseCategory
+  label: string
+  amount: number
+  items: ExpenseItem[]
+}
+
+/**
+ * Расходы периода по статьям — покрывают расходы целиком, включая комиссию
+ * и логистику. Сумма статей равна `expenses`, поэтому карточка расходов
+ * проверяется по своей же детализации.
+ */
+export interface ExpenseBreakdown {
+  groups: ExpenseGroup[]
+  /** сумма со знаком: возврат комиссии уменьшает расход */
+  total: number
+}
+
 export interface ApiDay {
   date: string
   income: number
   expenses: number
-  payout: number
+  /**
+   * К выплате за день. При отборе по товарам или автору — `null`: OZON отдаёт
+   * выплату по всему магазину, и долю нескольких товаров из неё не выделить.
+   * Ноль здесь означал бы «выплаты не было», а это неправда.
+   */
+  payout: number | null
   breakdown: DailyBreakdown
   soldQuantity?: number | null
   returnedQuantity?: number | null
+  expenseBreakdown: ExpenseBreakdown
   expensesByType: {
       typeId: number
       /** служебное название типа начисления, например PayPerClick */
@@ -118,7 +169,8 @@ export interface DailyReport {
   days: ApiDay[]
   income: number
   expenses: number
-  payout: number
+  /** К выплате за период; `null`, если отчёт ограничен отбором. */
+  payout: number | null
   /**
    * Итог за период: раскладка по статьям плюс количество за период.
    *
@@ -129,12 +181,27 @@ export interface DailyReport {
   total: DailyBreakdown & {
     dateFrom: string
     dateTo: string
-    payout: number
-    reconciles: boolean
+    payout: number | null
+    reconciles: boolean | null
     soldQuantity: number
     returnedQuantity: number
   }
-  reconciled: boolean
+  /** Расходы за весь период по статьям — питает карточку расходов */
+  expenseBreakdown: ExpenseBreakdown
+  /** Подпись отбора: «Все товары», имя автора или «SKU 123, 456». */
+  filter: string
+  /** Ограничен ли отчёт отбором: по нему видно, что часть расходов не вошла. */
+  scoped: boolean
+  /**
+   * Расходы без привязки к товару, не вошедшие в отчёт при отборе. Ненулевое
+   * значение — повод показать плашку «за пределами отбора».
+   */
+  unallocatedExpenses: number
+  /**
+   * Сходится ли отчёт с OZON. `null`, когда выплата неизвестна: сверять не с чем,
+   * и «не сходится» было бы таким же вымыслом, как «сходится».
+   */
+  reconciled: boolean | null
   final: boolean
 }
 
@@ -148,6 +215,18 @@ export interface ProductAuthor {
   raw: string
   source: 'DECLARED' | 'COVER'
   primary: boolean
+}
+
+/**
+ * Товар в подсказке фильтра: элемент GET /api/accounts/{id}/data/products.
+ *
+ * <p>Здесь нет ни денег, ни периода — только то, чтобы узнать товар в списке и
+ * подставить его `sku` в отчёт.
+ */
+export interface ProductOption {
+  sku: number
+  name: string
+  offerId: string | null
 }
 
 export interface ProductRow {
@@ -258,23 +337,30 @@ export type DayState = 'ok' | 'missing' | 'failed' | 'provisional'
 export interface DayFinance {
   date: string
   state: DayState
+  /** выручка: сколько покупатель заплатил за товар, до возвратов и бонусов */
   sales: number
   /** модуль возвратов */
   returns: number
   partners: number
+  /** продажи: выручка за вычетом возвратов плюс бонусы; в интерфейсе — «Продажи» */
   income: number
   commission: number
   logistics: number
   other: number
-  /** расшифровка расходов по типам начислений (положительные числа) */
-  otherByType: { name: string; description?: string | null; amount: number }[]
   expenses: number
   profit: number
   soldQty: number
   returnedQty: number
+  /**
+   * К выплате. `null`, если отчёт ограничен отбором: выплата известна только по
+   * всему магазину, и её доля для нескольких товаров не считается.
+   */
+  payout: number | null
+  /** Расходы дня по статьям — из них собрана карточка расходов */
+  expenseBreakdown: ExpenseBreakdown
 }
 
-export type FinanceTotals = Omit<DayFinance, 'date' | 'state'>
+export type FinanceTotals = Omit<DayFinance, 'date' | 'state' | 'expenseBreakdown'>
 
 export interface DateRange {
   from: string

@@ -26,15 +26,14 @@ export function mapDaily(report: DailyReport): DayFinance[] {
       commission: -b.commission,
       logistics: -b.logistics,
       other: -b.otherExpenses,
-      otherByType: (d.expensesByType ?? []).map((t) => ({
-      name: t.name,
-      description: t.description ?? null,
-      amount: -t.amount,
-    })),
       expenses: d.expenses,
+      // Прибыль считается из продаж и расходов, а не из выплаты: при отборе по
+      // товарам выплата неизвестна, и вычитать её означало бы вычесть ноль.
       profit: d.income - d.expenses,
       soldQty: d.soldQuantity ?? 0,
       returnedQty: d.returnedQuantity ?? 0,
+      payout: d.payout,
+      expenseBreakdown: d.expenseBreakdown ?? { groups: [], total: 0 },
     }
   })
 }

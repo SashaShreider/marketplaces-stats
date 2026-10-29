@@ -3,6 +3,7 @@ package ru.analizer.catalog.api;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.analizer.account.domain.AccountLookup;
 import ru.analizer.account.domain.SellerAccount;
@@ -76,6 +77,28 @@ public class CatalogController {
     public List<String> authors(@PathVariable Long accountId) {
         SellerAccount account = accountLookup.requireAccount(accountId);
         return catalogFacts.authorValues(account.getId());
+    }
+
+    /**
+     * GET /api/accounts/1/data/products?query=летчик&limit=20
+     *
+     * <p>Товары для подсказки в фильтре «Обзора». Не отчёт: ни периода, ни денег,
+     * ни страниц — только то, что нужно, чтобы выбрать товар и подставить его SKU
+     * в отчёт.
+     *
+     * <p>Ограничение размера задано здесь, а не в запросе: подсказка, отдавшая
+     * тысячу строк, всё равно не поместится на экран, а база потратит на неё
+     * время. Пустой каталог даёт пустой список — это ответ, а не ошибка.
+     *
+     * @param query подстрока названия, артикула или ISBN
+     * @param limit желаемое число строк; приводится к диапазону 1…50
+     */
+    @GetMapping("/products")
+    public List<CatalogFacts.ProductOption> products(@PathVariable Long accountId,
+                                                     @RequestParam(required = false) String query,
+                                                     @RequestParam(defaultValue = "20") int limit) {
+        SellerAccount account = accountLookup.requireAccount(accountId);
+        return catalogFacts.productOptions(account.getId(), query, Math.clamp(limit, 1, 50));
     }
 
     /**

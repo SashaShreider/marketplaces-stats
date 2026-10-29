@@ -154,8 +154,14 @@
             },
             "type" : "array"
           },
+          "expenseBreakdown" : {
+            "$ref" : "#/components/schemas/ExpenseBreakdown"
+          },
           "expenses" : {
             "type" : "number"
+          },
+          "filter" : {
+            "type" : "string"
           },
           "final" : {
             "type" : "boolean"
@@ -167,9 +173,12 @@
             "type" : "string"
           },
           "payout" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "reconciled" : {
+            "type" : [ "boolean", "null" ]
+          },
+          "scoped" : {
             "type" : "boolean"
           },
           "status" : {
@@ -178,6 +187,9 @@
           },
           "total" : {
             "$ref" : "#/components/schemas/FinancialSummary"
+          },
+          "unallocatedExpenses" : {
+            "type" : "number"
           }
         },
         "type" : "object"
@@ -190,6 +202,9 @@
           "date" : {
             "format" : "date",
             "type" : "string"
+          },
+          "expenseBreakdown" : {
+            "$ref" : "#/components/schemas/ExpenseBreakdown"
           },
           "expenses" : {
             "type" : "number"
@@ -204,7 +219,7 @@
             "type" : "number"
           },
           "payout" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "returnedQuantity" : {
             "format" : "int32",
@@ -213,6 +228,41 @@
           "soldQuantity" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "ExpenseBreakdown" : {
+        "properties" : {
+          "groups" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ExpenseGroup"
+            },
+            "type" : "array"
+          },
+          "total" : {
+            "type" : "number"
+          }
+        },
+        "type" : "object"
+      },
+      "ExpenseGroup" : {
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "category" : {
+            "enum" : [ "COMMISSION", "PROMOTION", "LOGISTICS", "STORAGE", "ACQUIRING", "OTHER" ],
+            "type" : "string"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/TypeAmount"
+            },
+            "type" : "array"
+          },
+          "label" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -240,10 +290,10 @@
             "type" : "number"
           },
           "payout" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "reconciles" : {
-            "type" : "boolean"
+            "type" : [ "boolean", "null" ]
           },
           "returnedQuantity" : {
             "format" : "int32",
@@ -427,6 +477,21 @@
           },
           "source" : {
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ProductOption" : {
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "offerId" : {
+            "type" : "string"
+          },
+          "sku" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -854,6 +919,24 @@
             "format" : "date",
             "type" : "string"
           }
+        }, {
+          "in" : "query",
+          "name" : "author",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "skus",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -1160,6 +1243,52 @@
           }
         },
         "tags" : [ "coverage-controller" ]
+      }
+    },
+    "/api/accounts/{accountId}/data/products" : {
+      "get" : {
+        "operationId" : "products",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "accountId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProductOption"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "catalog-controller" ]
       }
     },
     "/api/accounts/{accountId}/imports" : {

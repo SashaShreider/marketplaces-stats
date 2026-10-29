@@ -76,15 +76,26 @@ let csrf: { header: string; token: string } | null = null
  * <p>Логическое значение разрешено: сервер ждёт `?onlyWithSales=true`, а не
  * `?onlyWithSales`, и передавать его вручную строкой в каждом месте — верный
  * способ забыть про единицу в одной из выдающих.
+ *
+ * <p>Массив тоже разрешён и повторяется в строке запроса (`?skus=1&skus=2`), а не
+ * склеивается через запятую: так параметр выглядит одинаково для любого числа
+ * значений, и сервер не зависит от того, умеет ли он разбирать разделители.
  */
-type QueryValue = string | number | boolean | null | undefined
+type QueryValue = string | number | boolean | (string | number)[] | null | undefined
 
 function url(path: string, query?: Record<string, QueryValue>): string {
   let u = `${API_BASE}${path}`
   if (query) {
     const sp = new URLSearchParams()
     for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined && v !== null && v !== '') sp.set(k, String(v))
+      if (v === undefined || v === null || v === '') continue
+      if (Array.isArray(v)) {
+        for (const item of v) {
+          if (item !== '') sp.append(k, String(item))
+        }
+      } else {
+        sp.set(k, String(v))
+      }
     }
     const s = sp.toString()
     if (s) u += `?${s}`

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Coverage, DateRange, ReportStatus } from '@/types'
 import { addDaysISO, todayISO } from '@/utils/format'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
@@ -47,7 +47,7 @@ function shopKey(key: string, accountId: number): string {
 type Phase = 'fresh' | 'initial' | 'deep' | 'settled'
 
 interface AutoSync {
-  /** Что показывать рядом с календарём */
+  /** Что показывать в верхней панели рядом с магазином */
   state: SyncState | null
 }
 
@@ -269,5 +269,14 @@ export function useAutoSync({
     refreshing.current = false
   }, [accountId, setPhase])
 
-  return { state: syncStateOf(report, run) }
+  /**
+   * Состояние отдаётся стабильным объектом.
+   *
+   * <p>Его показывает верхняя панель, а страница передаёт его наверх в эффекте.
+   * Свежий объект на каждый рендер означал бы «состояние изменилось» без причины
+   * и бесконечную цепочку обновлений между страницей и шапкой.
+   */
+  const state = useMemo(() => syncStateOf(report, run), [report, run])
+
+  return { state }
 }

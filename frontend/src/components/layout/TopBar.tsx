@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { MarketplaceLogo } from '@/components/ui'
+import SyncIndicator, { type SyncState } from '@/components/sync/SyncIndicator'
 import type { AccountInfo, User } from '@/types'
 import { shopLabel, shopSubLabel } from '@/utils/marketplace'
 
@@ -94,7 +95,7 @@ function AccountSelector({
       <button
         onClick={() => setOpen(!open)}
         className={cn(
-          'flex items-center gap-2 rounded-xl border py-2 pl-2.5 pr-3 text-[13px] font-bold transition-all',
+          'flex items-center gap-2 rounded-xl border py-1.5 pl-2.5 pr-3 text-[13px] font-bold transition-all',
           open
             ? 'border-brand-300 bg-brand-50 text-brand-700 shadow-sm'
             : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:shadow-sm',
@@ -351,6 +352,9 @@ export default function TopBar({
   onEditAccount,
   onDisconnect,
   onLogout,
+  syncState,
+  syncBusy,
+  onRefresh,
 }: {
   user: User
   list: AccountInfo[]
@@ -360,9 +364,14 @@ export default function TopBar({
   onEditAccount: (account: AccountInfo | null) => void
   onDisconnect: (accountId: number) => Promise<void>
   onLogout: () => void
+  /** Состояние загрузки открытой страницы */
+  syncState: SyncState | null
+  syncBusy: boolean
+  /** Обновить данные магазина за выбранный период */
+  onRefresh: () => void
 }) {
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-slate-200/70 bg-white/75 px-4 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-slate-200/70 bg-white/75 px-4 backdrop-blur-xl sm:px-6">
       <div className="flex items-center gap-2 lg:hidden">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -376,6 +385,12 @@ export default function TopBar({
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Обновление — рядом с магазином: оно относится к нему и к выбранному
+            периоду, а не к фильтрам конкретной страницы. Без магазина обновлять
+            нечего, поэтому кнопки нет. */}
+        {current && (
+          <SyncIndicator state={syncState} busy={syncBusy} onRetry={onRefresh} always />
+        )}
         <AccountSelector current={current} list={list} onChange={onAccountChange} />
         <span className="hidden h-6 w-px bg-slate-200 sm:block" />
         <ProfileMenu

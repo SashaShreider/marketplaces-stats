@@ -9,8 +9,10 @@ import ru.analizer.analytics.domain.ProductFact;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Выборка фактов для аналитики.
@@ -142,6 +144,32 @@ public class AnalyticsFactsRepository {
                         rs.getBigDecimal("amount"),
                         FeeFact.FeeKind.CONTAINER),
                 sellerAccountId, from, to);
+    }
+
+    /**
+     * Сумма расходов, у которых нет товара.
+     *
+     * <p>Нужна отчёту по части товаров: такие расходы в него не входят, но их
+     * существование скрывать нельзя — иначе усечённые расходы и завышенная прибыль
+     * выглядят как полные. Считается в базе, потому что для одного числа незачем
+     * поднимать десятки тысяч строк в память.
+     *
+     * <p>Модуль берётся здесь же: вызывающему нужна величина «сколько осталось за
+     * пределами отбора», а знак выплаты в этом числе смысла не несёт.
+     */
+    public BigDecimal unallocatedTotal(Long sellerAccountId, LocalDate from, LocalDate to) {
+        BigDecimal value = jdbc.queryForObject("""
+                select coalesce(
+                    (select sum(n.amount) from finance_accrual a
+                     join non_item_fee n on n.finance_accrual_id = a.id
+                     where a.seller_account_id = ? and a.accrual_date between ? and ?), 0)
+                  + coalesce(
+                    (select sum(c.amount) from finance_accrual a
+                     join container_fee c on c.finance_accrual_id = a.id
+                     where a.seller_account_id = ? and a.accrual_date between ? and ?), 0)
+                """, BigDecimal.class,
+                sellerAccountId, from, to, sellerAccountId, from, to);
+        return value == null ? BigDecimal.ZERO : value.abs();
     }
 
     /**

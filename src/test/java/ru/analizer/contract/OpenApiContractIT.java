@@ -79,7 +79,8 @@ class OpenApiContractIT extends AbstractPostgresIntegrationTest {
             "/api/accounts/{accountId}/imports/catalog",
             "/api/accounts/{accountId}/data/coverage",
             "/api/accounts/{accountId}/data/catalog",
-            "/api/accounts/{accountId}/data/authors");
+            "/api/accounts/{accountId}/data/authors",
+            "/api/accounts/{accountId}/data/products");
 
     @LocalServerPort
     int port;

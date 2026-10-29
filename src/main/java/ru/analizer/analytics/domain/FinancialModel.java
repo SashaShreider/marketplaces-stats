@@ -49,6 +49,9 @@ import java.util.Map;
  */
 public final class FinancialModel {
 
+    /** Подпись строки комиссии: у неё нет типа начисления, она лежит в строке товара. */
+    private static final String COMMISSION_ITEM = "Комиссия за продажу";
+
     private FinancialModel() {
     }
 
@@ -167,6 +170,102 @@ public final class FinancialModel {
                             e.getValue()));
                 });
         return new FinancialSummary.ExpenseByType(items);
+    }
+
+    /**
+     * Расходы периода, разложенные по крупным статьям.
+     *
+     * <p>В отличие от {@link #expensesByType} покрывает расходы целиком: комиссия и
+     * логистика тоже получают свои статьи, а не остаются за рамками расшифровки.
+     * Внутри статьи — те же типы начислений, что продавец видит в кабинете.
+     *
+     * <p>Комиссия не приходит отдельным начислением: она лежит в строке товара
+     * ({@code posting_product.sale_commission}), поэтому передаётся отдельным
+     * аргументом. Знак у неё тот же, что у остальных расходов: удержание
+     * отрицательно, возврат комиссии при возврате товара — положителен.
+     *
+     * <p>Статья определяется по названию типа, а не по его номеру: справочник
+     * обновляется из API, и номеров может стать больше. Логистика — запасной
+     * вариант: туда попадают услуги из блока {@link FeeFact.FeeKind#DELIVERY},
+     * если их тип не отнесён к другой статье по названию.
+     *
+     * @param fees       строки расходов с типом начисления
+     * @param commission комиссия маркетплейса за период; {@code null} — не было
+     * @param typeLabels подписи типов из справочника маркетплейса
+     */
+    public static ExpenseBreakdown expenseBreakdown(List<FeeFact> fees,
+                                                    BigDecimal commission,
+                                                    Map<Integer, TypeLabels> typeLabels) {
+        Map<ExpenseCategory, Map<Integer, BigDecimal>> byCategory = new LinkedHashMap<>();
+        for (FeeFact fee : fees) {
+            // Сначала смотрим название типа: явно отнесённый к статье тип важнее
+            // источника. Логистика — запасной вариант для услуг доставки, которых
+            // нет в списках выше: в неё попадает только то, что OZON прислал в
+            // блоке delivery.services, и ничего добавленного вручную.
+            ExpenseCategory category = ExpenseCategory.byTypeName(nameOf(fee.typeId(), typeLabels));
+            if (category == ExpenseCategory.OTHER && fee.kind() == FeeFact.FeeKind.DELIVERY) {
+                category = ExpenseCategory.LOGISTICS;
+            }
+            byCategory.computeIfAbsent(category, c -> new LinkedHashMap<>())
+                    .merge(fee.typeId(), n(fee.amount()), BigDecimal::add);
+        }
+
+        List<ExpenseGroup> groups = new ArrayList<>();
+        for (ExpenseCategory category : ExpenseCategory.displayOrder()) {
+            List<FinancialSummary.TypeAmount> items = new ArrayList<>();
+            if (category == ExpenseCategory.COMMISSION && n(commission).signum() != 0) {
+                items.add(new FinancialSummary.TypeAmount(null, COMMISSION_ITEM, null, commission));
+            }
+            Map<Integer, BigDecimal> types = byCategory.get(category);
+            if (types != null) {
+                // Расходы отрицательные, поэтому «самый крупный» — наименьшее значение.
+                types.entrySet().stream()
+                        .sorted(Map.Entry.comparingByValue())
+                        .filter(e -> n(e.getValue()).signum() != 0)
+                        .forEach(e -> items.add(typeAmount(e.getKey(), e.getValue(), typeLabels)));
+            }
+            if (items.isEmpty()) {
+                continue;
+            }
+            // Статья, которой магазин не пользуется, в ответ не попадает: ноль в ней
+            // читался бы как поломка, а не как «этого не было».
+            groups.add(new ExpenseGroup(category, category.label(),
+                    sumOf(items), items));
+        }
+        return new ExpenseBreakdown(groups, sumOfGroups(groups));
+    }
+
+    private static FinancialSummary.TypeAmount typeAmount(Integer typeId,
+                                                          BigDecimal amount,
+                                                          Map<Integer, TypeLabels> typeLabels) {
+        TypeLabels labels = typeId == null ? null : typeLabels.get(typeId);
+        if (labels == null) {
+            // Расход без подписи нельзя выбросить: сумма статей разошлась бы с итогом,
+            // и это выглядело бы как ошибка расчёта. Показать номер честнее.
+            return new FinancialSummary.TypeAmount(typeId,
+                    typeId == null ? "Без типа начисления" : "Тип " + typeId,
+                    null, amount);
+        }
+        return new FinancialSummary.TypeAmount(typeId, labels.name(), labels.description(), amount);
+    }
+
+    private static String nameOf(Integer typeId, Map<Integer, TypeLabels> typeLabels) {
+        TypeLabels labels = typeId == null ? null : typeLabels.get(typeId);
+        return labels == null ? null : labels.name();
+    }
+
+    private static BigDecimal sumOf(List<FinancialSummary.TypeAmount> items) {
+        return items.stream()
+                .map(FinancialSummary.TypeAmount::amount)
+                .map(FinancialModel::n)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private static BigDecimal sumOfGroups(List<ExpenseGroup> groups) {
+        return groups.stream()
+                .map(ExpenseGroup::amount)
+                .map(FinancialModel::n)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**

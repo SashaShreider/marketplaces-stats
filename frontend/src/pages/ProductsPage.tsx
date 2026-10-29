@@ -6,14 +6,14 @@ import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
-import SyncIndicator from '@/components/sync/SyncIndicator'
+import type { SyncState } from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader, StatCard } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ProductSort, ProductSortOrder } from '@/types'
 import { cn } from '@/utils/cn'
-import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
+import { fmtDateTime, fmtMoney, fmtNum, grossProfit } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
 
 const PAGE_SIZE = 200
@@ -60,11 +60,14 @@ export default function ProductsPage({
   range,
   onRangeChange,
   runner,
+  onSyncState,
 }: {
   account: AccountInfo
   range: DateRange
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
+  /** Состояние синхронизации для индикатора в верхней панели */
+  onSyncState: (state: SyncState | null) => void
 }) {
   const [query, setQuery] = useState('')
   const [author, setAuthor] = useState('')
@@ -131,6 +134,12 @@ export default function ProductsPage({
   // данных. Отчёт по товарам несёт то же покрытие периода, поэтому хуку достаточно.
   const auto = useAutoSync({ accountId: account.id, report, range, runner })
 
+  // Статус синхронизации показывает шапка — она общая для обеих страниц.
+  useEffect(() => {
+    onSyncState(auto.state)
+    return () => onSyncState(null)
+  }, [auto.state, onSyncState])
+
   const header = (
     <PageHeader
       title="Товары"
@@ -141,14 +150,7 @@ export default function ProductsPage({
         </>
       }
     >
-      <div className="flex items-center gap-1.5">
-        <SyncIndicator
-          state={auto.state}
-          busy={runner.busy}
-          onRetry={() => runner.startFinance(range.from, range.to)}
-        />
-        <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
-      </div>
+      <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
     </PageHeader>
   )
 
@@ -156,17 +158,8 @@ export default function ProductsPage({
   const totals = report?.totals
   // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
-  const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
+  const profit = grossProfit(totals?.income ?? 0, totals?.expenses ?? 0)
   const hasFilter = Boolean(dq || da || onlyWithSales)
-  // Подсказка объясняет, почему расходы по товарам меньше, чем в «Обзоре».
-  // Раньше это был абзац под таблицей: он висел на странице постоянно и описывал
-  // ситуацию, заметную только при сравнении двух экранов. По наведению он
-  // появляется ровно тогда, когда человек смотрит на само число.
-  const unallocated = report?.unallocatedExpenses ?? 0
-  const unallocatedHint =
-    unallocated > 0
-      ? `Расходы по товарам меньше, чем в «Обзоре»: часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU. Сейчас таких расходов ${fmtMoney(unallocated)}.`
-      : 'Часть списаний (контейнеры, прочие услуги) маркетплейс присылает без привязки к SKU — они не попадают в расходы по товарам. Сейчас таких расходов нет.'
 
   return (
     <>
@@ -221,7 +214,7 @@ export default function ProductsPage({
           {totals && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
-                label="Доходы"
+                label="Продажи"
                 tone="border-emerald-200/60 bg-emerald-50/60"
                 delay={0.05}
                 value={<AnimatedNumber value={totals.income} />}
@@ -236,7 +229,6 @@ export default function ProductsPage({
               />
               <StatCard
                 label="Расходы по товарам"
-                hint={unallocatedHint}
                 tone="border-rose-200/60 bg-rose-50/60"
                 delay={0.1}
                 value={<AnimatedNumber value={totals.expenses} />}
@@ -247,10 +239,10 @@ export default function ProductsPage({
                 }
               />
               <StatCard
-                label="Выручка"
-                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+                label="Прибыль"
+                tone={profit >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
                 delay={0.1}
-                value={<AnimatedNumber value={gross} />}
+                value={<AnimatedNumber value={profit} />}
               />
               <StatCard
                 label="Товаров с продажами"

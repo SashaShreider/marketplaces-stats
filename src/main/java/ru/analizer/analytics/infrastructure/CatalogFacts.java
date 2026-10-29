@@ -13,8 +13,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Выборки каталога товаров для отчёта и подсказок фильтра.
@@ -348,6 +350,72 @@ private static MapSqlParameterSource filterParams(Long accountId,
                 where seller_account_id = ?
                 order by author_raw
                 """, (rs, i) -> rs.getString(1), accountId);
+    }
+
+    /**
+     * Товары для подсказки мультивыбора — короткие строки, а не отчёт.
+     *
+     * <p>Отдельный запрос, а не {@code /analytics/products}: тому нужен период, он
+     * считает деньги по каждому товару и отдаёт страницу с итогами. Для строки
+     * поиска всё это лишнее — на каждый введённый символ считались бы продажи за
+     * месяц, которых никто не просил.
+     *
+     * <p>Пустой запрос возвращает начало алфавитного списка, а не пустоту: раскрытый
+     * список без ввода должен что-то показывать, иначе выглядит сломанным.
+     *
+     * @param query подстрока названия, артикула или ISBN; пусто — без фильтра
+     * @param limit сколько строк вернуть; ограничение сверху задаёт контроллер
+     */
+    public List<ProductOption> productOptions(Long accountId, String query, int limit) {
+        return namedJdbc.query("""
+                select sku, name, offer_id
+                from ozon_product
+                where seller_account_id = :account
+                  and (cast(:queryText as text) = ''
+                       or lower(name) like lower('%' || :queryText || '%')
+                       or lower(coalesce(offer_id, '')) like lower('%' || :queryText || '%')
+                       or lower(coalesce(isbn, '')) like lower('%' || :queryText || '%'))
+                order by name, sku
+                limit :limit
+                """, new MapSqlParameterSource("account", accountId)
+                .addValue("queryText", nullToEmpty(query))
+                .addValue("limit", limit),
+                (rs, i) -> new ProductOption(
+                        rs.getLong("sku"),
+                        rs.getString("name"),
+                        rs.getString("offer_id")));
+    }
+
+    /**
+     * Товар в подсказке фильтра.
+     *
+     * @param sku     подставляется в отчёт параметром {@code skus}
+     * @param name    название из карточки — по нему продавец и узнаёт товар
+     * @param offerId артикул продавца; {@code null} бывает
+     */
+    public record ProductOption(long sku, String name, String offerId) {
+    }
+
+    /**
+     * Товары выбранного автора — одним множеством номеров.
+     *
+     * <p>Отчёт по автору фильтрует факты по SKU, а не подзапросом в каждом запросе:
+     * список товаров автора невелик, и найти его дешевле один раз, чем повторять
+     * условие по {@code product_author} в четырёх выборках фактов.
+     *
+     * <p>Ищется точное совпадение, как и в {@code ProductAuthorFilter}: «Сурцуков А.»
+     * не найдёт «Сурцуков Анатолий». Пользователь выбирает автора из подсказки, где
+     * лежат ровно те строки, что есть в базе.
+     */
+    public Set<Long> skusByAuthor(Long accountId, String author) {
+        if (author == null || author.isBlank()) {
+            return Set.of();
+        }
+        return new LinkedHashSet<>(jdbc.query("""
+                select distinct sku
+                from product_author
+                where seller_account_id = ? and author_raw = ?
+                """, (rs, i) -> rs.getLong(1), accountId, author));
     }
 
     /**

@@ -42,9 +42,11 @@ export default function StatCard({
   value,
   sub,
   children,
+  action,
   tone,
   delay,
   size = 'md',
+  className,
 }: {
   label: string
   /** Объяснение подписи, если её нельзя прочитать буквально */
@@ -59,10 +61,14 @@ export default function StatCard({
   sub?: React.ReactNode
   /** Дополнительное содержимое под числом — только для крупной карточки */
   children?: React.ReactNode
+  /** Действие в правом верхнем углу карточки */
+  action?: React.ReactNode
   tone: string
   /** Задержка появления, в секундах */
   delay: number
   size?: 'md' | 'lg'
+  /** Место карточки в сетке: широкие карточки занимают две колонки */
+  className?: string
 }) {
   const large = size === 'lg'
   return (
@@ -74,40 +80,30 @@ export default function StatCard({
           ? { duration: 0.45, delay, ease: [0.22, 1, 0.36, 1] }
           : { duration: 0.4, delay }
       }
-      className={cn('rounded-2xl border', large ? 'p-5' : 'p-4', tone)}
+      className={cn('rounded-2xl border p-4', tone, className)}
     >
-      <div className={cn('flex items-center', large ? 'gap-2.5' : 'gap-1.5')}>
+      <div className="flex items-center gap-1.5">
         {icon && (
-          <span
-            className={cn(
-              'flex items-center justify-center rounded-xl',
-              large ? 'h-9 w-9' : 'h-8 w-8',
-              iconBg,
-            )}
-          >
+          <span className={cn('flex h-8 w-8 items-center justify-center rounded-xl', iconBg)}>
             {icon}
           </span>
         )}
-        <span
-          className={cn(
-            'font-extrabold uppercase tracking-[0.1em] text-slate-500',
-            large ? 'text-[11.5px]' : 'text-[11px]',
-          )}
-        >
+        <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
           {label}
         </span>
         {hint && <Hint text={hint} />}
+        {action && <div className="ml-auto shrink-0">{action}</div>}
       </div>
       <div
         className={cn(
           'font-extrabold leading-none tracking-tight text-slate-900',
-          large ? 'mt-3.5 text-[30px]' : 'mt-2 text-[24px]',
+          large ? 'mt-2.5 text-[26px]' : 'mt-2 text-[24px]',
         )}
       >
         {value}
       </div>
       {sub && <div className="mt-2 text-[12px] font-medium text-slate-500">{sub}</div>}
-      {children && <div className={large ? 'mt-4' : undefined}>{children}</div>}
+      {children && <div className={large ? 'mt-3' : undefined}>{children}</div>}
     </motion.div>
   )
 }

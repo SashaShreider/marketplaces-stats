@@ -54,6 +54,36 @@ or, for graphify only: `graphify watch .`
 
 Do not run a watcher and the pre-commit hook against the same graph at the same time; they duplicate work.
 
+## Local dev account
+
+A `test` account exists in the local database for logging into the running app.
+Do not delete it — recreating it means another manual registration round.
+
+| | |
+|---|---|
+| login | `test` |
+| password | `test-test-1` |
+| display name | `Тест` |
+
+The account owns a connected store — `seller_account.id = 23`,
+`ООО «ИД Академии Жуковского»`, `client_id = 1154` — with a working OZON API key
+already saved. The key is the same one as `OZON_CLIENT_ID` / `OZON_API_KEY` in
+`.env`; read it there rather than copying the secret into this file.
+
+Data is loaded for it: `imported_day` covers 2026-07-02 … 2026-10-29 (120 days,
+7270 accruals), so the charts and reports have something to draw without a
+fresh sync. Check with:
+
+```sql
+select min(day), max(day), count(*) from imported_day where seller_account_id = 23;
+```
+
+If the account shows "Магазин ещё не подключён", the key was wiped or the store
+was reassigned — re-enter it in the UI or `PUT /api/accounts/{id}/credentials`.
+
+The frontend dev server is on `http://localhost:5173` and proxies `/api` to
+`APP_PORT` from `.env` (currently 8081, not 8080: 8080 is taken on this machine).
+
 ## Docs
 
 `README.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOY.md`, `docs/VERIFY.md` and
