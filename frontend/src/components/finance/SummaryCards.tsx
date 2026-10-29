@@ -67,11 +67,11 @@ function Row({
   const clickable = Boolean(onClick) && value !== 0
   const content = (
     <>
-      <span className="flex min-w-0 items-center gap-1 text-[12.5px] font-medium text-slate-500">
+      <span className="flex min-w-0 items-center gap-1 text-[12px] font-medium text-slate-500">
         <span className="truncate">{label}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1">
-        <span className={cn('tnum text-[13px] font-bold', value === 0 && 'text-slate-300')}>
+        <span className={cn('tnum text-[12.5px] font-bold', value === 0 && 'text-slate-300')}>
           {negative && value != 0 && '−'}
           <AnimatedNumber value={Math.abs(value)} />
         </span>
@@ -83,13 +83,13 @@ function Row({
   )
 
   if (!clickable) {
-    return <div className="flex items-center justify-between py-[5px]">{content}</div>
+    return <div className="flex items-center justify-between py-1">{content}</div>
   }
   return (
     <button
       onClick={onClick}
       title={`Расшифровка статьи «${label}»`}
-      className="group/row -mx-1.5 flex w-[calc(100%+12px)] items-center justify-between rounded-lg px-1.5 py-[5px] text-left transition-colors hover:bg-white/70"
+      className="group/row -mx-1.5 flex w-[calc(100%+12px)] items-center justify-between rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-white/70"
     >
       {content}
     </button>
@@ -196,7 +196,7 @@ export default function SummaryCards({
         <div className="flex items-center justify-between border-t border-slate-200/50 pt-2.5">
           <span className="text-[12.5px] font-medium text-slate-500">К выплате</span>
           <span
-            className="tnum text-[13px] font-bold text-slate-700"
+            className="tnum text-[12.5px] font-bold text-slate-700"
             title={
               payout === null
                 ? 'Выплата известна только по всему магазину: для выбранных товаров её долю из total_amount не выделить.'
