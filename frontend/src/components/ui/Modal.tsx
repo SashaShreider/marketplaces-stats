@@ -72,10 +72,20 @@ export default function Modal({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            initial={{ opacity: 0, scale: 0.97, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.98, y: 8 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            // Широкое окно появляется только по прозрачности.
+            //
+            // <p>`scale` и `y` оставляют на корне окна `transform`, а любой
+            // `transform` на предке ломает `position: sticky` у потомков: шапка
+            // таблицы перестаёт липнуть и уезжает вместе с данными. Внутри `xl`
+            // живёт таблица на сотню строк, и ей шапка нужнее, чем анимация.
+            initial={size === 'xl' ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 12 }}
+            animate={size === 'xl' ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+            exit={size === 'xl' ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 8 }}
+            transition={
+              size === 'xl'
+                ? { duration: 0.15 }
+                : { type: 'spring', stiffness: 380, damping: 32 }
+            }
             className={cn(
               'relative flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/20',
               width,

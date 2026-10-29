@@ -222,29 +222,26 @@ export default function DataTable<T>({
   // вертикальные разделители есть и в шапке, и в теле, и в итоге — иначе
   // тринадцать числовых колонок читаются как одна строка цифр.
   //
-  // Шапка без «воздуха».
-  //
-  // <p>Обе строки шапки — группа и названия колонок — стоят вплотную друг к
-  // другу и к первой строке данных: пустые полосы между ними ничего не разделяли,
-  // только отодвигали цифры от подписей. Высота задаётся только текстом.
-  //
-  // <p>Подписи не переносятся, а обрезаются с многоточием: перенос делал шапку
-  // высокой и разъезжался по строкам. Полное название видно в подсказке.
-  // Заглавные убраны — «КОМИССИЯ» читается как крик и шире, чем нужно.
-  // Высоты строк шапки заданы явно и одинаково для обеих строк: обе липкие, и
-  // если `top` второй строки не совпадёт с фактической высотой первой, названия
-  // колонок наедут на групповую строку или на первую строку данных. Раньше здесь
-  // были и класс `top-[17px]`, и инлайн `top`, и высота ячейки — они расходились,
-  // и шапка перекрывала данные.
-  const GROUP_ROW_H = 20
-  const NAME_ROW_H = 24
+  // Обе строки шапки одной высоты и с текстом по центру: разная высота и
+  // прижатый к краю текст читались как две несвязанные таблицы. Отступы у
+  // ячеек нулевые — высоту задаёт только строка, и «воздуха» между строками
+  // не остаётся.
+  const HEAD_ROW_H = 24
 
+  // Ячейка шапки не обрезает содержимое сама.
+  //
+  // <p>`overflow-hidden` на липком элементе ломает `position: sticky` в Chromium:
+  // шапка перестаёт липнуть и уезжает вместе с данными. Поэтому обрезка с
+  // многоточием живёт на вложенном `span`, а сама ячейка остаётся `visible`.
   const thCls =
-    'sticky z-20 overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-slate-300 bg-slate-50 px-2 align-middle text-[9px] font-bold leading-none text-slate-500 last:border-r-0'
+    'border-b border-r border-slate-300 bg-slate-50 px-2 py-0 align-middle text-[9px] font-bold leading-none text-slate-500 last:border-r-0'
   const thGroupCls =
-    'sticky z-20 overflow-hidden text-ellipsis whitespace-nowrap border-b border-r border-slate-300 bg-slate-100 px-2 align-middle text-[9px] font-bold leading-none text-slate-600 last:border-r-0'
+    'border-b border-r border-slate-300 bg-slate-100 px-2 py-0 align-middle text-[9px] font-bold leading-none text-slate-600 last:border-r-0'
+  /** Обрезка подписи: единственное место, где текст может не поместиться. */
+  const thTextCls = 'block truncate'
+  // Строки тела чуть выше прежнего: 4px отступа сверху и снизу.
   const tdCls =
-    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-[3px] align-middle text-[11px] leading-tight last:border-r-0'
+    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-1 align-middle text-[11px] leading-tight last:border-r-0'
 
   /** Ручка перетаскивания ширины. */
   const Handle = ({ keys }: { keys: string[] }) => (
@@ -261,9 +258,13 @@ export default function DataTable<T>({
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
-      <div ref={wrapRef} className="overflow-hidden rounded-lg border border-slate-300">
+      <div ref={wrapRef} className="rounded-lg border border-slate-300">
         <div
-          className="scroll-slim overflow-auto"
+          // Скругление живёт на самом прокручиваемом блоке, а не на внешнем:
+          // `overflow-hidden` снаружи делал бы этот блок единственным
+          // «прокручиваемым предком», и шапка липла бы к неподвижной обёртке —
+          // то есть уезжала вместе с данными.
+          className="scroll-slim overflow-auto rounded-lg"
           style={
             maxHeight === null || maxHeight === undefined
               ? undefined
@@ -279,7 +280,7 @@ export default function DataTable<T>({
                 <col key={c.key} style={{ width: widthOf(c) }} />
               ))}
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-20">
               {hasGroups && (
                 <tr>
                   {groups.map((g, i) => {
@@ -291,7 +292,7 @@ export default function DataTable<T>({
                         key={`${g.label}-${i}`}
                         colSpan={g.span}
                         title={g.label || undefined}
-                        style={{ height: GROUP_ROW_H, top: 0 }}
+                        style={{ height: HEAD_ROW_H, top: 0 }}
                         className={cn(
                           thGroupCls,
                           'relative',
@@ -299,7 +300,7 @@ export default function DataTable<T>({
                           g.label === '' && 'border-b-slate-300',
                         )}
                       >
-                        {g.label}
+                        <span className={thTextCls}>{g.label}</span>
                         <Handle keys={g.keys} />
                       </th>
                     )
@@ -311,17 +312,17 @@ export default function DataTable<T>({
                   <th
                     key={c.key}
                     title={c.label}
-                    style={{ height: NAME_ROW_H, top: hasGroups ? GROUP_ROW_H : 0 }}
+                    style={{ height: HEAD_ROW_H, top: hasGroups ? HEAD_ROW_H : 0 }}
                     className={cn(
                       thCls,
-                      'relative',
-                      // Первая колонка липкая и по горизонтали, и по вертикали:
-                      // она должна ехать поверх и данных, и остальных заголовков.
-                      i === 0 && stickyFirst && 'left-0 z-30',
+                      // Первая колонка липкая по горизонтали: при прокрутке
+                      // вправо дата должна оставаться на виду. Вертикаль держит
+                      // сам `thead`.
+                      i === 0 && stickyFirst ? 'sticky left-0 z-30' : 'relative',
                       (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
                     )}
                   >
-                    {c.label}
+                    <span className={thTextCls}>{c.label}</span>
                     <Handle keys={[c.key]} />
                   </th>
                 ))}
