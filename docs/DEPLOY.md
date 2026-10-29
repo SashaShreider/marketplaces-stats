@@ -427,6 +427,11 @@ DB_URL=jdbc:postgresql://postgres:5432/analizer
 DB_USERNAME=analizer
 DB_PASSWORD=<сложный пароль>
 
+# Порт на хосте, на который смотрит nginx. 8080 занят Apache панели ISPmanager,
+# поэтому приложение публикуется на 8081. Менять синхронно с proxy_pass в
+# /etc/nginx/conf.d/analizer.conf.
+APP_PORT=8081
+
 # HTTPS настроен, поэтому сессионной куке нужны эти два значения.
 COOKIE_SAME_SITE=None
 COOKIE_SECURE=true
@@ -520,7 +525,43 @@ mkdir -p /srv/analizer && chown deploy:deploy /srv/analizer
 
 ### 8.3. Брандмауэр
 
-Открыты должны быть ровно два порта, и оба — входящие:
+Наружу должны смотреть ровно те порты, которые нужны: `22`, `80`, `443`.
+
+**Главное правило: порты Docker привязываются к `127.0.0.1`, а не к `0.0.0.0`.**
+
+`ufw` для этого бесполезен, и вот почему. Docker публикует порты через свой
+iptables-чейн `DOCKER`, который вставляется раньше цепочки ufw. Правило
+`ufw deny 5433` контейнер не останавливает: пакет приходит на порт и попадает
+в `DOCKER`, минуя фильтр ufw. Поэтому конфигурация из `docker-compose.yml` —
+единственное место, которое действительно закрывает порт:
+
+```yaml
+ports:
+  - "127.0.0.1:5433:5432"   # база — только с самого сервера
+  - "127.0.0.1:8081:8080"   # приложение — только для nginx
+```
+
+Проверка, что не обманули себя:
+
+```bash
+# должно показать 127.0.0.1, а не 0.0.0.0
+ss -tlnp | grep -E ':(5433|8081)'
+
+# и снаружи порт не должен открываться
+nc -zv ваш-ip 5433
+```
+
+Порт базы при этом остаётся нужен: к нему подключаются с сервера, а извне —
+через туннель, если понадобится:
+
+```bash
+ssh -L 5433:127.0.0.1:5433 deploy@сервер
+```
+
+**ufw** ставить имеет смысл только на чистой машине, где кроме приложения ничего
+не живёт. На этом сервере панель ISPmanager держит exim, dovecot, named и
+proftpd — `ufw enable` с правилами «только 22/80/443» отрежет почту и панель.
+Если машина чистая:
 
 ```bash
 apt install -y ufw
@@ -533,11 +574,45 @@ ufw enable
 ufw status verbose
 ```
 
-Порт 8080 закрыт: наружу его не пробрасывают, к нему ходит только локальный прокси.
-Порт 5433 (БД) на сервере вообще не нужен — база доступна только внутри сети compose.
-
 > Внимание: если включить `ufw` и забыть `ufw allow OpenSSH`, доступ по SSH
 > пропадёт. Всегда разрешайте SSH **до** `ufw enable`.
+
+### 8.3.1. nginx как единственная точка входа
+
+Наружу смотрит nginx, приложение слушает только localhost. Файл
+`/etc/nginx/conf.d/analizer.conf`:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ваш-домен;
+
+    client_max_body_size 8m;
+
+    # Актуатор наружу не нужен: деплой проверяет его напрямую на 127.0.0.1:8081.
+    location /actuator/ {
+        deny all;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+}
+```
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+`proxy_read_timeout 120s` здесь не для красоты: импорт из OZON и отчёты за большой
+период считаются дольше дефолтных 60 секунд, и nginx обрывал бы ответ на половине.
 
 ### 8.4. SSH-ключ для деплоя
 
@@ -649,13 +724,13 @@ nano /etc/caddy/Caddyfile
 
 ```caddy
 ваш-домен, www.ваш-домен {
-    reverse_proxy 127.0.0.1:8080
+    reverse_proxy 127.0.0.1:8081
 }
 ```
 
 Порт здесь должен совпадать с тем, что приложение слушает на машине, то есть с
-`APP_PORT` из `.env` (см. [7.2](#72-env-на-сервере)). По умолчанию это 8080, и
-приведённая настройка верна для него. Если порт на сервере меняли — менять надо
+`APP_PORT` из `.env` (см. [7.2](#72-env-на-сервере)). На этом сервере это 8081:
+8080 занят Apache панели ISPmanager. Если порт на сервере меняли — менять надо
 здесь же: иначе прокси смотрит в пустоту, а сайт не откроется без внятной ошибки.
 
 ```bash
@@ -694,13 +769,20 @@ server {
     # Запросы большие не бывают, но прокси не должен обрывать их на 1 МБ по умолчанию.
     client_max_body_size 8m;
 
+    # Актуатор наружу не нужен: деплой проверяет его напрямую на 127.0.0.1.
+    location /actuator/ {
+        deny all;
+    }
+
     location / {
-        proxy_pass http://127.0.0.1:8080;
+        proxy_pass http://127.0.0.1:8081;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        # Импорт из OZON может считаться дольше дефолтных 60 секунд.
+        proxy_read_timeout 120s;
     }
 }
 ```
@@ -731,8 +813,13 @@ docker compose logs -f app
 Признак, что всё поднялось:
 
 ```bash
-curl -fsS http://127.0.0.1:8080/actuator/health    # {"status":"UP"}
-curl -I http://127.0.0.1:8080/                      # 200, HTML интерфейса
+# Порт берётся из APP_PORT в .env — на этом сервере 8081, а не 8080:
+# 8080 занят Apache панели ISPmanager.
+curl -fsS http://127.0.0.1:8081/actuator/health    # {"status":"UP"}
+curl -I http://127.0.0.1:8081/                      # 200, HTML интерфейса
+
+# И то же через домен: сюда ходит пользователь
+curl -o /dev/null -w '%{http_code}\n' https://ваш-домен/
 ```
 
 Открыть `https://ваш-домен`, зарегистрироваться, подключить маркетплейс.
@@ -830,8 +917,8 @@ git log --oneline -5                       # найти коммит, котор
 
 docker compose stop app
 git reset --hard <хэш-нужного-коммита>
-docker compose up -d --build app
-curl -fsS http://127.0.0.1:8080/actuator/health
+docker compose up -d --build
+curl -fsS "http://127.0.0.1:$(sed -n 's/^APP_PORT=//p' .env)/actuator/health"
 ```
 
 В GitHub этого делать не нужно: пуш в `main` с откатом — тоже нормальный способ,
@@ -956,7 +1043,8 @@ docker compose up -d app
 cd /srv/analizer
 docker compose ps                      # кто жив
 docker compose logs --tail 100 app     # что сказал приложение
-curl -fsS http://127.0.0.1:8080/actuator/health
+curl -fsS "http://127.0.0.1:$(sed -n 's/^APP_PORT=//p' .env)/actuator/health"
+ss -tlnp | grep -E ':(5433|8081)'      # порты только на 127.0.0.1?
 docker stats --no-stream               # не кончилась ли память
 df -h                                  # не кончился ли диск
 ```
@@ -972,10 +1060,12 @@ df -h                                  # не кончился ли диск
 - [ ] Установлены Docker и Docker Compose
 - [ ] Создан пользователь `deploy`, настроен вход по ключу, пароли отключены
 - [ ] Открыты порты: 22, 80, 443 — и **больше ничего**
-- [ ] Установлен Caddy, сертификат получен
+- [ ] Установлен Caddy (или nginx), сертификат получен, домен проксирует на приложение
 - [ ] Склонирован репозиторий в `/srv/analizer`
 - [ ] Создан `.env` с правами 600, пароль БД сложный
-- [ ] `docker compose up -d --build app postgres`, сайт открывается
+- [ ] `docker compose up -d --build`, сайт открывается
+- [ ] `ss -tlnp` показывает 5433 и 8081 только на `127.0.0.1`, и снаружи порты закрыты
+- [ ] `/actuator/` недоступен через nginx (403), а напрямую на 127.0.0.1 — доступен
 - [ ] В GitHub добавлены секреты `DEPLOY_HOST`, `DEPLOY_PORT`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH`
 - [ ] В GitHub включена защита `main` с обязательными проверками
 - [ ] Настроена ночная резервная копия, проверено восстановление
