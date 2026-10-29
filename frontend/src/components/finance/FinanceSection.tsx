@@ -133,8 +133,8 @@ export default function FinanceSection({
         onClose={() => setTableOpen(false)}
         size="xl"
         headerExtra={
-          <div className="flex flex-col items-end gap-2">
-            {filters && <div className="flex flex-wrap items-center justify-end gap-2">{filters}</div>}
+          <div className="flex flex-col items-start gap-2.5">
+            {filters && <div className="flex flex-wrap items-center gap-2">{filters}</div>}
             <ViewOptions />
           </div>
         }
@@ -186,7 +186,7 @@ const STEP_MODES: { id: string; label: string }[] = [
  */
 function ViewOptions() {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <SegmentedButtons label="Детализация" items={VIEW_MODES} />
       <SegmentedButtons label="Шаг" items={STEP_MODES} />
     </div>

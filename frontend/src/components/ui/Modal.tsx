@@ -99,28 +99,28 @@ export default function Modal({
               width,
             )}
           >
-            <div className="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
-              <div className="min-w-0">
-                <h3 className="text-[16px] font-extrabold tracking-tight text-slate-900">{title}</h3>
-                {subtitle && (
-                  <div className="mt-0.5 text-[12.5px] font-medium leading-relaxed text-slate-500">
-                    {subtitle}
-                  </div>
-                )}
+            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex items-start gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-[16px] font-extrabold tracking-tight text-slate-900">{title}</h3>
+                  {subtitle && (
+                    <div className="mt-0.5 text-[12.5px] font-medium leading-relaxed text-slate-500">
+                      {subtitle}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={onClose}
+                  title="Закрыть"
+                  className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              {headerExtra && <div className="ml-auto min-w-0">{headerExtra}</div>}
-              <button
-                onClick={onClose}
-                title="Закрыть"
-                className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600',
-                  // Отступ справа только когда рядом есть управление: иначе
-                  // крестик прижимался бы к нему вплотную.
-                  headerExtra ? '' : 'ml-auto',
-                )}
-              >
-                <X size={16} />
-              </button>
+              {/* Управление идёт отдельной строкой под заголовком и слева, а не
+                  справа от него: фильтров с переключателями слишком много, чтобы
+                  делить строку с названием, и справа они прижимались к крестику. */}
+              {headerExtra && <div className="mt-3 min-w-0">{headerExtra}</div>}
             </div>
 
             <div className="scroll-slim min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
