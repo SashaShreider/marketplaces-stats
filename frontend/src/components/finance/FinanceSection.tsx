@@ -51,6 +51,7 @@ export default function FinanceSection({
   const [enabled, setEnabled] = useState<Record<SeriesKey, boolean>>(INITIAL)
   const [tableOpen, setTableOpen] = useState(false)
   const [page, setPage] = useState(0)
+  const [mode, setMode] = useState<TableMode>('detailed')
 
   // Сменился период — первая страница. Иначе можно остаться на десятой, которой
   // в новом, более коротком периоде уже нет: таблица показала бы пустоту.
@@ -133,7 +134,7 @@ export default function FinanceSection({
         onClose={() => setTableOpen(false)}
         size="xl"
         headerExtra={<div className="flex flex-wrap items-center gap-2">{filters}</div>}
-        headerBelow={<ViewOptions />}
+        headerBelow={<ViewOptions mode={mode} onModeChange={setMode} />}
         footer={
           <>
             <SecondaryButton
@@ -153,14 +154,17 @@ export default function FinanceSection({
           </>
         }
       >
-        <DailyFinanceTable days={days} page={page} onPageChange={setPage} />
+        <DailyFinanceTable days={days} page={page} onPageChange={setPage} compact={mode === 'compact'} />
       </Modal>
     </>
   )
 }
 
 /** Режим подробностей и шаг строк пока не реализованы. */
-const VIEW_MODES: { id: string; label: string }[] = [
+/** Режим отображения таблицы: с расшифровкой расходов или одной строкой. */
+type TableMode = 'detailed' | 'compact'
+
+const VIEW_MODES: { id: TableMode; label: string }[] = [
   { id: 'detailed', label: 'Подробный вид' },
   { id: 'compact', label: 'Компактный вид' },
 ]
@@ -174,44 +178,61 @@ const STEP_MODES: { id: string; label: string }[] = [
 /**
  * Переключатели вида таблицы.
  *
- * <p>Стоят под фильтрами и выключены: компактного вида и свёртки по месяцам ещё
- * нет. Показывать их всё равно стоит — это место, где они появятся, и по ним видно
- * направление, в котором таблица будет развиваться. Нажатие ничего не делает и не
- * притворяется, что сделало: `disabled` честнее, чем кнопка, которая молча
- * перерисовывает то же самое.
+ * <p>Детализация работает: подробный вид — с раскладкой расходов по статьям,
+ * компактный — одной строкой на день. Шаг строк пока только «По дням»: свёртки по
+ * месяцам нет, и кнопка выключена, чтобы не притворяться, что она что-то делает.
  */
-function ViewOptions() {
+function ViewOptions({
+  mode,
+  onModeChange,
+}: {
+  mode: TableMode
+  onModeChange: (mode: TableMode) => void
+}) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <SegmentedButtons label="Детализация" items={VIEW_MODES} />
-      <SegmentedButtons label="Шаг" items={STEP_MODES} />
-    </div>
-  )
-}
-
-/** Группа переключателей, из которых выбран первый — доступные пока только так. */
-function SegmentedButtons({ label, items }: { label: string; items: { id: string; label: string }[] }) {
-  return (
-    <div className="flex items-center gap-1" role="group" aria-label={label}>
-      {items.map((item, i) => {
-        const active = i === 0
-        return (
+      <div className="flex items-center gap-1" role="group" aria-label="Детализация">
+        {VIEW_MODES.map((item) => {
+          const active = item.id === mode
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onModeChange(item.id)}
+              aria-pressed={active}
+              className={cn(
+                'rounded-lg px-2.5 py-1 text-[11.5px] font-bold transition-colors',
+                active
+                  ? 'bg-slate-100 text-slate-700'
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600',
+              )}
+            >
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
+      {/* Шаг пока один, и он же единственный возможный: группа из одной активной
+          кнопки читается как подпись, поэтому она выключена, но на месте — так
+          видно, где появится выбор. */}
+      <div className="flex items-center gap-1" role="group" aria-label="Шаг">
+        {STEP_MODES.map((item, i) => (
           <button
             key={item.id}
             type="button"
             disabled
-            aria-pressed={active}
-            title="Пока недоступно"
+            aria-pressed={i === 0}
+            title={i === 0 ? undefined : 'Пока недоступно'}
             className={cn(
-              'rounded-lg px-2.5 py-1 text-[11.5px] font-bold transition-colors',
-              active ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
+              'rounded-lg px-2.5 py-1 text-[11.5px] font-bold',
+              i === 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
               'cursor-not-allowed opacity-70',
             )}
           >
             {item.label}
           </button>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }

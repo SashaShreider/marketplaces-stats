@@ -273,11 +273,102 @@ export function exportDailyCsv(days: DayFinance[]): void {
 }
 
 /**
+ * Колонки компактного вида: одна шапка, пять колонок.
+ *
+ * <p>Подробный вид отвечает «из чего сложились деньги» — там статьи расходов и
+ * группы в шапке. Компактный отвечает «сколько за день в целом»: количество,
+ * продажи, расходы и прибыль. Группы убраны намеренно: двухуровневая шапка на
+ * пяти колонках занимает столько же места, сколько сами данные, а делить в ней
+ * нечего — по одной колонке на смысл.
+ *
+ * <p>Продажи и расходы здесь — итоговые значения дня (`income`, `expenses`), а не
+ * сумма статей: статья может вернуться плюсом, и складывать её с расходами
+ * значило бы показать не то, что в подробном виде.
+ */
+export function buildCompactColumns(): DataColumn<DayFinance>[] {
+  return [
+    {
+      key: 'date',
+      label: 'Дата',
+      align: 'left',
+      value: (d) => (
+        <span
+          className={cn(
+            'tnum text-[11px] font-bold',
+            d.state === 'missing' || d.state === 'failed'
+              ? 'text-slate-400'
+              : d.state === 'provisional'
+                ? 'text-slate-500'
+                : 'text-slate-800',
+          )}
+          title={STATE_LABEL[d.state] ?? undefined}
+        >
+          {fmtDateNumeric(d.date)}
+        </span>
+      ),
+      csv: (d) => fmtDateNumeric(d.date) + STATE_SUFFIX[d.state],
+      title: (d) => STATE_LABEL[d.state] ?? undefined,
+    },
+    {
+      key: 'sold',
+      label: 'Продано, шт',
+      value: (d) => (
+        <span className="tnum text-[11px] font-semibold text-slate-700">{fmtNum(d.soldQty)}</span>
+      ),
+      csv: (d) => d.soldQty,
+    },
+    {
+      key: 'returned',
+      label: 'Возвращено, шт',
+      value: (d) => (
+        <span className="tnum text-[11px] font-semibold text-slate-700">
+          {fmtNum(d.returnedQty)}
+        </span>
+      ),
+      csv: (d) => d.returnedQty,
+    },
+    {
+      key: 'income',
+      label: 'Продажи, ₽',
+      value: (d) => (
+        <span className="tnum text-[11px] font-extrabold text-slate-900">{fmtMoneyBare(d.income)}</span>
+      ),
+      csv: (d) => d.income,
+    },
+    {
+      key: 'expenses',
+      label: 'Расходы, ₽',
+      value: (d) => (
+        <span className="tnum text-[11px] font-semibold text-slate-700">
+          {d.expenses !== 0 && '−'}
+          {fmtMoneyBare(Math.abs(d.expenses))}
+        </span>
+      ),
+      csv: (d) => -Math.abs(d.expenses),
+    },
+    {
+      key: 'profit',
+      label: 'Прибыль, ₽',
+      value: (d) => (
+        <span className="tnum text-[11px] font-bold text-slate-800">
+          {d.profit < 0 && '−'}
+          {fmtMoneyBare(Math.abs(d.profit))}
+        </span>
+      ),
+      csv: (d) => d.profit,
+    },
+  ]
+}
+
+/**
  * Аналитика по дням: таблица, которая раньше была вторым режимом графика.
  *
  * <p>Колонки сгруппированы по смыслу — продажи, расходы, итог, количество, — поэтому
  * в шапке два уровня: группа и колонки внутри неё. Одиннадцать колонок подряд без
  * групп читаются как список чисел, а не как отчёт.
+ *
+ * <p>Компактный вид оставляет одну шапку и пять колонок: подробный отвечает «из
+ * чего сложились деньги», компактный — «сколько за день в целом».
  *
  * <p>Суммы — с копейками: сумма колонок обязана совпадать с итогом, а округлённые до
  * рубля слагаемые этого не делают.
@@ -286,12 +377,18 @@ export default function DailyFinanceTable({
   days,
   page,
   onPageChange,
+  compact = false,
 }: {
   days: DayFinance[]
   page: number
   onPageChange: (page: number) => void
+  /** Компактный вид: одна шапка, пять колонок */
+  compact?: boolean
 }) {
-  const columns = useMemo(() => buildColumns(days), [days])
+  const columns = useMemo(
+    () => (compact ? buildCompactColumns() : buildColumns(days)),
+    [compact, days],
+  )
   const totals = useMemo(() => totalsOf(days), [days])
 
   const totalOf = (key: string): number => {
