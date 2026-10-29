@@ -153,17 +153,25 @@ export default function DataTable<T>({
   /** `large` — крупнее текст шапки и ячеек; для таблиц с малым числом колонок */
   textSize?: 'normal' | 'large'
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [wrapW, setWrapW] = useState(0)
 
-  // Ширина блока нужна, чтобы поделить её между колонками: тринадцать колонок
-  // по фиксированной сотне не влезают в ноутбучный экран, и таблица уезжает
-  // вправо, хотя место есть.
+  /**
+   * Ширина, реально доступная колонкам.
+   *
+   * <p>Меряется у прокручиваемого блока, а не у внешней обёртки: у него есть
+   * вертикальная полоса прокрутки, и она отнимает полтора десятка пикселей.
+   * Пока мерили снаружи, таблица не помещалась ровно на ширину этой полосы —
+   * появлялась горизонтальная прокрутка на почти пустом месте.
+   *
+   * <p>`clientWidth` — ширина без полосы прокрутки, но с отступами. Отступов у
+   * блока нет, поэтому он и нужен.
+   */
   useEffect(() => {
-    const el = wrapRef.current
+    const el = scrollRef.current
     if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const w = entries[0].contentRect.width
+    const observer = new ResizeObserver(() => {
+      const w = el.clientWidth
       if (w > 0) setWrapW(w)
     })
     observer.observe(el)
@@ -321,8 +329,9 @@ export default function DataTable<T>({
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
-      <div ref={wrapRef} className="rounded-lg border border-slate-300">
+      <div className="rounded-lg border border-slate-300">
         <div
+          ref={scrollRef}
           // Скругление живёт на самом прокручиваемом блоке, а не на внешнем:
           // `overflow-hidden` снаружи делал бы этот блок единственным
           // «прокручиваемым предком», и шапка липла бы к неподвижной обёртке —
