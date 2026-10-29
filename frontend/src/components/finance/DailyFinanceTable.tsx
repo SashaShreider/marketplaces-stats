@@ -1,13 +1,24 @@
 import { useMemo } from 'react'
-import type { DayFinance, DayState, ExpenseCategory } from '@/types'
+import type { DayFinance, DayState, ExpenseBreakdown, ExpenseCategory } from '@/types'
 import DataTable, { type DataColumn } from '@/components/ui/DataTable'
 import { EXPENSE_ORDER, orderedGroups } from '@/components/finance/SummaryCards'
 import { cn } from '@/utils/cn'
 import { downloadCsv, safeFilename, toCsv } from '@/utils/csv'
-import { fmtDateNumeric, fmtMoneyBare, fmtNum } from '@/utils/format'
+import { MONTHS_NOM, fmtDateNumeric, fmtMoneyBare, fmtNum } from '@/utils/format'
 
 /** Сколько строк на странице: месяц-полтора, чтобы прокрутка не уставала. */
 export const PAGE_SIZE = 90
+
+/**
+ * Строка таблицы: день периода или свёрнутый месяц.
+ *
+ * <p>`label` есть только у месячной строки — это её подпись («Октябрь 2026» или
+ * период, если месяц неполный). У дневной строки его нет, и подпись берётся из
+ * даты: так колонки и выгрузка остаются одни на оба вида, без ветвления по типу
+ * строки.
+ */
+export type TableRow = DayFinance & { label?: string }
+
 
 /**
  * Пометки состояния дня.
@@ -63,6 +74,105 @@ function sumCategory(days: DayFinance[], category: ExpenseCategory): number {
 /** Колонки, которые в выгрузке идут со знаком минус. */
 function isNegative(key: string): boolean {
   return key === 'returns' || key === 'expenses' || EXPENSE_ORDER.some((c) => c.toLowerCase() === key)
+}
+
+/** Подпись строки: у месяца — «Октябрь 2026» или период, у дня — дата. */
+function rowLabel(d: TableRow): string {
+  return d.label ?? fmtDateNumeric(d.date)
+}
+
+/**
+ * Подпись месяца: «Октябрь 2026» у полного, «01.05.2026 — 15.05.2026» у неполного.
+ *
+ * <p>Полным считается месяц, у которого в таблице есть все его дни. Иначе сумма
+ * выглядела бы месячной, хотя посчитана за кусок: «Октябрь 2026» с пятнадцатью
+ * днями — это не октябрь, и подписывать его так нельзя.
+ */
+function monthLabel(monthKey: string, monthDays: DayFinance[]): string {
+  const [year, month] = monthKey.split('-').map(Number)
+  const daysInMonth = new Date(year, month, 0).getDate()
+  if (monthDays.length === daysInMonth) {
+    return `${MONTHS_NOM[month - 1]} ${year}`
+  }
+  const first = monthDays[0].date
+  const last = monthDays[monthDays.length - 1].date
+  return first === last ? fmtDateNumeric(first) : `${fmtDateNumeric(first)} — ${fmtDateNumeric(last)}`
+}
+
+/**
+ * Свёртка дней периода в месяцы.
+ *
+ * <p>Строка месяца — сумма дней, а не среднее: вопрос «сколько за месяц» задают
+ * деньгами. Статьи расходов складываются так же, как деньги, — иначе «Итого» в
+ * подробном виде не сошлось бы со своими же колонками.
+ *
+ * <p>Состояние месяца — наихудшее из состояний его дней: если хоть один день не
+ * загружен, сумма за месяц неполная, и это важнее, чем «уточняется» у соседнего.
+ * По той же причине подпись неполного месяца содержит период.
+ */
+export function groupByMonth(days: DayFinance[]): TableRow[] {
+  const byMonth = new Map<string, DayFinance[]>()
+  for (const day of days) {
+    const key = day.date.slice(0, 7)
+    const list = byMonth.get(key)
+    if (list) list.push(day)
+    else byMonth.set(key, [day])
+  }
+
+  const rows: TableRow[] = []
+  for (const [key, monthDays] of byMonth) {
+    const label = monthLabel(key, monthDays)
+    const sum = {
+      sales: 0, returns: 0, partners: 0, income: 0,
+      commission: 0, logistics: 0, other: 0,
+      expenses: 0, profit: 0, soldQty: 0, returnedQty: 0,
+    }
+    const groups = new Map<ExpenseCategory, { label: string; amount: number }>()
+    let state: DayState = 'ok'
+
+    for (const d of monthDays) {
+      sum.sales += d.sales
+      sum.returns += d.returns
+      sum.partners += d.partners
+      sum.income += d.income
+      sum.commission += d.commission
+      sum.logistics += d.logistics
+      sum.other += d.other
+      sum.expenses += d.expenses
+      sum.profit += d.profit
+      sum.soldQty += d.soldQty
+      sum.returnedQty += d.returnedQty
+      for (const g of d.expenseBreakdown?.groups ?? []) {
+        const current = groups.get(g.category)
+        groups.set(g.category, {
+          label: g.label,
+          amount: (current?.amount ?? 0) + g.amount,
+        })
+      }
+      // Худшее состояние месяца: «ошибка» важнее «не загружен», а «не загружен»
+      // важнее «уточняется». Порядок задан явно, а не порядком дней.
+      if (d.state === 'failed') state = 'failed'
+      else if (d.state === 'missing' && state !== 'failed') state = 'missing'
+      else if (d.state === 'provisional' && state === 'ok') state = 'provisional'
+    }
+
+    const expenseBreakdown: ExpenseBreakdown = {
+      groups: [...groups].map(([category, g]) => ({ category, label: g.label, amount: g.amount, items: [] })),
+      total: [...groups.values()].reduce((s, g) => s + g.amount, 0),
+    }
+
+    rows.push({
+      ...sum,
+      // Даты у месяца нет; полем остаётся первое число — по нему строится
+      // сортировка и ключ строки, и по нему же выгружается месяц в CSV.
+      date: `${key}-01`,
+      state,
+      payout: null,
+      expenseBreakdown,
+      label,
+    })
+  }
+  return rows
 }
 
 /** Итоги по всем дням периода — их показывает строка «Итого». */
@@ -156,10 +266,10 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
           )}
           title={STATE_LABEL[d.state] ?? undefined}
         >
-          {fmtDateNumeric(d.date)}
+          {rowLabel(d)}
         </span>
       ),
-      csv: (d) => fmtDateNumeric(d.date) + STATE_SUFFIX[d.state],
+      csv: (d) => rowLabel(d) + STATE_SUFFIX[d.state],
       title: (d) => STATE_LABEL[d.state] ?? undefined,
     },
     // Количество идёт первым: «сколько продали» — отправная точка, с которой
@@ -230,29 +340,42 @@ export function buildColumns(days: DayFinance[]): DataColumn<DayFinance>[] {
   ]
 }
 
-/** Выгружает дневную таблицу в CSV: шапка, строки дней, итог. */
-export function exportDailyCsv(days: DayFinance[]): void {
-  const columns = buildColumns(days)
-  const totals = totalsOf(days)
+/**
+ * Выгружает таблицу в CSV: шапка, строки, итог.
+ *
+ * <p>Строки задаются снаружи, а не берутся из `days`: в месячном виде выгружать
+ * надо месяцы, и фиктивная «дата» у месячной строки в файл попасть не должна.
+ *
+ * @param rows    строки выгрузки: дни или месяцы
+ * @param totals  дни периода — по ним считается итог, он одинаков в обоих видах
+ * @param compact выгружать компактный набор колонок вместо подробного
+ */
+export function exportFinanceCsv(
+  rows: TableRow[],
+  totals: DayFinance[],
+  compact = false,
+): void {
+  const columns = compact ? buildCompactColumns() : buildColumns(totals)
+  const sum = totalsOf(totals)
   const totalOf = (key: string): number => {
     switch (key) {
-      case 'sales': return totals.sales
-      case 'returns': return totals.returns
-      case 'partners': return totals.partners
-      case 'income': return totals.income
-      case 'expenses': return totals.expenses
-      case 'profit': return totals.profit
-      case 'sold': return totals.sold
-      case 'returned': return totals.returned
+      case 'sales': return sum.sales
+      case 'returns': return sum.returns
+      case 'partners': return sum.partners
+      case 'income': return sum.income
+      case 'expenses': return sum.expenses
+      case 'profit': return sum.profit
+      case 'sold': return sum.sold
+      case 'returned': return sum.returned
       default: {
         const category = EXPENSE_ORDER.find((c) => c.toLowerCase() === key)
-        return category ? sumCategory(days, category) : 0
+        return category ? sumCategory(totals, category) : 0
       }
     }
   }
 
   const header = columns.map((c) => (c.csvLabel ?? c.label).replace(/,\s*₽$/, ''))
-  const body = days.map((d) =>
+  const body = rows.map((d) =>
     columns.map((c) => {
       const value = c.csv?.(d)
       // Округляем уже в выгрузке, а не при сборке колонок: в интерфейсе суммы
@@ -289,7 +412,7 @@ export function exportDailyCsv(days: DayFinance[]): void {
  * сумма статей: статья может вернуться плюсом, и складывать её с расходами
  * значило бы показать не то, что в подробном виде.
  */
-export function buildCompactColumns(): DataColumn<DayFinance>[] {
+export function buildCompactColumns(): DataColumn<TableRow>[] {
   return [
     {
       key: 'date',
@@ -307,10 +430,10 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
           )}
           title={STATE_LABEL[d.state] ?? undefined}
         >
-          {fmtDateNumeric(d.date)}
+          {rowLabel(d)}
         </span>
       ),
-      csv: (d) => fmtDateNumeric(d.date) + STATE_SUFFIX[d.state],
+      csv: (d) => rowLabel(d) + STATE_SUFFIX[d.state],
       title: (d) => STATE_LABEL[d.state] ?? undefined,
     },
     {
@@ -374,6 +497,9 @@ export function buildCompactColumns(): DataColumn<DayFinance>[] {
  * <p>Компактный вид оставляет одну шапку и пять колонок: подробный отвечает «из
  * чего сложились деньги», компактный — «сколько за день в целом».
  *
+ * <p>Шаг строк — дни или месяцы: месячная строка это сумма дней, и подпись у неё
+ * «Октябрь 2026», а у неполного месяца — его период.
+ *
  * <p>Суммы — с копейками: сумма колонок обязана совпадать с итогом, а округлённые до
  * рубля слагаемые этого не делают.
  */
@@ -382,17 +508,24 @@ export default function DailyFinanceTable({
   page,
   onPageChange,
   compact = false,
+  byMonth = false,
 }: {
   days: DayFinance[]
   page: number
   onPageChange: (page: number) => void
   /** Компактный вид: одна шапка, пять колонок */
   compact?: boolean
+  /** Шаг строк: месяцы вместо дней */
+  byMonth?: boolean
 }) {
-  const columns = useMemo(
-    () => (compact ? buildCompactColumns() : buildColumns(days)),
-    [compact, days],
-  )
+  const rows = useMemo(() => (byMonth ? groupByMonth(days) : days), [byMonth, days])
+  const columns = useMemo(() => {
+    const built = compact ? buildCompactColumns() : buildColumns(days)
+    // В месячном виде первая колонка — не дата, а период: «Дата» над «Октябрь
+    // 2026» читалась бы как ошибка, а не как сокращение.
+    if (!byMonth) return built
+    return built.map((c, i) => (i === 0 ? { ...c, label: 'Месяц' } : c))
+  }, [compact, byMonth, days])
   const totals = useMemo(() => totalsOf(days), [days])
 
   const totalOf = (key: string): number => {
@@ -414,10 +547,9 @@ export default function DailyFinanceTable({
 
   return (
     <DataTable
-      rows={days}
+      rows={rows}
       columns={columns}
-      rowKey={(d) => d.date}
-      // Своя прокрутка, а не прокрутка тела модалки: иначе шапка уезжает
+      rowKey={(d) => d.date}      // Своя прокрутка, а не прокрутка тела модалки: иначе шапка уезжает
       // вместе с содержимым, и в списке на сотню дней не видно, что за колонка.
       maxHeight="calc(100vh - 19rem)"
       emptyText="За выбранный период дней нет"

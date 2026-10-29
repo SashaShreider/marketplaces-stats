@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Table2, Download } from 'lucide-react'
 import type { DayFinance } from '@/types'
 import FinanceChart, { SERIES, SERIES_ORDER, type SeriesKey } from '@/components/finance/FinanceChart'
-import DailyFinanceTable, { exportDailyCsv } from '@/components/finance/DailyFinanceTable'
+import DailyFinanceTable, { exportFinanceCsv, groupByMonth } from '@/components/finance/DailyFinanceTable'
 import Modal from '@/components/ui/Modal'
 import { SecondaryButton } from '@/components/ui/controls'
 import { cn } from '@/utils/cn'
@@ -52,6 +52,7 @@ export default function FinanceSection({
   const [tableOpen, setTableOpen] = useState(false)
   const [page, setPage] = useState(0)
   const [mode, setMode] = useState<TableMode>('detailed')
+  const [step, setStep] = useState<Step>('days')
 
   // Сменился период — первая страница. Иначе можно остаться на десятой, которой
   // в новом, более коротком периоде уже нет: таблица показала бы пустоту.
@@ -134,11 +135,18 @@ export default function FinanceSection({
         onClose={() => setTableOpen(false)}
         size="xl"
         headerExtra={<div className="flex flex-wrap items-center gap-2">{filters}</div>}
-        headerBelow={<ViewOptions mode={mode} onModeChange={setMode} />}
+        headerBelow={
+          <ViewOptions
+            mode={mode}
+            onModeChange={setMode}
+            step={step}
+            onStepChange={setStep}
+          />
+        }
         footer={
           <>
             <SecondaryButton
-              onClick={() => exportDailyCsv(days)}
+              onClick={() => exportFinanceCsv(step === 'months' ? groupByMonth(days) : days, days, mode === 'compact')}
               disabled={days.length === 0}
               title="Выгрузить таблицу в CSV"
             >
@@ -154,23 +162,30 @@ export default function FinanceSection({
           </>
         }
       >
-        <DailyFinanceTable days={days} page={page} onPageChange={setPage} compact={mode === 'compact'} />
+        <DailyFinanceTable
+          days={days}
+          page={page}
+          onPageChange={setPage}
+          compact={mode === 'compact'}
+          byMonth={step === 'months'}
+        />
       </Modal>
     </>
   )
 }
 
-/** Режим подробностей и шаг строк пока не реализованы. */
 /** Режим отображения таблицы: с расшифровкой расходов или одной строкой. */
 type TableMode = 'detailed' | 'compact'
+
+/** Шаг строк: дни периода или свёрнутые месяцы. */
+type Step = 'days' | 'months'
 
 const VIEW_MODES: { id: TableMode; label: string }[] = [
   { id: 'detailed', label: 'Подробный вид' },
   { id: 'compact', label: 'Компактный вид' },
 ]
 
-/** Шаг строк: дни периода или свёрнутые месяцы. */
-const STEP_MODES: { id: string; label: string }[] = [
+const STEP_MODES: { id: Step; label: string }[] = [
   { id: 'days', label: 'По дням' },
   { id: 'months', label: 'По месяцам' },
 ]
@@ -178,16 +193,20 @@ const STEP_MODES: { id: string; label: string }[] = [
 /**
  * Переключатели вида таблицы.
  *
- * <p>Детализация работает: подробный вид — с раскладкой расходов по статьям,
- * компактный — одной строкой на день. Шаг строк пока только «По дням»: свёртки по
- * месяцам нет, и кнопка выключена, чтобы не притворяться, что она что-то делает.
+ * <p>Детализация — подробный вид с раскладкой расходов по статьям или компактный
+ * одной строкой. Шаг строк — день или месяц: во втором случае дни складываются в
+ * строку месяца.
  */
 function ViewOptions({
   mode,
   onModeChange,
+  step,
+  onStepChange,
 }: {
   mode: TableMode
   onModeChange: (mode: TableMode) => void
+  step: Step
+  onStepChange: (step: Step) => void
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -212,26 +231,26 @@ function ViewOptions({
           )
         })}
       </div>
-      {/* Шаг пока один, и он же единственный возможный: группа из одной активной
-          кнопки читается как подпись, поэтому она выключена, но на месте — так
-          видно, где появится выбор. */}
       <div className="flex items-center gap-1" role="group" aria-label="Шаг">
-        {STEP_MODES.map((item, i) => (
-          <button
-            key={item.id}
-            type="button"
-            disabled
-            aria-pressed={i === 0}
-            title={i === 0 ? undefined : 'Пока недоступно'}
-            className={cn(
-              'rounded-lg px-2.5 py-1 text-[11.5px] font-bold',
-              i === 0 ? 'bg-slate-100 text-slate-700' : 'text-slate-400',
-              'cursor-not-allowed opacity-70',
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
+        {STEP_MODES.map((item) => {
+          const active = item.id === step
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onStepChange(item.id)}
+              aria-pressed={active}
+              className={cn(
+                'rounded-lg px-2.5 py-1 text-[11.5px] font-bold transition-colors',
+                active
+                  ? 'bg-slate-100 text-slate-700'
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600',
+              )}
+            >
+              {item.label}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
