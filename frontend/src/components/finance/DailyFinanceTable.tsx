@@ -523,15 +523,26 @@ export default function DailyFinanceTable({
   const rows = useMemo(() => (byMonth ? groupByMonth(days) : days), [byMonth, days])
   const columns = useMemo(() => {
     const built = compact ? buildCompactColumns() : buildColumns(days)
+
+    /**
+     * Нижняя граница ширины первой колонки — в любом режиме.
+     *
+     * <p>Её содержимое не числовое и шире любого числа: общая ширина делится
+     * поровну от числа колонок, и в подробном виде тринадцать колонок давали дате
+     * ту же долю, что «Прочим», — «30.09.2026» обрезалось.
+     *
+     * <p>В месячном виде подпись ещё длиннее: у неполного месяца это
+     * «01.10.2026 — 29.10.2026», и обрезка съедала конец периода — две разные
+     * строки выглядели одинаково. В компактном виде шрифт крупнее, поэтому и
+     * границы шире.
+     */
+    const firstWidth = byMonth ? (compact ? 215 : 190) : compact ? 120 : 96
     // В месячном виде первая колонка — не дата, а период: «Дата» над «Октябрь
     // 2026» читалась бы как ошибка, а не как сокращение.
-    if (!byMonth) return built
-    // Подпись неполного месяца — «01.10.2026 — 29.10.2026», а это в полтора раза
-    // шире любого числа в таблице. Без нижней границы обрезка съедала конец
-    // периода, и две разные строки выглядели одинаково. В компактном виде шрифт
-    // крупнее, поэтому и граница шире.
-    const monthWidth = compact ? 215 : 150
-    return built.map((c, i) => (i === 0 ? { ...c, label: 'Месяц', minWidth: monthWidth } : c))
+    const firstLabel = byMonth ? 'Месяц' : built[0].label
+    return built.map((c, i) =>
+      i === 0 ? { ...c, label: firstLabel, minWidth: firstWidth } : c,
+    )
   }, [compact, byMonth, days])
   const totals = useMemo(() => totalsOf(days), [days])
 
