@@ -10,7 +10,7 @@ export const METRIC_CONFIG: Record<
   MetricKey,
   { label: string; color: string; get: (d: DayFinance) => number }
 > = {
-  income: { label: 'Доходы', color: '#3b6de8', get: (d) => d.income },
+  income: { label: 'Продажи', color: '#3b6de8', get: (d) => d.income },
   expenses: { label: 'Расходы', color: '#f43f5e', get: (d) => d.expenses },
   profit: { label: 'Прибыль', color: '#10b981', get: (d) => d.profit },
 }
@@ -152,7 +152,7 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
           </g>
         ))}
 
-        {/* столбцы = доходы (всегда) */}
+        {/* столбцы = продажи (всегда) */}
         {days.map((d, i) => {
           const bTop = y(d.income)
           const bH = Math.max(2, H - PAD_B - bTop)
@@ -297,10 +297,10 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
           {/* Расходные строки передаются со знаком минус: в DayFinance они хранятся
               положительными, потому что так их удобнее складывать, а показать надо
               именно расход. Знак ставится здесь, а не флагом в TipRow. */}
-          <TipRow label="Продажи" value={hovered.sales} />
+          <TipRow label="Выручка" value={hovered.sales} />
           {hovered.returns !== 0 && <TipRow label="Возвраты" value={-hovered.returns} />}
           <TipRow label="Бонусы" value={hovered.partners} />
-          <TipRow label="Доходы" value={hovered.income} bold />
+          <TipRow label="Продажи" value={hovered.income} bold />
           <div className="my-1.5 border-t border-slate-100" />
           <TipRow label="Комиссия" value={-hovered.commission} />
           <TipRow label="Логистика" value={-hovered.logistics} />

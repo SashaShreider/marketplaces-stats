@@ -65,7 +65,7 @@ function sumCategory(days: DayFinance[], category: ExpenseCategory): number {
 /**
  * Аналитика по дням: таблица, которая раньше была вторым режимом графика.
  *
- * <p>Колонки сгруппированы по смыслу — доходы, расходы, итог, количество, — поэтому
+ * <p>Колонки сгруппированы по смыслу — продажи, расходы, итог, количество, — поэтому
  * в шапке два уровня: группа и колонки внутри неё. Одиннадцать колонок подряд без
  * групп читаются как список чисел, а не как отчёт.
  *
@@ -85,7 +85,7 @@ export default function DailyFinanceTable({ days }: { days: DayFinance[] }) {
       label,
       group,
       // В выгрузке шапка плоская, и группа пропадает. Поэтому у колонок, чьё имя
-      // совпадает с группой («Доходы» в группе «Доходы»), в CSV стоит уточнение —
+      // совпадает с группой («Продажи» в группе «Продажи»), в CSV стоит уточнение —
       // иначе в файле окажутся две одинаковые шапки, и неясно, какая из них итог.
       csvLabel: opts.csvLabel,
       value: (d) => {
@@ -144,12 +144,12 @@ export default function DailyFinanceTable({ days }: { days: DayFinance[] }) {
         csv: (d) => fmtDateNumeric(d.date) + STATE_SUFFIX[d.state],
         title: (d) => STATE_LABEL[d.state] ?? undefined,
       },
-      money('sales', 'Продажи', 'Доходы', (d) => d.sales),
-      money('returns', 'Возвраты', 'Доходы', (d) => d.returns, { negative: true }),
-      money('partners', 'Бонусы', 'Доходы', (d) => d.partners),
-      money('income', 'Доходы', 'Доходы', (d) => d.income, {
+      money('sales', 'Выручка', 'Продажи', (d) => d.sales),
+      money('returns', 'Возвраты', 'Продажи', (d) => d.returns, { negative: true }),
+      money('partners', 'Бонусы', 'Продажи', (d) => d.partners),
+      money('income', 'Продажи', 'Продажи', (d) => d.income, {
         strong: true,
-        csvLabel: 'Доходы, всего',
+        csvLabel: 'Продажи, всего',
       }),
       ...expenseColumns,
       money('expenses', 'Расходы', 'Расходы', (d) => d.expenses, {

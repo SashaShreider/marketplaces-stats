@@ -13,7 +13,7 @@ import type { ImportRunner } from '@/features/imports/useImportRunner'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ProductSort, ProductSortOrder } from '@/types'
 import { cn } from '@/utils/cn'
-import { fmtDateTime, fmtMoney, fmtNum, revenue } from '@/utils/format'
+import { fmtDateTime, fmtMoney, fmtNum, grossProfit } from '@/utils/format'
 import { shopLabel } from '@/utils/marketplace'
 
 const PAGE_SIZE = 200
@@ -158,7 +158,7 @@ export default function ProductsPage({
   const totals = report?.totals
   // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
-  const gross = revenue(totals?.income ?? 0, totals?.expenses ?? 0)
+  const profit = grossProfit(totals?.income ?? 0, totals?.expenses ?? 0)
   const hasFilter = Boolean(dq || da || onlyWithSales)
 
   return (
@@ -214,7 +214,7 @@ export default function ProductsPage({
           {totals && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
-                label="Доходы"
+                label="Продажи"
                 tone="border-emerald-200/60 bg-emerald-50/60"
                 delay={0.05}
                 value={<AnimatedNumber value={totals.income} />}
@@ -239,10 +239,10 @@ export default function ProductsPage({
                 }
               />
               <StatCard
-                label="Выручка"
-                tone={gross >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
+                label="Прибыль"
+                tone={profit >= 0 ? 'border-brand-200/60 bg-brand-50/60' : 'border-rose-200/60 bg-rose-50/60'}
                 delay={0.1}
-                value={<AnimatedNumber value={gross} />}
+                value={<AnimatedNumber value={profit} />}
               />
               <StatCard
                 label="Товаров с продажами"

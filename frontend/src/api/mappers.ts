@@ -27,7 +27,7 @@ export function mapDaily(report: DailyReport): DayFinance[] {
       logistics: -b.logistics,
       other: -b.otherExpenses,
       expenses: d.expenses,
-      // Прибыль считается из доходов и расходов, а не из выплаты: при отборе по
+      // Прибыль считается из продаж и расходов, а не из выплаты: при отборе по
       // товарам выплата неизвестна, и вычитать её означало бы вычесть ноль.
       profit: d.income - d.expenses,
       soldQty: d.soldQuantity ?? 0,

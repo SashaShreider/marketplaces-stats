@@ -3,7 +3,7 @@ import { ArrowUpDown, ChevronDown, ChevronUp, ExternalLink, Package } from 'luci
 import type { ProductRow, ProductSort, ProductSortOrder, SelectionTotals } from '@/types'
 import { cn } from '@/utils/cn'
 import { Pager } from '@/components/ui'
-import { fmtMoney, fmtNum, revenue } from '@/utils/format'
+import { fmtMoney, fmtNum, grossProfit } from '@/utils/format'
 
 /**
  * Таблица товаров: строки, прокрутка и пагинация.
@@ -39,7 +39,7 @@ function Row({ r, n }: { r: ProductRow; n: number }) {
   const sold = r.soldQuantity
   const returned = r.returnedQuantity
   const authors = r.authors.map((a) => a.raw)
-  const gross = revenue(r.income, r.expenses)
+  const profit = grossProfit(r.income, r.expenses)
   // Минус у расходов ставим сами, а не берём из fmtMoney. Проверять надо
   // округлённое значение: у копеечных остатков вроде −0.4 сумма округляется
   // в ноль, и проверка на исходное число печатала «−0 ₽» — расход, которого нет,
@@ -110,10 +110,10 @@ function Row({ r, n }: { r: ProductRow; n: number }) {
       <td
         className={cn(
           'tnum whitespace-nowrap border-b border-slate-100 px-4 py-3 text-right text-[13px] font-extrabold group-hover:border-brand-100',
-          gross >= 0 ? 'text-slate-900' : 'text-rose-600',
+          profit >= 0 ? 'text-slate-900' : 'text-rose-600',
         )}
       >
-        {fmtMoney(gross)}
+        {fmtMoney(profit)}
       </td>
     </tr>
   )
@@ -130,9 +130,9 @@ const HEAD: { label: string; align: string; sort?: ProductSort }[] = [
   { label: 'Товар', align: 'text-left', sort: 'NAME' },
   { label: 'SKU / артикул', align: 'text-left', sort: 'SKU' },
   { label: 'Продано', align: 'text-right', sort: 'SOLD' },
-  { label: 'Доход', align: 'text-right', sort: 'INCOME' },
+  { label: 'Продажи', align: 'text-right', sort: 'INCOME' },
   { label: 'Расходы', align: 'text-right', sort: 'EXPENSES' },
-  { label: 'Выручка', align: 'text-right', sort: 'GROSS' },
+  { label: 'Прибыль', align: 'text-right', sort: 'GROSS' },
 ]
 
 export default function ProductsTable({
@@ -177,7 +177,7 @@ export default function ProductsTable({
   // Итог приходит с сервера: бэкенд считает его по всем товарам отбора, а строк
   // отдаёт только текущую страницу. Складывать показанное — значит показать
   // товары одной страницы и подписать это «Итого».
-  const gross = revenue(selectionTotals.income, selectionTotals.expenses)
+  const profit = grossProfit(selectionTotals.income, selectionTotals.expenses)
   // Ноль расходов показываем нулём, а не «−0 ₽»: иначе итог выглядел бы
   // вычетом, которого не было.
   const hasExpenses = Math.round(selectionTotals.expenses) !== 0
@@ -263,10 +263,10 @@ export default function ProductsTable({
                 <td
                   className={cn(
                     'tnum border-t border-slate-200 px-4 py-2.5 text-right text-[13px] font-extrabold',
-                    gross >= 0 ? 'text-slate-900' : 'text-rose-600',
+                    profit >= 0 ? 'text-slate-900' : 'text-rose-600',
                   )}
                 >
-                  {fmtMoney(gross)}
+                  {fmtMoney(profit)}
                 </td>
               </tr>
             </tfoot>

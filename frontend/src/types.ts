@@ -337,10 +337,12 @@ export type DayState = 'ok' | 'missing' | 'failed' | 'provisional'
 export interface DayFinance {
   date: string
   state: DayState
+  /** выручка: сколько покупатель заплатил за товар, до возвратов и бонусов */
   sales: number
   /** модуль возвратов */
   returns: number
   partners: number
+  /** продажи: выручка за вычетом возвратов плюс бонусы; в интерфейсе — «Продажи» */
   income: number
   commission: number
   logistics: number

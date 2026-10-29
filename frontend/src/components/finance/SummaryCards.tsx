@@ -100,7 +100,7 @@ function Row({
 }
 
 /**
- * Три карточки отчёта: доходы, расходы и прибыль.
+ * Три карточки отчёта: продажи, расходы и прибыль.
  *
  * <p>Расходы занимают вдвое больше места, чем соседние карточки: статей шесть, и
  * в узкой колонке они превращались в длинный список. На широком экране карточка
@@ -111,7 +111,7 @@ function Row({
  * расшифровки непроверяема. Список задан здесь, а не приходит из ответа, чтобы
  * порядок строк не зависел от того, какие статьи были в периоде.
  *
- * <p>Прибыль считается как доходы минус расходы. При отборе по товарам выплата
+ * <p>Прибыль считается как продажи минус расходы. При отборе по товарам выплата
  * неизвестна, и тогда вместо неё показывается прочерк — не ноль.
  */
 export default function SummaryCards({
@@ -140,14 +140,14 @@ export default function SummaryCards({
       <StatCard
         size="lg"
         delay={0.08}
-        label="Доходы"
+        label="Продажи"
         className="md:order-1"
         value={<AnimatedNumber value={totals.income} />}
         tone="border-emerald-200/60 bg-gradient-to-b from-emerald-50/90 to-emerald-50/40"
         iconBg="bg-emerald-500/15 text-emerald-600"
         icon={<TrendingUp size={17} strokeWidth={2.5} />}
       >
-        <Row label="Продажи" value={totals.sales} />
+        <Row label="Выручка" value={totals.sales} />
         <Row label="Возвраты" value={totals.returns} negative />
         <Row label="Бонусы" value={totals.partners} />
       </StatCard>
@@ -187,6 +187,22 @@ export default function SummaryCards({
             />
           ))}
         </div>
+        {/**
+        {scoped && unallocated > 0 && (
+          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] font-semibold leading-relaxed text-amber-700 ring-1 ring-amber-200/70">
+            <Info size={12} className="mt-0.5 shrink-0" />
+            <span>
+              За пределами отбора ещё {fmtMoney(unallocated)} расходов без привязки к товару
+            </span>
+          </div>
+        )}
+        */}
+        {scoped && unallocated > 0 && (
+        <div className="mt-1.5 flex items-center gap-1.5 border-t border-slate-200/50 pt-2.5 text-[11px] font-medium text-slate-400">
+          <Info size={12} />
+          За пределами отбора ещё {fmtMoney(unallocated)} расходов без привязки к товару
+        </div>
+        )}
       </StatCard>
 
       <StatCard
@@ -199,7 +215,7 @@ export default function SummaryCards({
         iconBg="bg-brand-500/15 text-brand-600"
         icon={<Wallet size={17} strokeWidth={2.5} />}
       >
-        <Row label="Доходы" value={totals.income} />
+        <Row label="Продажи" value={totals.income} />
         <Row label="Расходы" value={totals.expenses} negative />
         <div className="flex items-center justify-between border-t border-slate-200/50 pt-2.5">
           <span className="text-[12.5px] font-medium text-slate-500">К выплате</span>
@@ -214,14 +230,6 @@ export default function SummaryCards({
             {payout === null ? '—' : <AnimatedNumber value={payout} />}
           </span>
         </div>
-        {scoped && unallocated > 0 && (
-          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] font-semibold leading-relaxed text-amber-700 ring-1 ring-amber-200/70">
-            <Info size={12} className="mt-0.5 shrink-0" />
-            <span>
-              За пределами отбора ещё {fmtMoney(unallocated)} расходов без привязки к товару
-            </span>
-          </div>
-        )}
         <div className="mt-1.5 flex items-center gap-1.5 border-t border-slate-200/50 pt-2.5 text-[11px] font-medium text-slate-400">
           <Info size={12} />
           Себестоимость товаров не учтена
