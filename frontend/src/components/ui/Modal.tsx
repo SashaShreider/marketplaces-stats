@@ -80,6 +80,17 @@ export default function Modal({
           ? 'w-full max-w-[760px]'
           : 'w-full max-w-[520px]'
 
+  /**
+   * Минимальная высота широкого окна.
+   *
+   * <p>Высота окна идёт от содержимого, и на периоде из одного дня таблица
+   * сжималась до трёх строк: окно превращалось в узкую полоску посреди экрана.
+   * Порог задан через `min(...)`, чтобы на низком экране окно всё-таки
+   * помещалось: `max-height` сам по себе не спасает — в CSS `min-height` сильнее.
+   */
+  const minHeight =
+    size === 'xl' || size === 'full' ? 'min-h-[min(640px,calc(100vh-2rem))]' : ''
+
   return createPortal(
     <AnimatePresence>
       {open && (
@@ -120,6 +131,7 @@ export default function Modal({
             className={cn(
               'relative flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/20',
               width,
+              minHeight,
             )}
           >
             <div className="border-b border-slate-100 px-5 py-3">
