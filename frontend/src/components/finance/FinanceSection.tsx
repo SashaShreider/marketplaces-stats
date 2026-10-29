@@ -196,11 +196,6 @@ const STEP_MODES: { id: Step; label: string }[] = [
  * <p>Детализация — подробный вид с раскладкой расходов по статьям или компактный
  * одной строкой. Шаг строк — день или месяц: во втором случае дни складываются в
  * строку месяца.
- *
- * <p>Это две независимые настройки, и выглядят они двумя отдельными группами, а не
- * одним рядом кнопок: раньше «Компактный вид» и «По дням» стояли вплотную, и
- * казалось, что выбрать можно что-то одно из четырёх. Каждая группа обведена и
- * подписана, между ними — воздух.
  */
 function ViewOptions({
   mode,
@@ -214,60 +209,42 @@ function ViewOptions({
   onStepChange: (step: Step) => void
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <Segmented
-        label="Детализация"
-        items={VIEW_MODES}
-        value={mode}
-        onChange={onModeChange}
-      />
-      <Segmented label="Шаг" items={STEP_MODES} value={step} onChange={onStepChange} />
-    </div>
-  )
-}
-
-/**
- * Группа взаимоисключающих кнопок.
- *
- * <p>Обведена и подписана снаружи: подпись внутри рамки спорила бы с подписями
- * кнопок, а без подписи две группы читались бы как один список из четырёх
- * пунктов. Выбранная кнопка — белая на общем фоне, как в остальных переключателях
- * интерфейса.
- */
-function Segmented<T extends string>({
-  label,
-  items,
-  value,
-  onChange,
-}: {
-  label: string
-  items: { id: T; label: string }[]
-  value: T
-  onChange: (value: T) => void
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-slate-400">
-        {label}
-      </span>
-      <div
-        role="group"
-        aria-label={label}
-        className="flex items-center gap-0.5 rounded-xl border border-slate-200 bg-slate-50/70 p-0.5"
-      >
-        {items.map((item) => {
-          const active = item.id === value
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <div className="flex items-center gap-1" role="group" aria-label="Детализация">
+        {VIEW_MODES.map((item) => {
+          const active = item.id === mode
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onChange(item.id)}
+              onClick={() => onModeChange(item.id)}
               aria-pressed={active}
               className={cn(
-                'rounded-[10px] px-2.5 py-1 text-[11.5px] font-bold transition-colors',
+                'rounded-lg px-2.5 py-1 text-[11.5px] font-bold transition-colors',
                 active
-                  ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200/80'
-                  : 'text-slate-400 hover:text-slate-600',
+                  ? 'bg-slate-100 text-slate-700'
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600',
+              )}
+            >
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
+      <div className="flex items-center gap-1" role="group" aria-label="Шаг">
+        {STEP_MODES.map((item) => {
+          const active = item.id === step
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onStepChange(item.id)}
+              aria-pressed={active}
+              className={cn(
+                'rounded-lg px-2.5 py-1 text-[11.5px] font-bold transition-colors',
+                active
+                  ? 'bg-slate-100 text-slate-700'
+                  : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600',
               )}
             >
               {item.label}
