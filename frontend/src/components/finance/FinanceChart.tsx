@@ -3,7 +3,6 @@ import { motion } from 'framer-motion'
 import type { DayFinance } from '@/types'
 import { chartScales, tooltipPosition, useChartWidth } from '@/components/finance/barChartBase'
 import { clamp, fmtAxis, fmtDateLong, fmtDayShort, fmtMoney, fmtNum, niceScale } from '@/utils/format'
-import { cn } from '@/utils/cn'
 
 /** Что можно рисовать на графике: три линии денег и столбцы количества. */
 export type SeriesKey = 'income' | 'expenses' | 'profit' | 'qty'
@@ -29,7 +28,7 @@ export const SERIES: Record<
   income: { label: 'Продажи, ₽', short: 'Продажи', color: '#3b6de8', money: true, get: (d) => d.income },
   expenses: { label: 'Расходы, ₽', short: 'Расходы', color: '#f43f5e', money: true, get: (d) => d.expenses },
   profit: { label: 'Прибыль, ₽', short: 'Прибыль', color: '#10b981', money: true, get: (d) => d.profit },
-  qty: { label: 'Продажи, шт', short: 'Продажи, шт', color: '#f59e0b', money: false, get: (d) => d.soldQty },
+  qty: { label: 'Продажи, шт', short: 'Продажи, шт', color: '#f0a94a', money: false, get: (d) => d.soldQty },
 }
 
 /** Порядок в легенде: линии, затем столбцы. */
@@ -117,12 +116,12 @@ function TipRow({
   color?: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-[2.5px]">
-      <span className={`text-[12px] ${bold ? 'font-bold text-slate-800' : 'font-medium text-slate-500'}`}>
+    <div className="flex items-center justify-between gap-4 py-[1.5px]">
+      <span className={`text-[11.5px] ${bold ? 'font-bold text-slate-800' : 'font-medium text-slate-500'}`}>
         {label}
       </span>
       <span
-        className={`tnum text-[12px] ${bold ? 'font-extrabold' : 'font-medium text-slate-500'}`}
+        className={`tnum text-[11.5px] ${bold ? 'font-extrabold' : 'font-medium text-slate-500'}`}
         style={{ color: color ?? undefined }}
       >
         {fmtMoney(value)}
@@ -187,7 +186,7 @@ export default function FinanceChart({
   const yQty = (value: number) =>
     PAD_T + innerH * (1 - clamp(value, 0, qtyScale.max) / (qtyScale.max || 1))
 
-  const barW = clamp(slot * 0.5, 1.5, 18)
+  const barW = clamp(slot * 0.25, 1, 9)
   const labelStep = Math.max(1, Math.ceil(n / 10))
 
   const hovered = hover !== null ? days[hover] : null
@@ -202,8 +201,8 @@ export default function FinanceChart({
           showQty ? yQty(days[hover].soldQty) : Number.POSITIVE_INFINITY,
         )
 
-  const TIP_W = 248
-  const TIP_H = 252
+  const TIP_W = 214
+  const TIP_H = 224
   const { left: tipLeft, top: tipTop } = tooltipPosition({
     hoverX,
     hoverY: Number.isFinite(hoverY) ? hoverY : PAD_T,
@@ -221,18 +220,6 @@ export default function FinanceChart({
     const mx = e.clientX - rect.left
     setHover(clamp(Math.floor((mx - padL) / slot), 0, n - 1))
   }
-
-  /** Общая база рисунка: от неё растут столбцы и в ней сходятся линии. */
-  const zeroY = yMoney(0)
-
-  /**
-   * Цвет точки в шапке тултипа.
-   *
-   * <p>Раньше это был цвет выбранной метрики — единственной на графике. Теперь
-   * показателей может быть несколько, и точка берётся у первого включённого:
-   * она обозначает день, а не конкретную серию.
-   */
-  const headerKey = SERIES_ORDER.find((k) => enabled[k]) ?? 'income'
 
   return (
     <div ref={wrapRef} className="relative w-full select-none">
@@ -286,14 +273,28 @@ export default function FinanceChart({
             </text>
           ))}
 
-        {/* Разделитель шкал: две оси не должны читаться как одна колонка чисел */}
+        {/* Разделители шкал.
+            Справа от подписей штук — граница между двумя колонками чисел.
+            У денег — своя вертикаль прямо у начала поля рисования: без неё
+            подписи рублей висят в воздухе и не связано ли с графиком. Это
+            относится к левой границе области, а не к осям координат. */}
+        {(showQty || moneyKeys.length > 0) && (
+          <line
+            x1={padL}
+            x2={padL}
+            y1={PAD_T - 4}
+            y2={H - PAD_B + 4}
+            stroke="#e2e8f0"
+            strokeWidth={1}
+          />
+        )}
         {showQty && moneyKeys.length > 0 && (
           <line
             x1={PAD_L_QTY - 2}
             x2={PAD_L_QTY - 2}
             y1={PAD_T - 4}
             y2={H - PAD_B + 4}
-            stroke="#e2e8f0"
+            stroke="#eef2f8"
             strokeWidth={1}
           />
         )}
@@ -320,21 +321,6 @@ export default function FinanceChart({
               />
             )
           })}
-
-        {/* маркеры незагруженных / уточняемых дней на базовой линии */}
-        {days.map((d, i) =>
-          d.state === 'ok' ? null : (
-            <rect
-              key={`st-${d.date}`}
-              x={x(i) - Math.max(2, barW / 2)}
-              y={zeroY}
-              width={Math.max(4, barW)}
-              height={4}
-              rx={2}
-              fill={d.state === 'failed' ? '#f43f5e' : d.state === 'missing' ? '#fbbf24' : '#38bdf8'}
-            />
-          ),
-        )}
 
         {/* линии денег. Точек нет вовсе: на периоде в тридцать дней их тридцать на
             каждую линию, и они превращают график в пунктир из кружков, закрывая
@@ -370,22 +356,28 @@ export default function FinanceChart({
           />
         )}
 
-        {/* подписи оси X */}
-        {days.map((d, i) =>
-          i % labelStep === 0 ? (
+        {/* подписи оси X: первый и последний день всегда видны.
+            Шаг подписей считается от ширины, но крайние не попадают под «каждый
+            N-й» — период начинался бы с 3 октября, и понять, где его начало,
+            можно было бы только по тултипу. Крайние подписи прижимаются к краям
+            поля, чтобы не обрезаться. */}
+        {days.map((d, i) => {
+          const isEdge = i === 0 || i === n - 1
+          if (!isEdge && i % labelStep !== 0) return null
+          return (
             <text
               key={`x-${d.date}`}
-              x={x(i)}
+              x={isEdge ? (i === 0 ? padL : width - PAD_R) : x(i)}
               y={H - 10}
-              textAnchor="middle"
+              textAnchor={isEdge ? (i === 0 ? 'start' : 'end') : 'middle'}
               fontSize={11}
               fontWeight={600}
               fill="#94a3b8"
             >
               {fmtDayShort(d.date)}
             </text>
-          ) : null,
-        )}
+          )
+        })}
 
         {/* зона наведения */}
         <rect
@@ -402,38 +394,19 @@ export default function FinanceChart({
       {/* HTML-тултип с детализацией */}
       {hovered && (
         <div
-          className="pointer-events-none absolute z-20 w-[248px] rounded-2xl border border-slate-200/80 bg-white/95 p-3.5 shadow-xl shadow-slate-900/10 backdrop-blur-md"
+          className="pointer-events-none absolute z-20 w-[214px] rounded-xl border border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-lg shadow-slate-900/10 backdrop-blur-md"
           style={{
             left: tipLeft,
             top: tipTop,
             transition: 'left .1s linear, top .1s linear',
           }}
         >
-          <div className="flex items-center gap-2 pb-2">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ background: SERIES[headerKey].color }}
-            />
-            <span className="text-[12.5px] font-extrabold text-slate-900">
-              {fmtDateLong(hovered.date)}
-            </span>
+          <div className="pb-1.5 text-[12px] font-extrabold text-slate-900">
+            {fmtDateLong(hovered.date)}
           </div>
-          {hovered.state !== 'ok' && (
-            <div
-              className={cn(
-                'mb-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold',
-                hovered.state === 'failed'
-                  ? 'bg-rose-50 text-rose-600'
-                  : hovered.state === 'missing'
-                    ? 'bg-amber-50 text-amber-700'
-                    : 'bg-sky-50 text-sky-700',
-              )}
-            >
-              {hovered.state === 'failed'
-                ? 'Не удалось загрузить этот день'
-                : hovered.state === 'missing'
-                  ? 'Данные за этот день не загружены'
-                  : 'Данные ещё могут уточниться'}
+          {hovered.state === 'failed' && (
+            <div className="mb-1 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-rose-600">
+              Не удалось загрузить этот день
             </div>
           )}
           {/* Расходные строки передаются со знаком минус: в DayFinance они хранятся
@@ -443,12 +416,12 @@ export default function FinanceChart({
           {hovered.returns !== 0 && <TipRow label="Возвраты" value={-hovered.returns} />}
           <TipRow label="Бонусы" value={hovered.partners} />
           <TipRow label="Продажи" value={hovered.income} bold />
-          <div className="my-1.5 border-t border-slate-100" />
+          <div className="my-1 border-t border-slate-100" />
           <TipRow label="Комиссия" value={-hovered.commission} />
           <TipRow label="Логистика" value={-hovered.logistics} />
           <TipRow label="Прочие расходы" value={-hovered.other} />
           <TipRow label="Расходы" value={-hovered.expenses} bold />
-          <div className="my-1.5 border-t border-slate-100" />
+          <div className="my-1 border-t border-slate-100" />
           {/* Прибыль приходит со своим знаком: убыток должен показываться убытком,
               а не положительной суммой красным цветом. */}
           <TipRow
@@ -458,7 +431,7 @@ export default function FinanceChart({
             color={hovered.profit >= 0 ? '#059669' : '#f43f5e'}
           />
           {(hovered.soldQty > 0 || hovered.returnedQty > 0) && (
-            <div className="mt-1.5 flex justify-between border-t border-slate-100 pt-1.5 text-[11.5px] font-semibold text-slate-400">
+            <div className="mt-1 flex justify-between border-t border-slate-100 pt-1 text-[11px] font-semibold text-slate-400">
               <span>Продано: {hovered.soldQty} шт</span>
               <span>Возвращено: {hovered.returnedQty} шт</span>
             </div>
