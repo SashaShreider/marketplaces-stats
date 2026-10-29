@@ -115,6 +115,57 @@ class ExpenseBreakdownTest {
     }
 
     @Test
+    @DisplayName("Логистика — только услуги из блока delivery ответа OZON")
+    void logisticsComesOnlyFromDeliveryBlock() {
+        // Один и тот же тип начисления проверяем из двух блоков ответа: статью
+        // определяет не название, а место, откуда пришло начисление.
+        Map<Integer, FinancialModel.TypeLabels> labels = Map.of(45,
+                new FinancialModel.TypeLabels("PickUpPointReturnAcceptance",
+                        "Обработка возвратов, отмен и невыкупов партнёрами"));
+        List<FeeFact> fees = List.of(
+                new FeeFact(D1, "u-1", 1L, 100L, 45, new BigDecimal("-50"),
+                        FeeFact.FeeKind.DELIVERY),
+                new FeeFact(D1, "u-1", 2L, null, 45, new BigDecimal("-70"),
+                        FeeFact.FeeKind.NON_ITEM));
+
+        ExpenseBreakdown breakdown = FinancialModel.expenseBreakdown(fees, null, labels);
+
+        assertThat(breakdown.group(ExpenseCategory.LOGISTICS).items())
+                .extracting(FinancialSummary.TypeAmount::name)
+                .containsExactly("PickUpPointReturnAcceptance");
+        assertThat(breakdown.group(ExpenseCategory.LOGISTICS).amount())
+                .isEqualByComparingTo("-50");
+        // Вне блока delivery тот же тип не должен попадать в логистику.
+        assertThat(breakdown.group(ExpenseCategory.OTHER).items())
+                .extracting(FinancialSummary.TypeAmount::name)
+                .containsExactly("PickUpPointReturnAcceptance");
+        assertThat(breakdown.group(ExpenseCategory.OTHER).amount())
+                .isEqualByComparingTo("-70");
+    }
+
+    @Test
+    @DisplayName("Аналитика Premium входит в продвижение")
+    void analyticsPremiumIsPromotion() {
+        Map<Integer, FinancialModel.TypeLabels> labels = Map.of(126,
+                new FinancialModel.TypeLabels("AnalyticsPremium", "Аналитика Premium"));
+        List<FeeFact> fees = List.of(
+                new FeeFact(D1, "u-1", 1L, null, 126, new BigDecimal("-500"),
+                        FeeFact.FeeKind.NON_ITEM),
+                new FeeFact(D1, "u-1", 2L, 100L, 126, new BigDecimal("-300"),
+                        FeeFact.FeeKind.DELIVERY));
+
+        ExpenseBreakdown breakdown = FinancialModel.expenseBreakdown(fees, null, labels);
+
+        assertThat(breakdown.group(ExpenseCategory.PROMOTION).items())
+                .extracting(FinancialSummary.TypeAmount::name)
+                .containsExactly("AnalyticsPremium");
+        assertThat(breakdown.group(ExpenseCategory.PROMOTION).amount())
+                .isEqualByComparingTo("-800");
+        assertThat(breakdown.group(ExpenseCategory.LOGISTICS)).isNull();
+        assertThat(breakdown.group(ExpenseCategory.OTHER)).isNull();
+    }
+
+    @Test
     @DisplayName("Неизвестный тип начисления попадает в прочие расходы, а не пропадает")
     void unknownTypeFallsIntoOther() {
         // Пустой справочник — это худший случай: подписей нет вовсе, но расходы есть.
@@ -174,6 +225,7 @@ class ExpenseBreakdownTest {
         assertThat(ExpenseCategory.byTypeName("PayPerClick")).isEqualTo(ExpenseCategory.PROMOTION);
         assertThat(ExpenseCategory.byTypeName("payperclick")).isEqualTo(ExpenseCategory.PROMOTION);
         assertThat(ExpenseCategory.byTypeName("PremiumSubscription")).isEqualTo(ExpenseCategory.PROMOTION);
+        assertThat(ExpenseCategory.byTypeName("AnalyticsPremium")).isEqualTo(ExpenseCategory.PROMOTION);
         assertThat(ExpenseCategory.byTypeName("ItemPacking")).isEqualTo(ExpenseCategory.STORAGE);
         assertThat(ExpenseCategory.byTypeName("SupplyInbound")).isEqualTo(ExpenseCategory.STORAGE);
         assertThat(ExpenseCategory.byTypeName("Acquiring")).isEqualTo(ExpenseCategory.ACQUIRING);

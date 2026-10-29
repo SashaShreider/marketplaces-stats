@@ -185,10 +185,9 @@ public final class FinancialModel {
      * отрицательно, возврат комиссии при возврате товара — положителен.
      *
      * <p>Статья определяется по названию типа, а не по его номеру: справочник
-     * обновляется из API, и номеров может стать больше. Логистика — исключение:
-     * её статья берётся из места, откуда пришло начисление
-     * ({@link FeeFact.FeeKind#DELIVERY}), потому что типов доставки десяток и
-     * список меняется.
+     * обновляется из API, и номеров может стать больше. Логистика — запасной
+     * вариант: туда попадают услуги из блока {@link FeeFact.FeeKind#DELIVERY},
+     * если их тип не отнесён к другой статье по названию.
      *
      * @param fees       строки расходов с типом начисления
      * @param commission комиссия маркетплейса за период; {@code null} — не было
@@ -199,9 +198,14 @@ public final class FinancialModel {
                                                     Map<Integer, TypeLabels> typeLabels) {
         Map<ExpenseCategory, Map<Integer, BigDecimal>> byCategory = new LinkedHashMap<>();
         for (FeeFact fee : fees) {
-            ExpenseCategory category = fee.kind() == FeeFact.FeeKind.DELIVERY
-                    ? ExpenseCategory.LOGISTICS
-                    : ExpenseCategory.byTypeName(nameOf(fee.typeId(), typeLabels));
+            // Сначала смотрим название типа: явно отнесённый к статье тип важнее
+            // источника. Логистика — запасной вариант для услуг доставки, которых
+            // нет в списках выше: в неё попадает только то, что OZON прислал в
+            // блоке delivery.services, и ничего добавленного вручную.
+            ExpenseCategory category = ExpenseCategory.byTypeName(nameOf(fee.typeId(), typeLabels));
+            if (category == ExpenseCategory.OTHER && fee.kind() == FeeFact.FeeKind.DELIVERY) {
+                category = ExpenseCategory.LOGISTICS;
+            }
             byCategory.computeIfAbsent(category, c -> new LinkedHashMap<>())
                     .merge(fee.typeId(), n(fee.amount()), BigDecimal::add);
         }

@@ -27,6 +27,8 @@ import java.util.Set;
  * ({@code CustomerReviews}, {@code PremiumCashbackIndividualPoints}) в
  * «Продвижение» не входят: это отдельные услуги, и складывать их с оплатой за клик
  * значило бы показывать продавцу неправду о цене рекламы. Они видны в «Прочих».
+ * {@code AnalyticsPremium} — исключение среди подписок: он отнесён к «Продвижению»
+ * по решению владельца продукта.
  */
 public enum ExpenseCategory {
 
@@ -37,10 +39,11 @@ public enum ExpenseCategory {
     PROMOTION("Продвижение"),
 
     /**
-     * Логистика: все услуги доставки.
+     * Логистика: услуги доставки из блока {@code delivery} ответа OZON.
      *
-     * <p>Определяется не по названию типа, а по месту, из которого пришло начисление
-     * ({@link FeeFact.FeeKind#DELIVERY}): у логистики десяток типов, и список меняется.
+     * <p>Определяется по источнику начисления ({@link FeeFact.FeeKind#DELIVERY}),
+     * если название типа не отнесено к другой статье: у логистики десяток типов,
+     * и список меняется. Ничего сверх того, что пришло в ответе, сюда не добавляется.
      */
     LOGISTICS("Логистика"),
 
@@ -64,7 +67,8 @@ public enum ExpenseCategory {
             "Promotion",
             "FirstCustomerReview",
             "StarsMembership",
-            "PremiumSubscription");
+            "PremiumSubscription",
+            "AnalyticsPremium");
 
     private static final Set<String> STORAGE_TYPES = Set.of(
             "Placements",
