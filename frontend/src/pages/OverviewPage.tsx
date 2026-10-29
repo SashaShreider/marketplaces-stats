@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { getDaily } from '@/api/client'
 import { mapDaily } from '@/api/mappers'
@@ -8,7 +8,7 @@ import FinanceSection from '@/components/finance/FinanceSection'
 import OverviewFilters from '@/components/finance/OverviewFilters'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SummaryCards from '@/components/finance/SummaryCards'
-import SyncIndicator from '@/components/sync/SyncIndicator'
+import type { SyncState } from '@/components/sync/SyncIndicator'
 import { PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
@@ -36,11 +36,14 @@ export default function OverviewPage({
   range,
   onRangeChange,
   runner,
+  onSyncState,
 }: {
   account: AccountInfo
   range: DateRange
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
+  /** Состояние синхронизации для индикатора в верхней панели */
+  onSyncState: (state: SyncState | null) => void
 }) {
   const [author, setAuthor] = useState('')
   const [skus, setSkus] = useState<number[]>([])
@@ -69,11 +72,15 @@ export default function OverviewPage({
   const days = useMemo(() => (report ? mapDaily(report) : []), [report])
   const totals = useMemo(() => (days.length ? sumDays(days) : EMPTY_TOTALS), [days])
 
-  const startSync = () => {
-    runner.startFinance(range.from, range.to)
-  }
-
   const auto = useAutoSync({ accountId: account.id, report, range, runner })
+
+  // Индикатор и кнопка обновления стоят в шапке, рядом с магазином, поэтому
+  // состояние уходит наверх. При уходе со страницы его надо погасить: иначе шапка
+  // показывала бы статус отчёта, которого на экране больше нет.
+  useEffect(() => {
+    onSyncState(auto.state)
+    return () => onSyncState(null)
+  }, [auto.state, onSyncState])
 
   // Подпись отбора пришла с сервера — по ней видно, что применилось на самом деле.
   // Раскладка расходов появилась в контракте позже, поэтому `?.` на каждом шаге:
@@ -100,9 +107,6 @@ export default function OverviewPage({
           onSkusChange={setSkus}
           catalogProducts={account.catalogProducts}
         />
-        <div className="ml-auto flex items-center">
-          <SyncIndicator state={auto.state} busy={runner.busy} onRetry={startSync} />
-        </div>
       </div>
 
       <ProgressBar runner={runner} showProgress={false} />

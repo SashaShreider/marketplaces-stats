@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { MarketplaceLogo } from '@/components/ui'
+import SyncIndicator, { type SyncState } from '@/components/sync/SyncIndicator'
 import type { AccountInfo, User } from '@/types'
 import { shopLabel, shopSubLabel } from '@/utils/marketplace'
 
@@ -351,6 +352,9 @@ export default function TopBar({
   onEditAccount,
   onDisconnect,
   onLogout,
+  syncState,
+  syncBusy,
+  onRefresh,
 }: {
   user: User
   list: AccountInfo[]
@@ -360,6 +364,11 @@ export default function TopBar({
   onEditAccount: (account: AccountInfo | null) => void
   onDisconnect: (accountId: number) => Promise<void>
   onLogout: () => void
+  /** Состояние загрузки открытой страницы */
+  syncState: SyncState | null
+  syncBusy: boolean
+  /** Обновить данные магазина за выбранный период */
+  onRefresh: () => void
 }) {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-slate-200/70 bg-white/75 px-4 backdrop-blur-xl sm:px-6">
@@ -376,6 +385,12 @@ export default function TopBar({
       <div className="hidden lg:block" />
 
       <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Обновление — рядом с магазином: оно относится к нему и к выбранному
+            периоду, а не к фильтрам конкретной страницы. Без магазина обновлять
+            нечего, поэтому кнопки нет. */}
+        {current && (
+          <SyncIndicator state={syncState} busy={syncBusy} onRetry={onRefresh} always />
+        )}
         <AccountSelector current={current} list={list} onChange={onAccountChange} />
         <span className="hidden h-6 w-px bg-slate-200 sm:block" />
         <ProfileMenu

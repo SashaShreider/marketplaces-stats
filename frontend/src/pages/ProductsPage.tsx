@@ -6,7 +6,7 @@ import DateRangePicker from '@/components/common/DateRangePicker'
 import ProductsTable from '@/components/finance/ProductsTable'
 import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
 import ProgressBar from '@/components/sync/ProgressBar'
-import SyncIndicator from '@/components/sync/SyncIndicator'
+import type { SyncState } from '@/components/sync/SyncIndicator'
 import { AnimatedNumber, MarketplaceLogo, PageHeader, StatCard } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
@@ -60,11 +60,14 @@ export default function ProductsPage({
   range,
   onRangeChange,
   runner,
+  onSyncState,
 }: {
   account: AccountInfo
   range: DateRange
   onRangeChange: (r: DateRange) => void
   runner: ImportRunner
+  /** Состояние синхронизации для индикатора в верхней панели */
+  onSyncState: (state: SyncState | null) => void
 }) {
   const [query, setQuery] = useState('')
   const [author, setAuthor] = useState('')
@@ -131,6 +134,12 @@ export default function ProductsPage({
   // данных. Отчёт по товарам несёт то же покрытие периода, поэтому хуку достаточно.
   const auto = useAutoSync({ accountId: account.id, report, range, runner })
 
+  // Статус синхронизации показывает шапка — она общая для обеих страниц.
+  useEffect(() => {
+    onSyncState(auto.state)
+    return () => onSyncState(null)
+  }, [auto.state, onSyncState])
+
   const header = (
     <PageHeader
       title="Товары"
@@ -141,14 +150,7 @@ export default function ProductsPage({
         </>
       }
     >
-      <div className="flex items-center gap-1.5">
-        <SyncIndicator
-          state={auto.state}
-          busy={runner.busy}
-          onRetry={() => runner.startFinance(range.from, range.to)}
-        />
-        <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
-      </div>
+      <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
     </PageHeader>
   )
 
