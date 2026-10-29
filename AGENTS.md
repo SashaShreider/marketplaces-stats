@@ -54,6 +54,20 @@ or, for graphify only: `graphify watch .`
 
 Do not run a watcher and the pre-commit hook against the same graph at the same time; they duplicate work.
 
+## Local dev account
+
+A `test` account exists in the local database for logging into the running app.
+Do not delete it — recreating it means another manual registration round.
+
+| | |
+|---|---|
+| login | `test` |
+| password | `test-test-1` |
+| display name | `Тест` |
+
+The frontend dev server is on `http://localhost:5173` and proxies `/api` to
+`APP_PORT` from `.env` (currently 8081, not 8080: 8080 is taken on this machine).
+
 ## Docs
 
 `README.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOY.md`, `docs/VERIFY.md` and
