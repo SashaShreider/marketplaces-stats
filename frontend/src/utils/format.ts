@@ -234,6 +234,53 @@ export function niceMax(v: number): number {
   return nf2 * p
 }
 
+/**
+ * Ось с круглыми делениями: границы и значения линий сетки.
+ *
+ * <p>Считается от фактического максимума данных, а не от заранее выбранной
+ * шкалы. Раньше максимум брался из «красивого» ряда 50 000 / 100 000, и при
+ * дневных суммах около 8 000 график занимал нижнюю десятую часть: линия шла по
+ * низу, а верхние три четверти оставались пустыми.
+ *
+ * <p>Шаг — тоже круглое число (1 / 2 / 2.5 / 5 × 10^k), поэтому подписи выходят
+ * вида 0, 2 000, 4 000, а не 1 837,42.
+ *
+ * @param min       минимум данных; отрицательный (убыток) расширяет ось вниз
+ * @param max       максимум данных
+ * @param intervals желаемое число промежутков между линиями сетки
+ */
+export function niceScale(
+  min: number,
+  max: number,
+  intervals = 4,
+): { min: number; max: number; ticks: number[] } {
+  // Ноль всегда входит в ось: столбцы и линии читаются от общей базовой линии,
+  // и «ноль не на нуле» выглядел бы как ошибка масштаба.
+  const lo = Math.min(0, min)
+  const hi = Math.max(0, max)
+  if (!Number.isFinite(hi) || !Number.isFinite(lo) || hi - lo < 1e-9) {
+    return { min: 0, max: 1, ticks: [0, 1] }
+  }
+  const rawStep = (hi - lo) / Math.max(1, intervals)
+  const p = Math.pow(10, Math.floor(Math.log10(rawStep)))
+  const f = rawStep / p
+  const mult = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10
+  const step = mult * p
+  // Отрицательная часть оси — только если убыток заметный. Дневной минус в
+  // сотню рублей при шкале в десятки тысяч иначе отрезал бы четверть графика
+  // под пустое поле: −100 не повод рисовать отметку −10 000.
+  const niceMin = lo < 0 && lo > -step * 0.25 ? 0 : Math.floor(lo / step) * step
+  const niceHi = Math.ceil(hi / step) * step
+  const ticks: number[] = []
+  // Считаем по индексу, а не накоплением: иначе ошибка плавающей точки даёт
+  // подпись «7 999,999» вместо «8 000».
+  const count = Math.round((niceHi - niceMin) / step)
+  for (let i = 0; i <= count; i++) {
+    ticks.push(Math.round((niceMin + i * step) * 1e6) / 1e6)
+  }
+  return { min: niceMin, max: niceHi, ticks }
+}
+
 export function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v))
 }

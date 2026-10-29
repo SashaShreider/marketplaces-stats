@@ -2,38 +2,101 @@ import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import type { DayFinance } from '@/types'
 import { chartScales, tooltipPosition, useChartWidth } from '@/components/finance/barChartBase'
-import { clamp, fmtAxis, fmtDateLong, fmtDayShort, fmtMoney, niceMax } from '@/utils/format'
+import { clamp, fmtAxis, fmtDateLong, fmtDayShort, fmtMoney, fmtNum, niceScale } from '@/utils/format'
+import { cn } from '@/utils/cn'
 
-export type MetricKey = 'income' | 'expenses' | 'profit'
+/** Что можно рисовать на графике: три линии денег и столбцы количества. */
+export type SeriesKey = 'income' | 'expenses' | 'profit' | 'qty'
 
-export const METRIC_CONFIG: Record<
-  MetricKey,
-  { label: string; color: string; get: (d: DayFinance) => number }
+/**
+ * Описание показателя: подпись, цвет и откуда брать значение.
+ *
+ * <p>`money` решает, к какой оси относится показатель: деньги считаются по
+ * рублёвой шкале, количество — по шкале штук. Без этого признака пришлось бы
+ * держать два списка и следить, чтобы они не разошлись.
+ */
+export const SERIES: Record<
+  SeriesKey,
+  {
+    label: string
+    /** Короткая подпись для тултипа и легенды */
+    short: string
+    color: string
+    money: boolean
+    get: (d: DayFinance) => number
+  }
 > = {
-  income: { label: 'Продажи', color: '#3b6de8', get: (d) => d.income },
-  expenses: { label: 'Расходы', color: '#f43f5e', get: (d) => d.expenses },
-  profit: { label: 'Прибыль', color: '#10b981', get: (d) => d.profit },
+  income: { label: 'Продажи, ₽', short: 'Продажи', color: '#3b6de8', money: true, get: (d) => d.income },
+  expenses: { label: 'Расходы, ₽', short: 'Расходы', color: '#f43f5e', money: true, get: (d) => d.expenses },
+  profit: { label: 'Прибыль, ₽', short: 'Прибыль', color: '#10b981', money: true, get: (d) => d.profit },
+  qty: { label: 'Продажи, шт', short: 'Продажи, шт', color: '#8b5e3c', money: false, get: (d) => d.soldQty },
 }
 
+/** Порядок в легенде: линии, затем столбцы. */
+export const SERIES_ORDER: SeriesKey[] = ['income', 'expenses', 'profit', 'qty']
+
+/**
+ * С какого размера периода точки на линиях перестают рисоваться.
+ *
+ * <p>На длинном периоде точки сливаются в пунктир и закрывают саму линию. Тридцать
+ * дней — граница, после которой столбик дня уже тоньше точки.
+ */
+const DOTS_MAX_DAYS = 30
+
 const H = 340
-const PAD_L = 66
 const PAD_R = 14
 const PAD_T = 20
 const PAD_B = 34
+/** Ширина колонки под рублёвую шкалу. */
+const PAD_L_MONEY = 66
+/** Ширина колонки под шкалу штук — левее рублёвой, как в кабинетах маркетплейсов. */
+const PAD_L_QTY = 44
 
-function smoothPath(pts: { x: number; y: number }[]): string {
-  if (pts.length < 2) return pts.length ? `M ${pts[0].x} ${pts[0].y}` : ''
+/**
+ * Гладкая линия без выбросов за пределы поля.
+ *
+ * <p>Кривая Catmull-Rom (то, что было раньше) на резком пике «перелетает»
+ * соседние значения: линия уходила ниже нуля и выше верхней отметки шкалы, как
+ * будто прибыль или продажи бывают отрицательными в те дни, когда их нет.
+ *
+ * <p>Здесь монотонная интерполяция Фрича — Карлсона: касательные в точках
+ * перегиба обнуляются, и кривая не выходит за коридор между соседними
+ * значениями. Это свойство самой формулы, а не подрезка постфактум.
+ */
+function monotonePath(pts: { x: number; y: number }[]): string {
+  const n = pts.length
+  if (n === 0) return ''
+  if (n === 1) return `M ${pts[0].x} ${pts[0].y}`
+  if (n === 2) return `M ${pts[0].x} ${pts[0].y} L ${pts[1].x} ${pts[1].y}`
+
+  const dx: number[] = []
+  const slope: number[] = []
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1].x - pts[i].x)
+    slope.push((pts[i + 1].y - pts[i].y) / (pts[i + 1].x - pts[i].x))
+  }
+
+  // Наклон касательной в каждой точке. Ноль на локальном экстремуме — именно он
+  // и убирает «горб» над пиком.
+  const m: number[] = new Array(n)
+  m[0] = slope[0]
+  m[n - 1] = slope[n - 2]
+  for (let i = 1; i < n - 1; i++) {
+    if (slope[i - 1] * slope[i] <= 0) {
+      m[i] = 0
+    } else {
+      const w1 = 2 * dx[i] + dx[i - 1]
+      const w2 = dx[i] + 2 * dx[i - 1]
+      m[i] = (w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i])
+    }
+  }
+
   let d = `M ${pts[0].x} ${pts[0].y}`
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i]
-    const p1 = pts[i]
-    const p2 = pts[i + 1]
-    const p3 = pts[i + 2] ?? p2
-    const c1x = p1.x + (p2.x - p0.x) / 6
-    const c1y = p1.y + (p2.y - p0.y) / 6
-    const c2x = p2.x - (p3.x - p1.x) / 6
-    const c2y = p2.y - (p3.y - p1.y) / 6
-    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`
+  for (let i = 0; i < n - 1; i++) {
+    d +=
+      ` C ${pts[i].x + dx[i] / 3} ${pts[i].y + (m[i] * dx[i]) / 3},` +
+      ` ${pts[i + 1].x - dx[i] / 3} ${pts[i + 1].y - (m[i + 1] * dx[i]) / 3},` +
+      ` ${pts[i + 1].x} ${pts[i + 1].y}`
   }
   return d
 }
@@ -41,74 +104,118 @@ function smoothPath(pts: { x: number; y: number }[]): string {
 /**
  * Строка детализации в тултипе.
  *
- * Знак берётся из самого числа, а не из отдельного флага. Флаг означал бы, что
- * правильность показания зависит от того, не забыл ли его поставить вызывающий:
- * `Math.abs` проглатывал настоящий знак, и убыток в −5 000 ₽ выводился как
- * «5 000 ₽». Нулевой расход с флагом давал «−0 ₽».
- *
- * Отрицательное число показывается с минусом и красным, положительное — тёмным.
- * Что считать расходом, решает вызывающий, передавая число со знаком.
+ * Знак берётся из самого числа, а не из отдельного флага: флаг означал бы, что
+ * правильность показания зависит от того, не забыл ли его поставить вызывающий.
+ * Отрицательное число показывается с минусом и красным, положительное — своим
+ * цветом серии.
  */
 function TipRow({
   label,
   value,
-  bold,
   color,
+  bold,
+  unit,
 }: {
   label: string
   value: number
+  color: string
   bold?: boolean
-  /** Явный цвет: для прибыли он зависит от знака, но задаётся снаружи */
-  color?: string
+  unit?: string
 }) {
   return (
     <div className="flex items-center justify-between gap-6 py-[2.5px]">
-      <span className={`text-[12px] ${bold ? 'font-bold text-slate-800' : 'font-medium text-slate-500'}`}>
+      <span className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
         {label}
       </span>
       <span
-        className={`tnum text-[12px] ${bold ? 'font-extrabold' : 'font-medium text-slate-500'}`}
-        style={{ color: color ?? undefined }}
+        className={cn('tnum text-[12px]', bold ? 'font-extrabold' : 'font-semibold')}
+        style={{ color: value < 0 ? '#e11d48' : color }}
       >
-        {fmtMoney(value)}
+        {unit ? `${fmtNum(value)} ${unit}` : fmtMoney(value)}
       </span>
     </div>
   )
 }
 
-export default function FinanceChart({ days, metric }: { days: DayFinance[]; metric: MetricKey }) {
+export default function FinanceChart({
+  days,
+  enabled,
+}: {
+  days: DayFinance[]
+  enabled: Record<SeriesKey, boolean>
+}) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const width = useChartWidth(wrapRef)
   const [hover, setHover] = useState<number | null>(null)
 
   const n = days.length
+  const showQty = enabled.qty
+  const moneyKeys = SERIES_ORDER.filter((k) => k !== 'qty' && enabled[k])
+  // Слева одна колонка под шкалу, две — когда показаны и рубли, и штуки.
+  const padL = showQty ? (moneyKeys.length > 0 ? PAD_L_MONEY + PAD_L_QTY : PAD_L_QTY + 20) : PAD_L_MONEY
 
-  const maxIncome = n ? Math.max(...days.map((d) => d.income)) : 0
-  const yMax = maxIncome > 0 ? niceMax(maxIncome * 1.08) : 100000
-  const { x, y, slot, innerW, innerH, gridLines } = chartScales({
+  // ── Рублёвая шкала ────────────────────────────────────────────────────────
+  // Считается только по включённым сериям: выключенная не должна растягивать
+  // ось и прижимать остальные линии к низу.
+  let moneyMin = 0
+  let moneyMax = 0
+  for (const d of days) {
+    for (const k of moneyKeys) {
+      const v = SERIES[k].get(d)
+      if (v < moneyMin) moneyMin = v
+      if (v > moneyMax) moneyMax = v
+    }
+  }
+  // Немного воздуха сверху: пик не должен упираться в край поля.
+  const moneyScale = niceScale(moneyMin, moneyMax * 1.06, 4)
+  const moneyAxes = chartScales({
     count: n,
     width,
     height: H,
-    pad: { left: PAD_L, right: PAD_R, top: PAD_T, bottom: PAD_B },
-    maxValue: yMax,
+    pad: { left: padL, right: PAD_R, top: PAD_T, bottom: PAD_B },
+    minValue: moneyScale.min,
+    maxValue: moneyScale.max,
+    gridLines: moneyScale.ticks,
   })
-  const barW = clamp(slot * 0.56, 2, 20)
+  const { x, slot, innerW, innerH } = moneyAxes
+  const yMoney = moneyAxes.y
 
-  const cfg = METRIC_CONFIG[metric]
-  const pts = days.map((d, i) => ({ x: x(i), y: y(cfg.get(d)) }))
-  const path = smoothPath(pts)
+  // ── Шкала штук ────────────────────────────────────────────────────────────
+  // Второй осью, а не общим с деньгами: сорок штук и сорок тысяч рублей — разные
+  // величины, и одна шкала на двоих сделала бы столбцы нечитаемыми.
+  //
+  // Столбцы растут от нулевой линии рублей, а не от низа поля: так «0 шт» и
+  // «0 ₽» — одна и та же линия, и столбик дня читается против той же базовой
+  // отметки, что и линия прибыли. Если у прибыли есть отрицательные дни, ниже
+  // нуля остаётся место только для линии, столбцы туда не спускаются.
+  const qtyMax = showQty ? Math.max(...days.map((d) => d.soldQty), 0) : 0
+  const qtyScale = niceScale(0, qtyMax * 1.06, 4)
+  const qtyZeroY = moneyAxes.y(0)
+  const qtyTopY = PAD_T
+  const yQty = (value: number) =>
+    qtyZeroY - (clamp(value, 0, qtyScale.max) / (qtyScale.max || 1)) * (qtyZeroY - qtyTopY)
 
+  const barW = clamp(slot * 0.5, 1.5, 18)
   const labelStep = Math.max(1, Math.ceil(n / 10))
 
   const hovered = hover !== null ? days[hover] : null
   const hoverX = hover !== null ? x(hover) : 0
-  const hoverY = hover !== null ? pts[hover].y : 0
-  // тултип сбоку от точки (не перекрывая её) и в пределах графика
-  const TIP_W = 248
-  const TIP_H = 252
+  // Тултип привязываем к верхней включённой точке дня, иначе он прыгал бы по
+  // низу графика вслед за нулевой прибылью.
+  const hoverY =
+    hover === null
+      ? 0
+      : Math.min(
+          ...moneyKeys.map((k) => yMoney(SERIES[k].get(days[hover]))),
+          showQty ? yQty(days[hover].soldQty) : Number.POSITIVE_INFINITY,
+        )
+
+  const TIP_W = 252
+  const TIP_H = 200
   const { left: tipLeft, top: tipTop } = tooltipPosition({
     hoverX,
-    hoverY,
+    hoverY: Number.isFinite(hoverY) ? hoverY : PAD_T,
     width,
     height: H,
     tipWidth: TIP_W,
@@ -118,67 +225,97 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
   })
 
   const onMove = (e: React.MouseEvent<SVGRectElement>) => {
+    if (n === 0) return
     const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect()
     const mx = e.clientX - rect.left
-    setHover(clamp(Math.round((mx - PAD_L) / slot - 0.5), 0, n - 1))
+    setHover(clamp(Math.floor((mx - padL) / slot), 0, n - 1))
   }
+
+  /** Общая база рисунка: от неё растут столбцы и в ней сходятся линии. */
+  const zeroY = yMoney(0)
+  const showDots = n <= DOTS_MAX_DAYS && n > 0
 
   return (
     <div ref={wrapRef} className="relative w-full select-none">
       <svg width={width} height={H} className="block">
-        <defs>
-          <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#c3d7fb" />
-            <stop offset="100%" stopColor="#e3edfd" />
-          </linearGradient>
-        </defs>
-
-        {/* сетка */}
-        {gridLines.map((v, i) => (
-          <g key={i}>
+        {/* сетка и рублёвая шкала: без включённых денежных линий подписей нет —
+            «0 ₽ … 1 ₽» на пустой оси читается как сломанный масштаб */}
+        {moneyScale.ticks.map((v, i) => (
+          <g key={`grid-${i}`}>
             <line
-              x1={PAD_L} x2={width - PAD_R}
-              y1={y(v)} y2={y(v)}
-              stroke={i === 0 ? '#e2e8f0' : '#eef2f8'}
+              x1={padL}
+              x2={width - PAD_R}
+              y1={yMoney(v)}
+              y2={yMoney(v)}
+              stroke={Math.abs(v) < 1e-9 ? '#e2e8f0' : '#eef2f8'}
               strokeWidth={1}
             />
-            <text
-              x={PAD_L - 10} y={y(v) + 4}
-              textAnchor="end" fontSize={11} fontWeight={600}
-              fill="#94a3b8" className="tnum"
-            >
-              {fmtAxis(v)}
-            </text>
+            {moneyKeys.length > 0 && (
+              <text
+                x={padL - 8}
+                y={yMoney(v) + 4}
+                textAnchor="end"
+                fontSize={11}
+                fontWeight={600}
+                fill="#94a3b8"
+                className="tnum"
+              >
+                {fmtAxis(v)}
+              </text>
+            )}
           </g>
         ))}
 
-        {/* столбцы = продажи (всегда) */}
-        {days.map((d, i) => {
-          const bTop = y(d.income)
-          const bH = Math.max(2, H - PAD_B - bTop)
-          return (
-            <motion.rect
-              key={d.date}
-              initial={{ height: 0, y: H - PAD_B }}
-              animate={{ height: bH, y: bTop }}
-              transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-              x={x(i) - barW / 2}
-              width={barW}
-              rx={Math.min(4, barW / 2)}
-              fill={metric === 'income' ? '#b9d1fa' : 'url(#barGrad)'}
-              opacity={hover === null || hover === i ? 1 : 0.55}
-              style={{ transition: 'opacity .15s' }}
-            />
-          )
-        })}
+        {/* Шкала штук: подписи из своей сетки, а не из рублёвой.
+            Две шкалы независимы, как в кабинетах маркетплейсов: если считать штуки
+            по долям рублёвой сетки, получаются подписи 13 и 27 вместо 10 и 20 —
+            круглые числа важнее того, чтобы линии сетки совпадали. */}
+        {showQty &&
+          qtyScale.ticks.map((q, i) => (
+            <text
+              key={`qty-${i}`}
+              x={PAD_L_QTY - 8}
+              y={yQty(q) + 4}
+              textAnchor="end"
+              fontSize={11}
+              fontWeight={600}
+              fill="#b08968"
+              className="tnum"
+            >
+              {`${fmtNum(Math.round(q))} шт`}
+            </text>
+          ))}
 
-        {/* маркеры незагруженных / уточняемых дней на оси */}
+        {/* столбцы количества продаж: растут от низа поля, как у шкалы штук */}
+        {showQty &&
+          days.map((d, i) => {
+            const base = yQty(0)
+            const top = yQty(d.soldQty)
+            const h = Math.max(0, base - top)
+            if (h < 0.5) return null
+            return (
+              <motion.rect
+                key={`bar-${d.date}`}
+                initial={{ height: 0, y: base }}
+                animate={{ height: h, y: top }}
+                transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+                x={x(i) - barW / 2}
+                width={barW}
+                rx={Math.min(3, barW / 2)}
+                fill={SERIES.qty.color}
+                opacity={hover === null || hover === i ? 0.75 : 0.35}
+                style={{ transition: 'opacity .15s' }}
+              />
+            )
+          })}
+
+        {/* маркеры незагруженных / уточняемых дней на базовой линии */}
         {days.map((d, i) =>
           d.state === 'ok' ? null : (
             <rect
               key={`st-${d.date}`}
               x={x(i) - Math.max(2, barW / 2)}
-              y={H - PAD_B}
+              y={zeroY}
               width={Math.max(4, barW)}
               height={4}
               rx={2}
@@ -187,44 +324,39 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
           ),
         )}
 
-        {/* линия выбранной метрики */}
-        {n > 1 && (
-          <motion.path
-            key={metric}
-            d={path}
-            fill="none"
-            stroke={cfg.color}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            initial={{ pathLength: 0, opacity: 0 }}
-            animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: 0.9, ease: [0.33, 1, 0.68, 1] }}
-          />
-        )}
+        {/* линии денег */}
+        {moneyKeys.map((k) => (
+          <g key={k}>
+            {n > 1 && (
+              <motion.path
+                d={monotonePath(days.map((d, i) => ({ x: x(i), y: yMoney(SERIES[k].get(d)) })))}
+                fill="none"
+                stroke={SERIES[k].color}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 0.8, ease: [0.33, 1, 0.68, 1] }}
+              />
+            )}
+            {showDots &&
+              days.map((d, i) => (
+                <circle
+                  key={`dot-${k}-${d.date}`}
+                  cx={x(i)}
+                  cy={yMoney(SERIES[k].get(d))}
+                  r={hover === i ? 4.5 : 2.5}
+                  fill="white"
+                  stroke={SERIES[k].color}
+                  strokeWidth={2}
+                  style={{ transition: 'r .15s ease' }}
+                />
+              ))}
+          </g>
+        ))}
 
-        {/* точки */}
-        {n <= 90 &&
-          pts.map((p, i) => (
-            <motion.circle
-              key={`${metric}-${days[i].date}`}
-              cx={p.x}
-              cy={p.y}
-              r={hover === i ? 6 : 4}
-              fill="white"
-              stroke={cfg.color}
-              strokeWidth={2.5}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.25 + i * 0.01, duration: 0.25 }}
-              style={{
-                cursor: 'pointer',
-                filter: hover === i ? `drop-shadow(0 2px 6px ${cfg.color}66)` : undefined,
-                transition: 'r .15s ease',
-              }}
-            />
-          ))}
-
-        {/* вертикальная подсветка дня */}
+        {/* подсветка дня */}
         {hover !== null && (
           <rect
             x={hoverX - slot / 2}
@@ -241,9 +373,12 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
         {days.map((d, i) =>
           i % labelStep === 0 ? (
             <text
-              key={d.date}
-              x={x(i)} y={H - 10}
-              textAnchor="middle" fontSize={11} fontWeight={600}
+              key={`x-${d.date}`}
+              x={x(i)}
+              y={H - 10}
+              textAnchor="middle"
+              fontSize={11}
+              fontWeight={600}
               fill="#94a3b8"
             >
               {fmtDayShort(d.date)}
@@ -253,39 +388,35 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
 
         {/* зона наведения */}
         <rect
-          x={PAD_L - slot / 2} y={0}
-          width={innerW + slot} height={H}
+          x={padL - slot / 2}
+          y={0}
+          width={innerW + slot}
+          height={H}
           fill="transparent"
           onMouseMove={onMove}
           onMouseLeave={() => setHover(null)}
         />
       </svg>
 
-      {/* HTML-тултип с детализацией */}
+      {/* тултип */}
       {hovered && (
         <div
-          className="pointer-events-none absolute z-20 w-[248px] rounded-2xl border border-slate-200/80 bg-white/95 p-3.5 shadow-xl shadow-slate-900/10 backdrop-blur-md"
-          style={{
-            left: tipLeft,
-            top: tipTop,
-            transition: 'left .1s linear, top .1s linear',
-          }}
+          className="pointer-events-none absolute z-20 w-[252px] rounded-2xl border border-slate-200/80 bg-white/95 p-3.5 shadow-xl shadow-slate-900/10 backdrop-blur-md"
+          style={{ left: tipLeft, top: tipTop, transition: 'left .1s linear, top .1s linear' }}
         >
-          <div className="flex items-center gap-2 pb-2">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: cfg.color }} />
-            <span className="text-[12.5px] font-extrabold text-slate-900">
-              {fmtDateLong(hovered.date)}
-            </span>
+          <div className="pb-2 text-[12.5px] font-extrabold text-slate-900">
+            {fmtDateLong(hovered.date)}
           </div>
           {hovered.state !== 'ok' && (
             <div
-              className={`mb-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold ${
+              className={cn(
+                'mb-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold',
                 hovered.state === 'failed'
                   ? 'bg-rose-50 text-rose-600'
                   : hovered.state === 'missing'
                     ? 'bg-amber-50 text-amber-700'
-                    : 'bg-sky-50 text-sky-700'
-              }`}
+                    : 'bg-sky-50 text-sky-700',
+              )}
             >
               {hovered.state === 'failed'
                 ? 'Не удалось загрузить этот день'
@@ -294,28 +425,25 @@ export default function FinanceChart({ days, metric }: { days: DayFinance[]; met
                   : 'Данные ещё могут уточниться'}
             </div>
           )}
-          {/* Расходные строки передаются со знаком минус: в DayFinance они хранятся
-              положительными, потому что так их удобнее складывать, а показать надо
-              именно расход. Знак ставится здесь, а не флагом в TipRow. */}
-          <TipRow label="Выручка" value={hovered.sales} />
-          {hovered.returns !== 0 && <TipRow label="Возвраты" value={-hovered.returns} />}
-          <TipRow label="Бонусы" value={hovered.partners} />
-          <TipRow label="Продажи" value={hovered.income} bold />
-          <div className="my-1.5 border-t border-slate-100" />
-          <TipRow label="Комиссия" value={-hovered.commission} />
-          <TipRow label="Логистика" value={-hovered.logistics} />
-          <TipRow label="Прочие расходы" value={-hovered.other} />
-          <TipRow label="Расходы" value={-hovered.expenses} bold />
-          <div className="my-1.5 border-t border-slate-100" />
-          {/* Прибыль приходит со своим знаком: убыток должен показываться убытком,
-              а не положительной суммой красным цветом. */}
-          <TipRow
-            label="Прибыль"
-            value={hovered.profit}
-            bold
-            color={hovered.profit >= 0 ? '#059669' : '#f43f5e'}
-          />
-          {(hovered.soldQty > 0 || hovered.returnedQty > 0) && (
+          {SERIES_ORDER.map((k) => {
+            if (!enabled[k]) return null
+            const cfg = SERIES[k]
+            const raw = cfg.get(hovered)
+            // Расходы в модели хранятся положительными, а на графике это вычет:
+            // в тултипе показываем со знаком минус, чтобы он читался как расход.
+            const value = k === 'expenses' ? -Math.abs(raw) : raw
+            return (
+              <TipRow
+                key={k}
+                label={cfg.short}
+                value={value}
+                color={cfg.color}
+                bold={k === 'income' || k === 'profit'}
+                unit={cfg.money ? undefined : 'шт'}
+              />
+            )
+          })}
+          {(hovered.soldQty > 0 || hovered.returnedQty > 0) && !enabled.qty && (
             <div className="mt-1.5 flex justify-between border-t border-slate-100 pt-1.5 text-[11.5px] font-semibold text-slate-400">
               <span>Продано: {hovered.soldQty} шт</span>
               <span>Возвращено: {hovered.returnedQty} шт</span>

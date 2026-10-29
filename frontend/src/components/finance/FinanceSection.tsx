@@ -2,26 +2,42 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Table2 } from 'lucide-react'
 import type { DayFinance } from '@/types'
-import FinanceChart, { METRIC_CONFIG, type MetricKey } from '@/components/finance/FinanceChart'
+import FinanceChart, { SERIES, SERIES_ORDER, type SeriesKey } from '@/components/finance/FinanceChart'
 import DailyFinanceTable from '@/components/finance/DailyFinanceTable'
 import Modal from '@/components/ui/Modal'
 import { SecondaryButton } from '@/components/ui/controls'
+import { cn } from '@/utils/cn'
 
-const METRIC_ORDER: MetricKey[] = ['income', 'expenses', 'profit']
+/** Что включено при открытии: все три линии денег и столбцы количества. */
+const INITIAL: Record<SeriesKey, boolean> = {
+  income: true,
+  expenses: true,
+  profit: true,
+  qty: true,
+}
 
 /**
  * Динамика финансов за период.
  *
- * <p>График и таблица — не два равноправных режима одного блока, а два разных
- * способа смотреть: по графику видно форму периода, по таблице — конкретные числа с
- * расшифровкой расходов. Поэтому таблица открывается отдельным окном почти на весь
- * экран, а не подменяет график внутри карточки: в карточке шириной в треть экрана
- * одиннадцать колонок не помещаются, и раньше их приходилось прокручивать внутри
- * маленькой рамки.
+ * <p>Показатели включаются независимо, а не переключаются по одному: на одном
+ * графике видно и продажи, и расходы с прибылью, и связь между ними очевидна —
+ * тогда как режим «одна линия за раз» заставлял держать разницу в голове.
+ *
+ * <p>График и таблица — два разных способа смотреть: по графику видно форму
+ * периода, по таблице — конкретные числа с расшифровкой расходов. Поэтому таблица
+ * открывается отдельным окном почти на весь экран, а не подменяет график внутри
+ * карточки: в карточке шириной в треть экрана одиннадцать колонок не помещаются.
  */
 export default function FinanceSection({ days }: { days: DayFinance[] }) {
-  const [metric, setMetric] = useState<MetricKey>('income')
+  const [enabled, setEnabled] = useState<Record<SeriesKey, boolean>>(INITIAL)
   const [tableOpen, setTableOpen] = useState(false)
+
+  // Выключить всё нельзя: пустой график выглядит как поломка, а не как выбор.
+  const activeCount = SERIES_ORDER.filter((k) => enabled[k]).length
+  const toggle = (key: SeriesKey) => {
+    if (enabled[key] && activeCount === 1) return
+    setEnabled((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   return (
     <>
@@ -31,37 +47,38 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
         transition={{ duration: 0.45, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       >
-        {/* Шапка секции */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
           <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">
             Динамика финансов
           </h2>
 
           <div className="order-last w-full sm:order-none sm:w-auto">
-            <div className="flex w-fit rounded-full bg-slate-100 p-1">
-              {METRIC_ORDER.map((m) => {
-                const cfg = METRIC_CONFIG[m]
-                const active = metric === m
+            <div className="flex w-fit flex-wrap items-center gap-1 rounded-full bg-slate-100 p-1">
+              {SERIES_ORDER.map((k) => {
+                const cfg = SERIES[k]
+                const active = enabled[k]
                 return (
                   <button
-                    key={m}
-                    onClick={() => setMetric(m)}
-                    className="relative rounded-full px-4 py-1.5 text-[12.5px] font-bold"
+                    key={k}
+                    onClick={() => toggle(k)}
+                    aria-pressed={active}
+                    title={active ? `Скрыть: ${cfg.label}` : `Показать: ${cfg.label}`}
+                    className={cn(
+                      'relative rounded-full px-3 py-1.5 text-[12.5px] font-bold transition-colors',
+                      active ? 'text-slate-800' : 'text-slate-400 hover:text-slate-600',
+                    )}
                   >
                     {active && (
                       <motion.span
-                        layoutId="metric-pill"
+                        layoutId={`series-${k}`}
                         className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/70"
                         transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                       />
                     )}
-                    <span
-                      className="relative z-10 flex items-center gap-1.5 transition-colors"
-                      style={{ color: active ? cfg.color : '#64748b' }}
-                    >
+                    <span className="relative z-10 flex items-center gap-1.5">
                       <span
-                        className="h-1.5 w-1.5 rounded-full transition-opacity"
-                        style={{ background: cfg.color, opacity: active ? 1 : 0.35 }}
+                        className="h-2 w-2 rounded-full transition-opacity"
+                        style={{ background: cfg.color, opacity: active ? 1 : 0.3 }}
                       />
                       {cfg.label}
                     </span>
@@ -83,9 +100,8 @@ export default function FinanceSection({ days }: { days: DayFinance[] }) {
           </div>
         </div>
 
-        {/* Контент */}
         <div className="mt-4">
-          <FinanceChart days={days} metric={metric} />
+          <FinanceChart days={days} enabled={enabled} />
         </div>
       </motion.section>
 

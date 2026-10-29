@@ -57,26 +57,44 @@ export function useChartWidth(ref: RefObject<HTMLElement | null>): number {
   return width
 }
 
-/** Шкалы графика по его ширине, высоте и максимуму значений. */
+/**
+ * Шкалы графика по его ширине, высоте и границам значений.
+ *
+ * <p>`minValue` не нулевой, когда данные уходят в минус: у прибыли убыточный день
+ * — обычное дело, и без отрицательной части шкалы такая точка прижималась к нулю
+ * и читалась как «profit = 0». Значение при этом зажимается в границы, чтобы
+ * линия не выходила за поле рисунка.
+ *
+ * <p>`gridLines` не считается здесь: шаг сетки задаёт тот, кто знает, круглые ли
+ * ему нужны числа (`niceScale` в `utils/format`). Здесь только координаты.
+ */
 export function chartScales(options: {
   count: number
   width: number
   height: number
   pad: ChartPadding
   maxValue: number
+  minValue?: number
+  gridLines?: number[]
 }): ChartScales {
-  const { count, width, height, pad, maxValue } = options
+  const { count, width, height, pad, maxValue, minValue = 0, gridLines } = options
   const innerW = Math.max(10, width - pad.left - pad.right)
   const innerH = height - pad.top - pad.bottom
   const slot = innerW / Math.max(1, count)
+  const range = maxValue - minValue || 1
 
   return {
     x: (index: number) => pad.left + slot * (index + 0.5),
-    y: (value: number) => pad.top + innerH * (1 - clamp(value, 0, maxValue) / maxValue),
+    y: (value: number) =>
+      pad.top + innerH * (1 - (clamp(value, minValue, maxValue) - minValue) / range),
     slot,
     innerW,
     innerH,
-    gridLines: [0, 0.25, 0.5, 0.75, 1].map((fraction) => fraction * maxValue),
+    // Без явных линий сетки — пять равных промежутков, как было раньше: график
+    // продаж в штуках на них и рассчитан.
+    gridLines:
+      gridLines ??
+      [0, 0.25, 0.5, 0.75, 1].map((fraction) => minValue + fraction * (maxValue - minValue)),
   }
 }
 
