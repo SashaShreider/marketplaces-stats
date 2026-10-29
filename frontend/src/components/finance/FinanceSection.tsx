@@ -132,12 +132,8 @@ export default function FinanceSection({
         title="Динамика финансов"
         onClose={() => setTableOpen(false)}
         size="xl"
-        headerExtra={
-          <div className="flex flex-col items-start gap-2.5">
-            {filters && <div className="flex flex-wrap items-center gap-2">{filters}</div>}
-            <ViewOptions />
-          </div>
-        }
+        headerExtra={<div className="flex flex-wrap items-center gap-2">{filters}</div>}
+        headerBelow={<ViewOptions />}
         footer={
           <>
             <SecondaryButton

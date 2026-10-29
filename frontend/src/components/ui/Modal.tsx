@@ -21,6 +21,7 @@ export default function Modal({
   title,
   subtitle,
   headerExtra,
+  headerBelow,
   onClose,
   size = 'md',
   footer,
@@ -36,6 +37,14 @@ export default function Modal({
    * вместе с ним. Условия просмотра должны оставаться на месте, как и заголовок.
    */
   headerExtra?: React.ReactNode
+  /**
+   * Управление под строкой заголовка, слева.
+   *
+   * <p>Отдельный слот от {@link headerExtra}: в строке с названием помещается
+   * только компактное управление, а фильтры с легендой там ломали бы заголовок.
+   * Что куда положить, решает вызывающий.
+   */
+  headerBelow?: React.ReactNode
   onClose: () => void
   size?: 'md' | 'lg' | 'xl' | 'full'
   footer?: React.ReactNode
@@ -99,8 +108,11 @@ export default function Modal({
               width,
             )}
           >
-            <div className="border-b border-slate-100 px-5 py-4">
-              <div className="flex items-start gap-4">
+            <div className="border-b border-slate-100 px-5 py-3">
+              {/* Управление стоит в одной строке с названием: так условие отчёта
+                  читается вместе с тем, что оно ограничивает. Строка переносится,
+                  если места не хватило, а крестик всегда остаётся справа. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <div className="min-w-0">
                   <h3 className="text-[16px] font-extrabold tracking-tight text-slate-900">{title}</h3>
                   {subtitle && (
@@ -109,6 +121,7 @@ export default function Modal({
                     </div>
                   )}
                 </div>
+                {headerExtra && <div className="min-w-0">{headerExtra}</div>}
                 <button
                   onClick={onClose}
                   title="Закрыть"
@@ -117,10 +130,7 @@ export default function Modal({
                   <X size={16} />
                 </button>
               </div>
-              {/* Управление идёт отдельной строкой под заголовком и слева, а не
-                  справа от него: фильтров с переключателями слишком много, чтобы
-                  делить строку с названием, и справа они прижимались к крестику. */}
-              {headerExtra && <div className="mt-3 min-w-0">{headerExtra}</div>}
+              {headerBelow && <div className="mt-3 min-w-0">{headerBelow}</div>}
             </div>
 
             <div className="scroll-slim min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
