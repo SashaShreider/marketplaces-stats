@@ -3,19 +3,20 @@ import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { getDaily } from '@/api/client'
 import { mapDaily } from '@/api/mappers'
 import DateRangePicker from '@/components/common/DateRangePicker'
+import ScopeFilters from '@/components/common/ScopeFilters'
 import ExpenseGroupModal, { ExpenseDetailsModal } from '@/components/finance/ExpenseDetails'
 import FinanceSection from '@/components/finance/FinanceSection'
-import OverviewFilters from '@/components/finance/OverviewFilters'
 import ProgressBar from '@/components/sync/ProgressBar'
 import SummaryCards from '@/components/finance/SummaryCards'
 import type { SyncState } from '@/components/sync/SyncIndicator'
 import { PageHeader } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
+import { useUrlState } from '@/features/navigation/urlState'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
-import type { AccountInfo, DateRange, ExpenseCategory, ProductOption } from '@/types'
+import type { AccountInfo, DateRange, ExpenseCategory } from '@/types'
 import { cn } from '@/utils/cn'
-import { fmtRangeShort, sumDays } from '@/utils/format'
+import { sumDays } from '@/utils/format'
 
 const EMPTY_TOTALS = sumDays([])
 
@@ -27,9 +28,10 @@ const EMPTY_TOTALS = sumDays([])
  * именно применилось. Отбор считается на сервере, поэтому карточки, график и
  * таблица видят одни и те же факты.
  *
- * <p>Выбранные товары хранятся в состоянии страницы, а не в адресе: это взгляд на
- * период, а не отдельная страница, и ссылку на «отбор из трёх книг» никто не
- * пересылает.
+ * <p>Отбор хранится в адресе вместе с периодом: «эти книги за этот месяц» —
+ * законченный вопрос, на который ссылаются и который переживают перезагрузку.
+ * Названия книг при этом восстанавливаются из ответа сервера: сервер знает, чьи
+ * это номера, и подписывает отчёт сам.
  */
 export default function OverviewPage({
   account,
@@ -45,9 +47,24 @@ export default function OverviewPage({
   /** Состояние синхронизации для индикатора в верхней панели */
   onSyncState: (state: SyncState | null) => void
 }) {
-  const [author, setAuthor] = useState('')
-  const [skus, setSkus] = useState<number[]>([])
-  const [pickedBooks, setPickedBooks] = useState<ProductOption[]>([])
+  const [author, setAuthor] = useUrlState<string>(
+    (params) => params.get('author')?.trim() ?? '',
+    (value) => ({ author: value.trim() || null }),
+  )
+  // SKU пишутся повторяющимся параметром: `?skus=1&skus=2`. Так их видно и
+  // читаемо, и ссылка переживает перезагрузку без отдельного формата «через
+  // запятую». Параметр `ozon_skus` принимается как синоним: так их пишут похожие
+  // кабинеты, и скопированная оттуда ссылка должна открывать тот же отбор.
+  const [skus, setSkus] = useUrlState<number[]>(
+    (params) => {
+      const raw = [...params.getAll('skus'), ...params.getAll('ozon_skus')]
+      return raw
+        .flatMap((v) => v.split(','))
+        .map((v) => Number(v.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    },
+    (list) => ({ skus: list.map(String), ozon_skus: null }),
+  )
   const [group, setGroup] = useState<ExpenseCategory | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
 
@@ -88,29 +105,14 @@ export default function OverviewPage({
   // сервер предыдущей версии её не отдаёт, и страница не должна из-за этого падать.
   const selectedGroup = report?.expenseBreakdown?.groups?.find((g) => g.category === group) ?? null
 
-  /**
-   * Подпись отбора для шапки таблицы: период плюс то, чем он сужен.
-   *
-   * <p>Сервер уже присылает `filter` («Все товары», автор или «SKU 123, 456»), но
-   * названия книг он не знает — только номера. Поэтому при отборе по книгам
-   * подпись собирается здесь из выбранного: продавцу нужно название, а не SKU.
-   * При отборе «все товары» подпись не добавляется — она ничего не уточняет.
-   */
-  const scope = useMemo(() => {
-    const period = fmtRangeShort(range.from, range.to)
-    if (author) return `${period} · ${author}`
-    if (skus.length > 0) {
-      const names = pickedBooks.map((b) => b.name)
-      const label = names.length > 0 ? names.join(', ') : report?.filter ?? ''
-      return label ? `${period} · ${label}` : period
-    }
-    return period
-  }, [range.from, range.to, author, skus.length, pickedBooks, report?.filter])
-
   return (
     <>
       <PageHeader title="Обзор" />
 
+      {/* Фильтры стоят и над карточкой, и в окне таблицы, но состояние у них
+          одно: набор компонентов один и тот же, меняется лишь место. Отдельная
+          копия в окне меняла бы отчёт только для таблицы, и график под ней
+          показывал бы уже другое. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <DateRangePicker
           from={range.from}
@@ -119,12 +121,10 @@ export default function OverviewPage({
           compact
           align="left"
         />
-        <OverviewFilters
+        <ScopeFilters
           accountId={account.id}
           author={author}
           skus={skus}
-          pickedBooks={pickedBooks}
-          onPickedBooksChange={setPickedBooks}
           onAuthorChange={setAuthor}
           onSkusChange={setSkus}
           catalogProducts={account.catalogProducts}
@@ -173,7 +173,28 @@ export default function OverviewPage({
               onExpenseGroup={setGroup}
               onExpenseDetails={() => setDetailsOpen(true)}
             />
-            <FinanceSection days={days} scope={scope} />
+            <FinanceSection
+              days={days}
+              filters={
+                <>
+                  <DateRangePicker
+                    from={range.from}
+                    to={range.to}
+                    onChange={onRangeChange}
+                    compact
+                    align="left"
+                  />
+                  <ScopeFilters
+                    accountId={account.id}
+                    author={author}
+                    skus={skus}
+                    onAuthorChange={setAuthor}
+                    onSkusChange={setSkus}
+                    catalogProducts={account.catalogProducts}
+                  />
+                </>
+              }
+            />
           </div>
         </div>
       )}

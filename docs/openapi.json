@@ -989,6 +989,17 @@
           }
         }, {
           "in" : "query",
+          "name" : "skus",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
+          }
+        }, {
+          "in" : "query",
           "name" : "query",
           "required" : false,
           "schema" : {
@@ -1086,11 +1097,14 @@
           }
         }, {
           "in" : "query",
-          "name" : "sku",
+          "name" : "skus",
           "required" : false,
           "schema" : {
-            "format" : "int64",
-            "type" : "integer"
+            "items" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "type" : "array"
           }
         } ],
         "responses" : {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/utils/cn'
+import { TABLE_METRICS } from '@/components/ui/tableMetrics'
 
 /**
  * Колонка таблицы.
@@ -32,6 +33,15 @@ export interface DataColumn<T> {
   title?: (row: T) => string | undefined
   /** Подпись колонки в CSV, если она отличается от `label` */
   csvLabel?: string
+  /**
+   * Минимальная ширина в пикселях.
+   *
+   * <p>Нужна колонкам, чьё содержимое длиннее обычного числа: у «Месяц» это
+   * «01.10.2026 — 29.10.2026», и в общую ширину оно не помещается. Ручка
+   * перетаскивания и общий расчёт ширины при этом продолжают работать — это
+   * именно нижняя граница, а не жёсткий размер.
+   */
+  minWidth?: number
 }
 
 /**
@@ -58,6 +68,44 @@ const DEFAULT_COL_W = 98
 const MIN_COL_W = 82
 /** Насколько можно раздвинуть колонку: дальше таблица уезжает за экран целиком. */
 const MAX_COL_W = 320
+
+/**
+ * Базовая ширина колонки, при которой таблица помещается в отведённое место.
+ *
+ * <p>Раньше место делилось поровну на все колонки, а собственный минимум колонки
+ * применялся уже после. Колонка с минимумом шире своей доли («Месяц» с
+ * «01.10.2026 — 29.10.2026») вылезала за неё, и появлялась горизонтальная
+ * прокрутка, хотя сумма минимумов в отведённое место помещалась.
+ *
+ * <p>Поэтому минимумы учитываются при дележе: колонки с самым большим минимумом
+ * закрепляются на нём, а остаток делится между оставшимися. Берётся наибольшая
+ * ширина, при которой такой дележ ещё возможен, — тогда таблица ровно заполняет
+ * место и прокрутки нет.
+ *
+ * <p>Минимумы не меняются: если даже их сумма больше места, прокрутка неизбежна, и
+ * она честнее обрезанных чисел.
+ */
+function fitBaseWidth(available: number, columns: { minWidth?: number }[]): number {
+  if (available <= 0 || columns.length === 0) return DEFAULT_COL_W
+
+  // По убыванию: закрепляем самые «широкие» минимумы первыми.
+  const mins = columns.map((c) => c.minWidth ?? 0).sort((a, b) => b - a)
+  const clamp = (w: number) => Math.min(MAX_COL_W, Math.max(MIN_COL_W, w))
+
+  let pinned = 0
+  for (let k = 0; k < mins.length; k++) {
+    const flexible = mins.length - k
+    const share = Math.floor((available - pinned) / flexible)
+    // Все оставшиеся минимумы не больше доли — значит такая ширина подходит:
+    // закреплённые укладываются в свои минимумы, остальные — в неё.
+    if (share >= mins[k]) return clamp(share)
+    pinned += mins[k]
+  }
+
+  // Место меньше суммы минимумов: каждая колонка всё равно возьмёт свой минимум,
+  // и появится прокрутка. База тут ничего не решает.
+  return MIN_COL_W
+}
 
 /**
  * Таблица с двухуровневой шапкой, липкой шапкой и липким итогом.
@@ -88,6 +136,7 @@ export default function DataTable<T>({
   pageSize,
   page,
   onPageChange,
+  textSize = 'normal',
 }: {
   rows: T[]
   columns: DataColumn<T>[]
@@ -101,18 +150,28 @@ export default function DataTable<T>({
   /** Текущая страница с нуля (управляемая пагинация) */
   page?: number
   onPageChange?: (page: number) => void
+  /** `large` — крупнее текст шапки и ячеек; для таблиц с малым числом колонок */
+  textSize?: 'normal' | 'large'
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [wrapW, setWrapW] = useState(0)
 
-  // Ширина блока нужна, чтобы поделить её между колонками: тринадцать колонок
-  // по фиксированной сотне не влезают в ноутбучный экран, и таблица уезжает
-  // вправо, хотя место есть.
+  /**
+   * Ширина, реально доступная колонкам.
+   *
+   * <p>Меряется у прокручиваемого блока, а не у внешней обёртки: у него есть
+   * вертикальная полоса прокрутки, и она отнимает полтора десятка пикселей.
+   * Пока мерили снаружи, таблица не помещалась ровно на ширину этой полосы —
+   * появлялась горизонтальная прокрутка на почти пустом месте.
+   *
+   * <p>`clientWidth` — ширина без полосы прокрутки, но с отступами. Отступов у
+   * блока нет, поэтому он и нужен.
+   */
   useEffect(() => {
-    const el = wrapRef.current
+    const el = scrollRef.current
     if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const w = entries[0].contentRect.width
+    const observer = new ResizeObserver(() => {
+      const w = el.clientWidth
       if (w > 0) setWrapW(w)
     })
     observer.observe(el)
@@ -131,20 +190,17 @@ export default function DataTable<T>({
   )
 
   /**
-   * Ширина колонки по умолчанию: поровну от доступного места.
+   * Ширина колонки по умолчанию: столько, сколько помещается в отведённое место.
    *
    * <p>Не константа, потому что таблиц с разным числом колонок несколько, а окно
-   * у пользователя одно. Ниже `MIN_COL_W` не опускаемся — иначе «10 000,00» не
-   * помещается; если сумма минимумов больше места, появится горизонтальная
-   * прокрутка, и это честнее обрезанных чисел.
+   * у пользователя одно. Собственные минимумы колонок учитываются при дележе —
+   * см. `fitBaseWidth`, — поэтому таблица заполняет место целиком и не уезжает
+   * вправо без нужды.
    */
-  const baseWidth = Math.min(
-    MAX_COL_W,
-    Math.max(MIN_COL_W, wrapW > 0 ? Math.floor(wrapW / Math.max(1, columns.length)) : DEFAULT_COL_W),
-  )
+  const baseWidth = wrapW > 0 ? fitBaseWidth(wrapW, columns) : DEFAULT_COL_W
 
   const widthOf = useCallback(
-    (c: DataColumn<T>) => widths[c.key] ?? baseWidth,
+    (c: DataColumn<T>) => Math.max(c.minWidth ?? 0, widths[c.key] ?? baseWidth),
     [widths, baseWidth],
   )
 
@@ -163,11 +219,14 @@ export default function DataTable<T>({
       const next = { ...prev }
       for (const key of drag.keys) {
         const base = drag.start[key] ?? baseWidth
-        next[key] = Math.round(Math.min(MAX_COL_W, Math.max(MIN_COL_W, base + share)))
+        // Нижняя граница — не общий минимум, а собственный у колонки: у «Месяц»
+        // он шире, и общий MIN_COL_W обрезал бы подпись периода.
+        const min = columns.find((c) => c.key === key)?.minWidth ?? MIN_COL_W
+        next[key] = Math.round(Math.min(MAX_COL_W, Math.max(min, base + share)))
       }
       return next
     })
-  }, [baseWidth])
+  }, [baseWidth, columns])
 
   const onDragEnd = useCallback(() => {
     dragRef.current = null
@@ -178,7 +237,12 @@ export default function DataTable<T>({
 
   const startDrag = (keys: string[], clientX: number) => {
     const start: Record<string, number> = {}
-    for (const k of keys) start[k] = widths[k] ?? baseWidth
+    // Стартовая ширина берётся та же, что видна на экране: с учётом собственного
+    // минимума колонки, иначе первое же движение мышью сжало бы подпись периода.
+    for (const k of keys) {
+      const column = columns.find((c) => c.key === k)
+      start[k] = Math.max(column?.minWidth ?? 0, widths[k] ?? baseWidth)
+    }
     dragRef.current = { keys, startX: clientX, start }
     document.body.style.cursor = 'col-resize'
     window.addEventListener('mousemove', onDragMove)
@@ -223,22 +287,32 @@ export default function DataTable<T>({
   // прижатый к краю текст читались как две несвязанные таблицы. Отступы у
   // ячеек нулевые — высоту задаёт только строка, и «воздуха» между строками
   // не остаётся.
-  const HEAD_ROW_H = 24
+  //
+  // Все размеры — текст и высоты — берутся из `tableMetrics`: они задавались в
+  // трёх местах (шапка, тело, итог), и правка в одном оставляла два других.
+  const m = TABLE_METRICS[textSize]
 
   // Ячейка шапки не обрезает содержимое сама.
   //
   // <p>`overflow-hidden` на липком элементе ломает `position: sticky` в Chromium:
   // шапка перестаёт липнуть и уезжает вместе с данными. Поэтому обрезка с
   // многоточием живёт на вложенном `span`, а сама ячейка остаётся `visible`.
-  const thCls =
-    'border-b border-r border-slate-300 bg-slate-50 px-2 py-0 align-middle text-[9px] font-bold leading-none text-slate-500 last:border-r-0'
-  const thGroupCls =
-    'border-b border-r border-slate-300 bg-slate-100 px-2 py-0 align-middle text-[9px] font-bold leading-none text-slate-600 last:border-r-0'
+  const thCls = cn(
+    'border-b border-r border-slate-300 bg-slate-50 px-2 py-0 align-middle font-bold leading-none text-slate-500 last:border-r-0',
+    m.headerText,
+  )
+  const thGroupCls = cn(
+    'border-b border-r border-slate-300 bg-slate-100 px-2 py-0 align-middle font-bold leading-none text-slate-600 last:border-r-0',
+    m.groupText,
+  )
   /** Обрезка подписи: единственное место, где текст может не поместиться. */
   const thTextCls = 'block truncate'
   // Строки тела чуть выше прежнего: 4px отступа сверху и снизу.
-  const tdCls =
-    'whitespace-nowrap border-b border-r border-slate-200 px-2 py-1 align-middle text-[11px] leading-tight last:border-r-0'
+  const tdCls = cn(
+    'whitespace-nowrap border-b border-r border-slate-200 px-2 align-middle leading-tight last:border-r-0',
+    m.cellPaddingY,
+    m.cellText,
+  )
 
   /** Ручка перетаскивания ширины. */
   const Handle = ({ keys }: { keys: string[] }) => (
@@ -255,8 +329,9 @@ export default function DataTable<T>({
 
   return (
     <div className="flex min-h-0 flex-col gap-2">
-      <div ref={wrapRef} className="rounded-lg border border-slate-300">
+      <div className="rounded-lg border border-slate-300">
         <div
+          ref={scrollRef}
           // Скругление живёт на самом прокручиваемом блоке, а не на внешнем:
           // `overflow-hidden` снаружи делал бы этот блок единственным
           // «прокручиваемым предком», и шапка липла бы к неподвижной обёртке —
@@ -286,7 +361,7 @@ export default function DataTable<T>({
                         key={`${g.label}-${i}`}
                         colSpan={g.span}
                         title={g.label || undefined}
-                        style={{ height: HEAD_ROW_H }}
+                        style={{ height: m.headerRowHeight }}
                         className={cn(
                           thGroupCls,
                           // `relative` нужен только ручке изменения ширины:
@@ -309,7 +384,7 @@ export default function DataTable<T>({
                   <th
                     key={c.key}
                     title={c.label}
-                    style={{ height: HEAD_ROW_H }}
+                    style={{ height: m.headerRowHeight }}
                     className={cn(
                       thCls,
                       'relative',
@@ -327,7 +402,7 @@ export default function DataTable<T>({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-3 py-10 text-center text-[11.5px] font-medium text-slate-400"
+                    className={cn('px-3 py-10 text-center font-medium text-slate-400', m.cellText)}
                   >
                     {emptyText}
                   </td>
@@ -368,12 +443,14 @@ export default function DataTable<T>({
                         // Подвал липкий только по вертикали: горизонтально он
                         // должен ехать вместе с колонками, иначе «Итого» стоит
                         // на месте, пока над ним прокручиваются чужие числа.
-                        'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 py-1 last:border-r-0',
+                        'sticky bottom-0 z-20 whitespace-nowrap border-t-2 border-r border-slate-300 bg-slate-50 px-2 last:border-r-0',
+                        m.footerPaddingY,
+                        m.cellText,
                         (c.align ?? 'right') === 'left' ? 'text-left' : 'text-right',
                       )}
                     >
                       {i === 0 && (
-                        <span className="text-[11px] font-extrabold text-slate-900">
+                        <span className={cn('font-extrabold text-slate-900', m.footerLabelText)}>
                           {footer.label}
                         </span>
                       )}
@@ -392,7 +469,7 @@ export default function DataTable<T>({
           разные вопросы, и человек ищет их в разных местах. */}
       {pageSize && total > 0 && (
         <div className="flex items-center justify-between gap-3 px-0.5">
-          <span className="text-[11.5px] font-medium text-slate-400">
+          <span className={cn('font-medium text-slate-400', m.pagerText)}>
             Показано{' '}
             <span className="tnum font-bold text-slate-600">
               {firstShown}–{lastShown}
@@ -409,7 +486,7 @@ export default function DataTable<T>({
               >
                 ‹
               </button>
-              <span className="text-[11.5px] font-semibold text-slate-500">
+              <span className={cn('font-semibold text-slate-500', m.pagerText)}>
                 Страница{' '}
                 <span className="tnum font-extrabold text-slate-800">{current + 1}</span> из{' '}
                 <span className="tnum font-extrabold text-slate-800">{pages}</span>

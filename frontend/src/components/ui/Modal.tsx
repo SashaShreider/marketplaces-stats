@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/utils/cn'
@@ -7,8 +8,14 @@ import { cn } from '@/utils/cn'
  * Окно поверх страницы.
  *
  * <p>Общее для всех разборов на «Обзоре»: расшифровка статьи расходов, детализация
- * расходов целиком, полноэкранная таблица. Три копии затемнения и обработчика Escape
+ * расходов целиком, таблица по дням. Три копии затемнения и обработчика Escape
  * разъехались бы по поведению: в одной закрытие по фону работало бы, в другой нет.
+ *
+ * <p>Рисуется через портал в {@code body}, а не там, где стоит в разметке.
+ * Окно вложено в карточку, а карточку страница при загрузке накрывает
+ * `opacity-60` — и предок с прозрачностью делает полупрозрачным всё содержимое,
+ * включая окно: под его шапкой просвечивала страница. Портал выводит окно из
+ * этого поддерева, и прозрачность предка на него уже не действует.
  *
  * <p>Прокрутка тела страницы блокируется, пока окно открыто: иначе колесо мыши
  * прокручивало бы список под окном, и человек терял место, на котором читал.
@@ -20,6 +27,8 @@ export default function Modal({
   open,
   title,
   subtitle,
+  headerExtra,
+  headerBelow,
   onClose,
   size = 'md',
   footer,
@@ -28,6 +37,21 @@ export default function Modal({
   open: boolean
   title: string
   subtitle?: React.ReactNode
+  /**
+   * Управление справа от заголовка — фильтры и переключатели вида.
+   *
+   * <p>Слот, а не `children`: содержимое окна прокручивается, и фильтры уехали бы
+   * вместе с ним. Условия просмотра должны оставаться на месте, как и заголовок.
+   */
+  headerExtra?: React.ReactNode
+  /**
+   * Управление под строкой заголовка, слева.
+   *
+   * <p>Отдельный слот от {@link headerExtra}: в строке с названием помещается
+   * только компактное управление, а фильтры с легендой там ломали бы заголовок.
+   * Что куда положить, решает вызывающий.
+   */
+  headerBelow?: React.ReactNode
   onClose: () => void
   size?: 'md' | 'lg' | 'xl' | 'full'
   footer?: React.ReactNode
@@ -56,7 +80,18 @@ export default function Modal({
           ? 'w-full max-w-[760px]'
           : 'w-full max-w-[520px]'
 
-  return (
+  /**
+   * Минимальная высота широкого окна.
+   *
+   * <p>Высота окна идёт от содержимого, и на периоде из одного дня таблица
+   * сжималась до трёх строк: окно превращалось в узкую полоску посреди экрана.
+   * Порог задан через `min(...)`, чтобы на низком экране окно всё-таки
+   * помещалось: `max-height` сам по себе не спасает — в CSS `min-height` сильнее.
+   */
+  const minHeight =
+    size === 'xl' || size === 'full' ? 'min-h-[min(640px,calc(100vh-2rem))]' : ''
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
@@ -66,7 +101,14 @@ export default function Modal({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.16 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            // Размытие фона только у небольших окон. У широких под ними лежит
+            // таблица на сотню строк, и `backdrop-blur` пересобирает этот слой при
+            // каждой перерисовке — фильтры в шапке окна на секунду «вешали»
+            // страницу. Затемнение без размытия читается так же.
+            className={cn(
+              'absolute inset-0 bg-slate-900/40',
+              size === 'xl' || size === 'full' ? '' : 'backdrop-blur-sm',
+            )}
           />
           <motion.div
             role="dialog"
@@ -89,24 +131,32 @@ export default function Modal({
             className={cn(
               'relative flex max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/20',
               width,
+              minHeight,
             )}
           >
-            <div className="flex items-start gap-4 border-b border-slate-100 px-5 py-4">
-              <div className="min-w-0">
-                <h3 className="text-[16px] font-extrabold tracking-tight text-slate-900">{title}</h3>
-                {subtitle && (
-                  <div className="mt-0.5 text-[12.5px] font-medium leading-relaxed text-slate-500">
-                    {subtitle}
-                  </div>
-                )}
+            <div className="border-b border-slate-100 px-5 py-3">
+              {/* Управление стоит в одной строке с названием: так условие отчёта
+                  читается вместе с тем, что оно ограничивает. Строка переносится,
+                  если места не хватило, а крестик всегда остаётся справа. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="min-w-0">
+                  <h3 className="text-[16px] font-extrabold tracking-tight text-slate-900">{title}</h3>
+                  {subtitle && (
+                    <div className="mt-0.5 text-[12.5px] font-medium leading-relaxed text-slate-500">
+                      {subtitle}
+                    </div>
+                  )}
+                </div>
+                {headerExtra && <div className="min-w-0">{headerExtra}</div>}
+                <button
+                  onClick={onClose}
+                  title="Закрыть"
+                  className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <button
-                onClick={onClose}
-                title="Закрыть"
-                className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-              >
-                <X size={16} />
-              </button>
+              {headerBelow && <div className="mt-3 min-w-0">{headerBelow}</div>}
             </div>
 
             <div className="scroll-slim min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
@@ -119,6 +169,7 @@ export default function Modal({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }

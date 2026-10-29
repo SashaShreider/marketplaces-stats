@@ -740,6 +740,7 @@ export interface operations {
                 dateFrom: string;
                 dateTo: string;
                 author?: string;
+                skus?: number[];
                 query?: string;
                 sort?: string;
                 order?: string;
@@ -772,7 +773,7 @@ export interface operations {
                 dateFrom: string;
                 dateTo: string;
                 author?: string;
-                sku?: number;
+                skus?: number[];
             };
             header?: never;
             path: {

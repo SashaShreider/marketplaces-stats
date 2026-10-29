@@ -1,20 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, CloudDownload, Package, RefreshCw, Search, X } from 'lucide-react'
-import { getAuthors, getProducts } from '@/api/client'
+import { AlertTriangle, CloudDownload, Package, RefreshCw } from 'lucide-react'
+import { getProducts } from '@/api/client'
 import DateRangePicker from '@/components/common/DateRangePicker'
+import ScopeFilters from '@/components/common/ScopeFilters'
 import ProductsTable from '@/components/finance/ProductsTable'
 import ProductSalesDynamics from '@/components/finance/ProductSalesDynamics'
-import ProgressBar from '@/components/sync/ProgressBar'
 import type { SyncState } from '@/components/sync/SyncIndicator'
-import { AnimatedNumber, MarketplaceLogo, PageHeader, StatCard } from '@/components/ui'
+import { AnimatedNumber, PageHeader, StatCard } from '@/components/ui'
 import { useAutoSync } from '@/features/imports/useAutoSync'
 import type { ImportRunner } from '@/features/imports/useImportRunner'
+import { useUrlState } from '@/features/navigation/urlState'
 import { importProgressKey, useReportQuery } from '@/features/reports/useReportQuery'
 import type { AccountInfo, DateRange, ProductSort, ProductSortOrder } from '@/types'
-import { cn } from '@/utils/cn'
-import { fmtDateTime, fmtMoney, fmtNum, grossProfit } from '@/utils/format'
-import { shopLabel } from '@/utils/marketplace'
+import { fmtMoney, fmtNum, grossProfit } from '@/utils/format'
 
 const PAGE_SIZE = 200
 
@@ -33,28 +32,6 @@ const NATURAL_ORDER: Record<ProductSort, ProductSortOrder> = {
   SKU: 'asc',
 }
 
-/** Отбор: все товары каталога или только те, у которых были продажи. */
-const SALES_FILTERS: { id: boolean; label: string }[] = [
-  { id: false, label: 'Все' },
-  { id: true, label: 'С продажами' },
-]
-
-function useDebounced<T>(value: T, ms = 350): T {
-  const [v, setV] = useState(value)
-  useEffect(() => {
-    const t = window.setTimeout(() => setV(value), ms)
-    return () => window.clearTimeout(t)
-  }, [value, ms])
-  return v
-}
-
-/**
- * Значок с подсказкой при наведении.
- *
- * <p>Подсказка на CSS, а не на состоянии: наведение мыши не должно вызывать
- * перерисовку страницы, а появление и скрытие подсказки не должно требовать
- * обработчиков, которые нужно не забыть снять.
- */
 export default function ProductsPage({
   account,
   range,
@@ -69,40 +46,44 @@ export default function ProductsPage({
   /** Состояние синхронизации для индикатора в верхней панели */
   onSyncState: (state: SyncState | null) => void
 }) {
-  const [query, setQuery] = useState('')
-  const [author, setAuthor] = useState('')
+  // В адресе — условия отбора: период, автор и товары. Критерий и направление
+  // сортировки и номер страницы — состояние страницы: это способ прочитать один и
+  // тот же отчёт, а не другое условие вопроса.
+  const [author, setAuthor] = useUrlState<string>(
+    (params) => params.get('author') ?? '',
+    (value) => ({ author: value.trim() || null }),
+  )
+  // Товары те же, что на «Обзоре»: повторяющийся `skus`, плюс `ozon_skus` как
+  // синоним, чтобы скопированная из похожего кабинета ссылка открывала тот же отбор.
+  const [skus, setSkus] = useUrlState<number[]>(
+    (params) =>
+      [...params.getAll('skus'), ...params.getAll('ozon_skus')]
+        .flatMap((v) => v.split(','))
+        .map((v) => Number(v.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    (list) => ({ skus: list.map(String), ozon_skus: null }),
+  )
   const [sort, setSort] = useState<ProductSort>('INCOME')
   const [order, setOrder] = useState<ProductSortOrder>('desc')
-  const [onlyWithSales, setOnlyWithSales] = useState(false)
   const [page, setPage] = useState(0)
-  const [authors, setAuthors] = useState<string[]>([])
-
-  const dq = useDebounced(query.trim())
-  const da = useDebounced(author.trim())
-
-  // подсказки для фильтра по автору. Список строится по каталогу магазина, поэтому
-  // после его импорта подсказки меняются — отсюда зависимость от catalogProducts.
-  useEffect(() => {
-    getAuthors(account.id).then(setAuthors).catch(() => setAuthors([]))
-  }, [account.id, account.catalogProducts])
 
   // фильтры и порядок меняются — возвращаемся на первую страницу
-  useEffect(() => setPage(0), [dq, da, sort, order, onlyWithSales, range.from, range.to])
+  useEffect(() => setPage(0), [author, skus, sort, order, range.from, range.to])
 
   const fetchReport = useCallback(
     () =>
       getProducts(account.id, {
         dateFrom: range.from,
         dateTo: range.to,
-        query: dq || undefined,
-        author: da || undefined,
+        // Товары сильнее автора — то же правило, что на сервере.
+        author: skus.length ? undefined : author.trim() || undefined,
+        skus: skus.length ? skus : undefined,
         sort,
         order,
-        onlyWithSales,
         page,
         size: PAGE_SIZE,
       }),
-    [account.id, range.from, range.to, dq, da, sort, order, onlyWithSales, page],
+    [account.id, range.from, range.to, author, skus, sort, order, page],
   )
 
   /**
@@ -140,31 +121,18 @@ export default function ProductsPage({
     return () => onSyncState(null)
   }, [auto.state, onSyncState])
 
-  const header = (
-    <PageHeader
-      title="Товары"
-      subtitle={
-        <>
-          Продажи и списания по каждому товару в магазине {shopLabel(account)}
-          <MarketplaceLogo code={account.marketplaceCode} size="sm" />
-        </>
-      }
-    >
-      <DateRangePicker from={range.from} to={range.to} onChange={onRangeChange} />
-    </PageHeader>
-  )
+  const header = <PageHeader title="Товары" />
 
   const catalogMissing = report ? !report.catalog.loaded : false
   const totals = report?.totals
   // Пока итогов нет, число всё равно куда-то попадёт в разметку — держим ноль,
   // чтобы карточка не показывала «NaN» между загрузкой и данными.
   const profit = grossProfit(totals?.income ?? 0, totals?.expenses ?? 0)
-  const hasFilter = Boolean(dq || da || onlyWithSales)
+  const hasFilter = Boolean(author.trim() || skus.length > 0)
 
   return (
     <>
       {header}
-      <ProgressBar runner={runner} />
 
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700">
@@ -260,89 +228,36 @@ export default function ProductsPage({
             transition={{ duration: 0.45, delay: 0.25 }}
             className="mt-4 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           >
-            {/* Панель фильтров */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative min-w-[220px] flex-1">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Название, артикул или ISBN"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-9 pr-9 text-[13px] font-semibold text-slate-800 outline-none transition-all placeholder:font-medium placeholder:text-slate-300 focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
-                />
-                {query && (
-                  <button
-                    onClick={() => setQuery('')}
-                    className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+            {/* Заголовок нужен, потому что в этой же колонке ниже стоит таблица:
+                без него непонятно, к чему относится кнопка обновления каталога. */}
+            <h2 className="text-[17px] font-extrabold tracking-tight text-slate-900">Каталог</h2>
 
-              <div className="relative w-[210px]">
-                <input
-                  list="authors-list"
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                  placeholder="Автор"
-                  // Поиск строгий: ищется ровно то, что введено. Подсказки справа
-                  // подставляют значение, которое гарантированно что-то найдёт, —
-                  // вводить руками имеет смысл только точным написанием из карточки.
-                  title="Ищется точное совпадение с тем, как автор указан в карточке товара. Начните вводить, чтобы выбрать из списка."
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 pr-9 text-[13px] font-semibold text-slate-800 outline-none transition-all placeholder:font-medium placeholder:text-slate-300 focus:border-brand-400 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
-                />
-                <datalist id="authors-list">
-                  {authors.map((a) => (
-                    <option key={a} value={a} />
-                  ))}
-                </datalist>
-                {author && (
-                  <button
-                    onClick={() => setAuthor('')}
-                    className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex rounded-full bg-slate-100 p-1">
-                {SALES_FILTERS.map((f) => (
-                  <button
-                    key={f.id ? 'sold' : 'all'}
-                    onClick={() => setOnlyWithSales(f.id)}
-                    title={f.id ? 'Только товары, у которых были продажи' : 'Все товары каталога'}
-                    className="relative rounded-full px-3.5 py-1.5 text-[12px] font-bold"
-                  >
-                    {onlyWithSales === f.id && (
-                      <motion.span
-                        layoutId="sales-pill"
-                        className="absolute inset-0 rounded-full bg-white shadow-sm ring-1 ring-slate-200/70"
-                        transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                      />
-                    )}
-                    <span className={cn('relative z-10', onlyWithSales === f.id ? 'text-brand-700' : 'text-slate-500')}>
-                      {f.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <DateRangePicker
+                from={range.from}
+                to={range.to}
+                onChange={onRangeChange}
+                compact
+                align="left"
+              />
+              <ScopeFilters
+                accountId={account.id}
+                author={author}
+                skus={skus}
+                onAuthorChange={setAuthor}
+                onSkusChange={setSkus}
+                catalogProducts={account.catalogProducts}
+              />
 
               <button
                 disabled={runner.busy}
                 onClick={() => runner.startCatalog()}
                 title="Каталог переписывается целиком (1 запрос к маркетплейсу)"
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-[12px] font-bold text-slate-500 transition-all hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="ml-auto flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-[12px] font-bold text-slate-500 transition-all hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <RefreshCw size={13} />
                 Обновить каталог
               </button>
-            </div>
-
-            <div className="mt-2.5 text-[11.5px] font-medium text-slate-400">
-              В каталоге {fmtNum(report.catalog.products)} товаров
-              {report.catalog.lastSyncedAt && <> · обновлён {fmtDateTime(report.catalog.lastSyncedAt)}</>}
             </div>
 
             <ProductsTable
@@ -384,7 +299,13 @@ export default function ProductsPage({
           {/* Отдельная карточка, а не часть блока с фильтрами: график читается как
               самостоятельный раздел страницы, и в общую рамку с фильтрами он попадал
               внутрь таблицы. На «Обзоре» так же устроены все блоки. */}
-          <ProductSalesDynamics accountId={account.id} range={range} authors={authors} runner={runner} />
+          <ProductSalesDynamics
+            accountId={account.id}
+            range={range}
+            author={author}
+            skus={skus}
+            runner={runner}
+          />
         </div>
       )}
     </>

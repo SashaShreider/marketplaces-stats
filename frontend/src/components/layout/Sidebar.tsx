@@ -4,6 +4,11 @@ import { cn } from '@/utils/cn'
 
 export type PageId = 'overview' | 'products'
 
+/** Проверка значения из адреса: неизвестное значение — это не страница. */
+export function isPageId(value: string | null): value is PageId {
+  return value === 'overview' || value === 'products'
+}
+
 const NAV: { id: PageId; label: string; icon: typeof BarChart3 }[] = [
   { id: 'overview', label: 'Обзор', icon: BarChart3 },
   { id: 'products', label: 'Товары', icon: Package },

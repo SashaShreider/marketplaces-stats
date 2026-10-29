@@ -8,6 +8,7 @@ import ru.analizer.analytics.infrastructure.CatalogFacts;
 import ru.analizer.analytics.infrastructure.CatalogFacts.ProductAuthorView;
 import ru.analizer.analytics.infrastructure.filter.ProductAttributeFilter;
 import ru.analizer.analytics.infrastructure.filter.ProductAuthorFilter;
+import ru.analizer.analytics.infrastructure.filter.ProductSkuFilter;
 import ru.analizer.sync.application.DayStateService;
 import ru.analizer.sync.domain.PeriodCoverage;
 
@@ -66,6 +67,27 @@ public class ProductAnalyticsService {
                                   String author, String query,
                                   String sort, String order, boolean onlyWithSales,
                                   int page, int size) {
+        return productReport(marketplaceCode, accountId, from, to, author, query,
+                sort, order, onlyWithSales, page, size, null);
+    }
+
+    /**
+     * Отчёт по товарам с отбором по конкретным товарам.
+     *
+     * <p>Отдельный параметр, а не часть {@code author}: это два разных отбора, и
+     * заданные товары сильнее автора — выбрав три книги, продавец уже ответил, чьи
+     * они. Правило то же, что в дневном отчёте ({@link ReportScope}), и здесь оно
+     * повторено на уровне SQL, потому что отчёт по товарам считает строки в базе.
+     *
+     * @param skus номера товаров; {@code null} или пустой список — без ограничения
+     */
+    @Transactional(readOnly = true)
+    public ProductReport productReport(String marketplaceCode,
+                                  Optional<Long> accountId,
+                                  LocalDate from, LocalDate to,
+                                  String author, String query,
+                                  String sort, String order, boolean onlyWithSales,
+                                  int page, int size, List<Long> skus) {
         if (from == null || to == null) {
             throw new IllegalArgumentException("dateFrom и dateTo обязательны");
         }
@@ -87,8 +109,11 @@ public class ProductAnalyticsService {
 
 // Фильтры собираются в одном месте: добавить признак — значит добавить сюда
         // ещё одну реализацию ProductAttributeFilter, а не править SQL в выборках.
-        List<ProductAttributeFilter> filters =
-                List.of(ProductAuthorFilter.byValue(author));
+        // Товары сильнее автора: при выбранных книгах автор не применяется, иначе
+        // список сузился бы непонятно почему.
+        List<ProductAttributeFilter> filters = skus != null && !skus.isEmpty()
+                ? List.of(ProductSkuFilter.bySkus(skus))
+                : List.of(ProductAuthorFilter.byValue(author));
 
         long totalRows = catalogFacts.productsCount(account, filters, query, from, to, onlyWithSales);
         int totalPages = (int) Math.max(1, Math.ceil(totalRows / (double) pageSize));
@@ -102,9 +127,9 @@ public class ProductAnalyticsService {
         List<CatalogFacts.ProductCatalogRow> pageRows = catalogFacts.productsPage(
                 account, filters, query, from, to,
                 sort, order, onlyWithSales, pageIndex * pageSize, pageSize);
-        List<Long> skus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
+        List<Long> pageSkus = pageRows.stream().map(CatalogFacts.ProductCatalogRow::sku).toList();
 
-        Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(account, skus);
+        Map<Long, List<ProductAuthorView>> authors = catalogFacts.authorsFor(account, pageSkus);
         Map<Long, CatalogFacts.Quantities> quantities = catalogFacts.quantities(account, from, to);
         Map<Long, Integer> accrualCounts = catalogFacts.accrualCounts(account, from, to);
 
@@ -195,24 +220,23 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
     }
 
       /**
-       * Продажи по дням периода, с ограничением на автора или на конкретный SKU.
+       * Продажи по дням периода, с ограничением на автора или на конкретные товары.
        *
        * <p>Нужен для графика под таблицей товаров: в самом отчёте строки это товары,
        * а не дни, и без отдельного запроса динамику пришлось бы собирать на клиенте из
        * всех товаров разом — то есть скачивать весь отчёт только ради рисунка.
        *
-       * <p>Фильтр по SKU и по автору несовместимы: это два разных отбора, и применять
-       * оба сразу означало бы искать товар одновременно у двух продавцов. Задача одна,
-       * поэтому при заданном SKU автор игнорируется — так решает пользователь,
-       * вводя номер конкретного товара.
+       * <p>Фильтр по товарам и по автору несовместимы: это два разных отбора, и
+       * применять оба сразу означало бы искать товар одновременно у двух продавцов.
+       * Задача одна, поэтому при заданных товарах автор игнорируется.
        *
        * @param author автор ровно в том написании, в каком указан в карточке товара
-       * @param sku    конкретный SKU; {@code null} — без ограничения
+       * @param skus   конкретные товары; пустой список — без ограничения по товарам
        */
       public SalesDynamicsReport salesDynamics(String marketplaceCode,
                                                 Optional<Long> accountId,
                                                 LocalDate from, LocalDate to,
-                                                String author, Long sku) {
+                                                String author, List<Long> skus) {
           if (from == null || to == null) {
               throw new IllegalArgumentException("dateFrom и dateTo обязательны");
           }
@@ -223,34 +247,40 @@ List<ProductReport.ProductRow> rows = new ArrayList<>();
           // покрытием даст клиенту показать предложение загрузить данные.
           if (accountId.isEmpty()) {
               return new SalesDynamicsReport(from, to, ReportStatus.NOT_LOADED,
-                      ReportCoverage.from(PeriodCoverage.empty(from, to)), List.of(), labelOf(author, sku));
+                      ReportCoverage.from(PeriodCoverage.empty(from, to)), List.of(), labelOf(author, skus));
           }
           Long account = accountId.get();
 
           PeriodCoverage periodCoverage = dayStateService.coverage(account, from, to);
+          boolean scopedToSkus = skus != null && !skus.isEmpty();
           List<CatalogFacts.SalesDay> days = catalogFacts.salesDynamics(
                   account,
-                  List.of(ProductAuthorFilter.byValue(sku == null ? author : null)),
-                  sku, from, to);
+                  List.of(ProductAuthorFilter.byValue(scopedToSkus ? null : author)),
+                  scopedToSkus ? skus : List.of(), from, to);
 
           return new SalesDynamicsReport(from, to,
                   DailyAnalyticsService.statusOf(periodCoverage),
                   ReportCoverage.from(periodCoverage),
                   days.stream().map(d -> new SalesDynamicsReport.SalesDay(
                           d.date(), d.sold(), d.returned())).toList(),
-                  labelOf(author, sku));
+                  labelOf(author, skus));
       }
 
       /**
        * Подпись отбора над графиком.
        *
        * <p>Нужна, чтобы было видно, что именно показано. Без неё график выглядел бы
-       * как общий, даже когда выбран один товар из сотни, и результат читался бы как
-       * данные по всему магазину.
+       * как общий, даже когда выбраны три товара из сотни, и результат читался бы
+       * как данные по всему магазину.
        */
-      private static String labelOf(String author, Long sku) {
-          if (sku != null) {
-              return "SKU " + sku;
+      private static String labelOf(String author, List<Long> skus) {
+          if (skus != null && !skus.isEmpty()) {
+              // Тот же формат, что в ReportScope: длинный список не перечисляется
+              // целиком, иначе подпись вытеснит всё остальное.
+              String first = skus.stream().limit(3).map(String::valueOf)
+                      .collect(java.util.stream.Collectors.joining(", "));
+              int rest = skus.size() - Math.min(3, skus.size());
+              return rest == 0 ? "SKU " + first : "SKU " + first + " и ещё " + rest;
           }
           return author == null || author.isBlank() ? "Все товары" : author;
       }

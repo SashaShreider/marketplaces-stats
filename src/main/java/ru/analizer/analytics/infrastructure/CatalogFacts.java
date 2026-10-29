@@ -226,6 +226,11 @@ public class CatalogFacts {
      * <p>Продажа — это строка операции с положительной ценой продажи; счётчик
      * «товаров с продажами» в отчёте считается по тому же правилу, поэтому цифры
      * отчёта и отбор совпадают.
+     *
+     * <p><b>TODO(#only-with-sales)</b> — интерфейс этот отбор больше не предлагает:
+     * автор и список товаров сужают список понятнее, а переключатель «Все / С
+     * продажами» дублировал вопрос «что показывать». Решить, оставлять ли условие и
+     * счётчик {@code productsWithSales}, — см. AnalyticsController.productReport.
      */
     private static String onlyWithSalesSql(boolean onlyWithSales) {
         if (!onlyWithSales) {
@@ -511,17 +516,23 @@ private static MapSqlParameterSource filterParams(Long accountId,
  * строку в {@code product_author}, которой у товара без карточки просто нет.
  *
  * @param filters отбор по атрибутам товара; используются те же, что и в отчёте
- * @param sku     конкретный SKU; {@code null} — без ограничения по SKU
+ * @param skus    конкретные товары; пустой список — без ограничения по SKU
  */
 public List<SalesDay> salesDynamics(Long accountId, List<ProductAttributeFilter> filters,
-                                     Long sku, LocalDate from, LocalDate to) {
+                                     List<Long> skus, LocalDate from, LocalDate to) {
     MapSqlParameterSource params = filterParams(accountId, filters, null)
             .addValue("from", from)
             .addValue("to", to);
+    // Товары передаются строкой через запятую: NamedParameterJdbcTemplate не умеет
+    // передавать массив, а номера короткие и состоят из цифр.
     String skuClause = "";
-    if (sku != null) {
-        skuClause = "\n  and p.sku = :sku";
-        params.addValue("sku", sku);
+    if (skus != null && !skus.isEmpty()) {
+        String joined = skus.stream().filter(java.util.Objects::nonNull)
+                .map(String::valueOf).reduce((a, b) -> a + "," + b).orElse("");
+        if (!joined.isEmpty()) {
+            skuClause = "\n  and p.sku in (select unnest(string_to_array(:skuList, ',')::bigint[]))";
+            params.addValue("skuList", joined);
+        }
     }
     // sum() в PostgreSQL возвращает bigint, поэтому приводить через (Integer)
     // нельзя — будет ClassCastException. Как и в quantities().

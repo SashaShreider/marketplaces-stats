@@ -98,6 +98,7 @@ public class AnalyticsController {
      * вводить от руки.
      *
      * @param author автор ровно в том написании, в каком он указан в карточке товара
+     * @param skus   отбор по конкретным товарам; сильнее автора, как в дневном отчёте
      * @param query  подстрока названия, своего артикула или ISBN
      * @param sort   критерий порядка строк: INCOME (по умолчанию), NAME, SKU, SOLD,
      *               EXPENSES или GROSS
@@ -106,6 +107,12 @@ public class AnalyticsController {
      * @param onlyWithSales оставить только товары, у которых были продажи
      * @param page   номер страницы с нуля
      * @param size   размер страницы, максимум 500
+     *
+     * <p><b>TODO(#only-with-sales)</b> — интерфейс перестал показывать переключатель
+     * «Все / С продажами»: отбор по автору и товарам закрывает тот же вопрос, а два
+     * способа сузить список заставляли выбирать между ними. Параметр оставлен, чтобы
+     * не ломать сохранённые ссылки и API-клиентов; решить, нужен ли он дальше, —
+     * вместе с подсчётом {@code productsWithSales}, который сейчас никто не читает.
      */
     @GetMapping("/products")
     public ProductReport productReport(
@@ -113,6 +120,7 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String author,
+            @RequestParam(required = false) List<Long> skus,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String order,
@@ -123,7 +131,7 @@ public class AnalyticsController {
         SellerAccount account = accountLookup.requireAccount(accountId);
         return productAnalytics.productReport(account.getMarketplace().getCode(),
                 Optional.of(account.getId()), dateFrom, dateTo, author, query,
-                sort, order, onlyWithSales, page, size);
+                sort, order, onlyWithSales, page, size, skus);
     }
 
     /**
@@ -143,7 +151,7 @@ public class AnalyticsController {
      * выглядели бы одинаково.
      *
      * @param author автор ровно в том написании, в каком указан в карточке товара
-     * @param sku    конкретный SKU
+     * @param skus   конкретные товары; повторяющийся параметр, сильнее автора
      */
     @GetMapping("/products/dynamics")
     public SalesDynamicsReport salesDynamics(
@@ -151,11 +159,11 @@ public class AnalyticsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String author,
-            @RequestParam(required = false) Long sku) {
+            @RequestParam(required = false) List<Long> skus) {
 
         SellerAccount account = accountLookup.requireAccount(accountId);
         return productAnalytics.salesDynamics(account.getMarketplace().getCode(),
-                Optional.of(account.getId()), dateFrom, dateTo, author, sku);
+                Optional.of(account.getId()), dateFrom, dateTo, author, skus);
     }
 
     }
