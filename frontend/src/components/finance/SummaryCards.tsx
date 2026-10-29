@@ -77,8 +77,8 @@ function Row({
         </span>
         {clickable && (
           <ChevronRight
-            size={12}
-            className="text-slate-300 transition-all group-hover/row:translate-x-0.5 group-hover/row:scale-110 group-hover/row:text-brand-600"
+            size={13}
+            className="text-slate-400 transition-all group-hover/row:translate-x-0.5 group-hover/row:scale-110 group-hover/row:text-brand-600"
           />
         )}
       </span>
